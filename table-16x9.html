@@ -112,12 +112,21 @@
     border-radius: 1.4em; padding: 0.8em 1.35em;
     cursor: pointer; text-decoration: none;
     touch-action: manipulation;
+    flex-shrink: 0;
     transition: border-color .15s ease, transform .14s ease;
   }
   .tool:hover { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
   .tool:active { transform: translateY(1px) scale(0.99); }
+  /* the signed-in wallet: the name and the balance the hub reported. When
+     space is tight the NAME yields (ellipsis) — the balance never does. */
+  .tool.wallet { cursor: default; display: flex; align-items: center;
+    max-width: min(46vw, 24em); flex-shrink: 1; min-width: 0; }
+  .tool.wallet:hover { border-color: color-mix(in srgb, var(--accent) 32%, transparent); }
+  .tool.wallet b { color: var(--accent); min-width: 0; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis; }
+  .tool.wallet .chips { flex-shrink: 0; white-space: nowrap; }
 
-  .swatches { display: flex; gap: 0.5em; background: rgba(5, 14, 10, 0.5);
+  .swatches { display: flex; gap: 0.5em; flex-shrink: 0; background: rgba(5, 14, 10, 0.5);
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
     border-radius: 2em; padding: 0.55em 0.75em; }
@@ -197,9 +206,18 @@
     left: max(1em, env(safe-area-inset-left)); right: max(1em, env(safe-area-inset-right));
   }
   body.stacked .shotpill { display: none; }
+  /* …and the wallet takes the header's freed right slot, so the tools row
+     stays all controls and the name keeps its letters */
+  body.stacked .tool.wallet {
+    position: fixed;
+    top: max(1em, env(safe-area-inset-top));
+    right: max(1em, env(safe-area-inset-right));
+    max-width: min(52vw, 24em);
+  }
   body.stacked .tools {
     top: auto; bottom: calc(9.4em + env(safe-area-inset-bottom));
     right: max(1em, env(safe-area-inset-right));
+    max-width: calc(100% - 2em);              /* the row never outgrows the screen */
     flex-direction: row; align-items: center;
   }
   body.stacked .bar {
@@ -229,7 +247,7 @@
   </header>
 
   <div class="tools">
-    <a class="tool" href="login-16x9.html">Sign in</a>
+    <a class="tool" id="who" href="login-16x9.html">Sign in</a>
     <button class="tool" id="zoom" type="button">Zoom out</button>
     <div class="swatches" id="swatches" role="group" aria-label="Table cloth palette"></div>
   </div>
@@ -318,6 +336,142 @@
     try { localStorage.setItem(LEGACY_CLOTH_KEY, id); } catch (e) { }
   }
   var current = CLOTHS[0];
+
+  /* ================= who is at this table ==================
+     The session minted at login lives in storage (canonical
+     999.identity.v1, adopted from the legacy royale.* key) — the
+     table reads it back, verifies it with the hub, and wears the
+     name and the balance the HUB reports, never a local guess.
+     Transport is the same vendored makeHubClient as
+     login-16x9.html (999-bridge/src/hub-client.js, commit
+     5185558): it never throws — every call resolves
+     {ok, status, body, error}.                                  */
+  var ID_KEYS = { identity: '999.identity.v1' };
+  var LEGACY_KEYS = { identity: 'royale.identity.v1' };
+  function readKey(key) {
+    try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function adoptedSession() {
+    return readKey(ID_KEYS.identity) || readKey(LEGACY_KEYS.identity);
+  }
+
+  var HUB_TIMEOUT_MS = 3500;   /* the bridge default is 8000; a preview degrades faster */
+  function makeHubClient(opts) {
+    opts = opts || {};
+    var base = opts.base || null;
+    var token = opts.token || null;
+    var rawFetch = (typeof fetch !== 'undefined') ? fetch.bind(window) : null;
+
+    function configured() { return !!(base && rawFetch); }
+
+    function call(method, path, o) {
+      o = o || {};
+      if (!configured()) {
+        return Promise.resolve({ ok: false, status: 0, body: {}, error: 'hub-not-configured' });
+      }
+      var ac = new AbortController();
+      var timer = setTimeout(function () { ac.abort(); }, HUB_TIMEOUT_MS);
+      var h = {};
+      if (o.body !== undefined) h['content-type'] = 'application/json';
+      if (o.auth) {
+        var t = (o.auth === true) ? token : o.auth;
+        if (t) h['authorization'] = 'Bearer ' + t;
+      }
+      return rawFetch(base + path, {
+        method: method,
+        headers: h,
+        body: (o.body === undefined) ? undefined : JSON.stringify(o.body),
+        signal: ac.signal
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (parsed) {
+          if (!res.ok) return { ok: false, status: res.status, body: parsed, error: parsed.error || ('HTTP ' + res.status) };
+          return { ok: true, status: res.status, body: parsed, error: null };
+        });
+      }).catch(function (e) {
+        return { ok: false, status: 0, body: {}, error: (e && e.name === 'AbortError') ? 'timeout' : 'network' };
+      }).then(function (v) { clearTimeout(timer); return v; });
+    }
+
+    return {
+      get base() { return base; },
+      get token() { return token; },
+      setToken: function (t) { token = t || null; return token; },
+      configured: configured,
+      session: function (name) {
+        return call('POST', '/session', { body: { name: name || null } }).then(function (r) {
+          if (r.ok && r.body && r.body.token) token = r.body.token;
+          return r;
+        });
+      },
+      verify: function (t) {
+        return call('POST', '/session/verify', { body: { token: t || token || '' } }).then(function (r) {
+          if (r.ok && r.body && r.body.sub) token = t || token;
+          return r;
+        });
+      },
+      wallet: function (playerId, o) {
+        o = o || {};
+        var path = '/wallet?player=' + encodeURIComponent(playerId);
+        if (o.migrate != null && isFinite(Number(o.migrate))) {
+          path += '&migrate=' + encodeURIComponent(Math.round(Number(o.migrate)));
+        }
+        return call('GET', path);
+      }
+    };
+  }
+
+  /* same resolution as the login page: ?hub=<url>, then a hub the host
+     declared (serve.js injects window.__HUB_BASE__), then the dev host,
+     then the dev hub directly. */
+  function hubBase() {
+    var q = new URLSearchParams(location.search).get('hub');
+    if (q) return q.replace(/\/+$/, '');
+    if (typeof window.__HUB_BASE__ === 'string' && window.__HUB_BASE__) return window.__HUB_BASE__.replace(/\/+$/, '');
+    if (location.port === '8899') return '/hub';           /* served by the dev host */
+    return 'http://localhost:8899/hub';
+  }
+  var BASE = hubBase();
+  var hub = makeHubClient({ base: BASE });
+
+  var who = document.getElementById('who');
+  function showWho(name, chips) {
+    var full = String(name == null ? '' : name);
+    who.textContent = '';
+    var b = document.createElement('b');
+    b.textContent = full;                       /* full name — CSS ellipsizes it */
+    who.appendChild(b);
+    if (typeof chips === 'number') {
+      var s = document.createElement('span');
+      s.className = 'chips';
+      s.textContent = ' · ' + chips.toLocaleString('en-US') + ' chips';
+      who.appendChild(s);
+    }
+    who.className = 'tool wallet';
+    who.removeAttribute('href');
+    who.setAttribute('aria-label', 'Your wallet: ' + full +
+      (typeof chips === 'number' ? ', ' + chips.toLocaleString('en-US') + ' chips' : ''));
+  }
+  function showSignInLink() {
+    who.textContent = 'Sign in';
+    who.className = 'tool';
+    who.setAttribute('href', 'login-16x9.html');
+    who.removeAttribute('aria-label');
+  }
+  function loadWallet() {
+    var rec = adoptedSession();
+    var token = null;
+    try { token = sessionStorage.getItem('poker.token'); } catch (e) { }
+    if (!token && rec) token = rec.token || null;
+    if (!token) return;                              /* nobody signed in — the link stays */
+    if (rec && rec.name) showWho(rec.name, null);    /* greet at once; the hub confirms below */
+    hub.verify(token).then(function (r) {
+      if (!r.ok) { showSignInLink(); return; }       /* a stale session goes back to the link */
+      showWho(r.body.name, null);
+      hub.wallet(r.body.sub).then(function (w) {
+        if (w.ok && typeof w.body.balance === 'number') showWho(r.body.name, w.body.balance);
+      });
+    });
+  }
 
   /* ================= GEOMETRY (spec constants) =============
      Felt 4.05 x 2.35 world HALF-extents (8.10 x 4.70 cloth).
@@ -1201,6 +1355,7 @@
   window.addEventListener('orientationchange', fit);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
   startRound();
+  loadWallet();               /* the signed-in name + balance, from the hub */
 
 })();
 </script>

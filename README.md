@@ -78,6 +78,14 @@ ring) is drawn in a canvas at runtime. The table owns the whole viewport.
   inert in this preview. Same six real cloth palettes as the login (shared
   `maison21.theme` + adopted `999.login.cloth.v1` keys; `?theme=<id>` wins),
   one record painting HUD and 3D felt together.
+- **The player follows the page** — signed in at the login, the table reads
+  its session back from storage, verifies it with the hub, and the header
+  pill wears the **name and live wallet balance the hub reports**
+  (`session/verify` + `wallet`) — never a local guess. When space is tight
+  the name yields to an ellipsis before the balance does, and on a phone
+  portrait the pill takes the header's freed right slot so the tools row
+  stays all controls. Not signed in — or a stale session — and the pill is
+  the Sign in link again.
 - **Arrangements mirror the login** — a 16:9 stage letterboxed on wide
   screens, full-bleed compact on phone landscape, stacked portrait primary.
   The camera **widens rather than crops** when the viewport narrows.
