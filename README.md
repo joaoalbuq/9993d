@@ -82,16 +82,23 @@ ring) is drawn in a canvas at runtime. The table owns the whole viewport.
   screens, full-bleed compact on phone landscape, stacked portrait primary.
   The camera **widens rather than crops** when the viewport narrows.
 
+### `serve.js` — the preview host with the hub on one origin
+
+`node 3dfullscreen/serve.js` serves both pages **and proxies `/hub/*` to the
+dev hub** (`HUB_UPSTREAM`, default `http://localhost:8899/hub`), so the pages
+fetch their own origin and the browser never enters CORS at all — no
+preflight, no `Access-Control-*` needed on any answer. The host injects
+`window.__HUB_BASE__` into the pages it serves so they know the route;
+verified end to end: sign-in mints a real session with two same-origin
+fetches and zero preflights, and a reload restores through `session/verify`.
+
 ## Running it
 
-Open the files directly (start at `login-16x9.html`, then "Sign in" or the
-table link to reach `table-16x9.html`), or serve the folder with any static
-server. The hub
-base defaults to `http://localhost:8899/hub` (the poker dev hub:
-`node poker/local-server.js`) and can be pointed anywhere with `?hub=<url>`.
+Run the dev hub (`node poker/local-server.js`), then `node serve.js` in this
+folder and open `http://127.0.0.1:8787/` — one origin for pages and hub.
 
-The dev hub answers `/hub/*` **with CORS headers** (`poker/hub/hub-stub.js`),
-so a page served from any origin mints a real session — verified end to end
-from this preview: preflight → `POST /session` → `GET /wallet`, and a reload
-restores the session through `POST /session/verify`. A hub that cannot answer
-at all still degrades to the visible preview state, never a blank screen.
+Served any other way — opened as files, or behind a static host — the pages
+fall back to the dev hub directly at `http://localhost:8899/hub`, which
+answers **with CORS headers** (`poker/hub/hub-stub.js`), and `?hub=<url>`
+points them anywhere. A hub that cannot answer at all still degrades to the
+visible preview state, never a blank screen.

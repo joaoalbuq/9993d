@@ -717,9 +717,16 @@
     };
   }
 
+  /* Where the hub lives. ?hub=<url> wins; then the host itself declares a
+     same-origin hub route (serve.js injects window.__HUB_BASE__ into the
+     pages it serves — then the calls never cross an origin and CORS is not
+     part of the conversation at all); then the dev host serving its own
+     pages; then the dev hub directly (which then does need CORS — the hub
+     sends it). */
   function hubBase() {
     var q = new URLSearchParams(location.search).get('hub');
     if (q) return q.replace(/\/+$/, '');
+    if (typeof window.__HUB_BASE__ === 'string' && window.__HUB_BASE__) return window.__HUB_BASE__.replace(/\/+$/, '');
     if (location.port === '8899') return '/hub';           /* served by the dev host */
     return 'http://localhost:8899/hub';
   }
