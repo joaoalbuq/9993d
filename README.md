@@ -30,9 +30,47 @@ existing sign-in (`poker/client/index.html` on the dev hub) for live comparison.
   deep-link. A hub that cannot answer degrades to a visible preview state —
   never a blank or blocked screen.
 
+### `table-16x9.html` — the fullscreen 16:9 table (the screen behind the login)
+
+A felt-filling **3D stage in raw WebGL** — no three.js, no CDN, no asset
+pipeline; every texture (felt weave, card faces, backs, chips, the next-to-play
+ring) is drawn in a canvas at runtime. The table owns the whole viewport.
+
+- **The camera director is a rule, not an interpolation** (spec §4.4),
+  verified live: while a box decides the camera **holds that box** with the
+  pulsing "next to play" ring on the cloth; during the dealer's play the
+  **dealer's hand owns the frame**; a round **ends on the dealer's hand** (the
+  frame returns to the dealer after the payout walk, never the last paid box);
+  and a table holding cards **never parks on the wide establishing shot** —
+  during the deal the shot is the cards, not the room. Camera `CAM_PITCH = 1.0`,
+  `CAM_FOV = 48`. The zoom control's label reflects the next action and user
+  zoom survives every shot change.
+- **The hand layout is the readable-table rule** (spec §4.3): each hand stacks
+  vertically from its first card — **one card of cloth wide** — and each card
+  after the first lifts `STACK_LIFT = 0.135` of its length so the visible band
+  is its **top strip, where the rank prints**. The lift and the corner index
+  are one decision: the index draws at y = 16 on a 448px face at
+  `FACE_INDEX_PX = 62`, so its ink fits the `STACK_MIN = 0.132` strip. A ten
+  prints **"10"**, never "T". The dealer keeps a **sideways fan** pitched
+  `0.86` world apart (> one card width `0.749`) — no coincident quads, no
+  flicker. Totals print **below** each hand and dodge clear of the thumb bar.
+- **Six boxes, one dealer hand, a shoe, and the chip tray** — the deal order is
+  the spec's European ceremony: one card to each box 1…6, one to the dealer,
+  a second to each box 1…6, one card per ~0.7s. The dealer **always plays his
+  hand out to 17** (S17) even when every box has ended.
+- **Thumb action bar** — Hit / Stand / Double / Split above the safe area;
+  fatter thumbs on phones, `H`/`S`/`D` keys for desktop. Split is visible but
+  inert in this preview. Same six cloth palettes as the login (shared
+  `999.login.cloth.v1` key), one record painting HUD and 3D felt together.
+- **Arrangements mirror the login** — a 16:9 stage letterboxed on wide
+  screens, full-bleed compact on phone landscape, stacked portrait primary.
+  The camera **widens rather than crops** when the viewport narrows.
+
 ## Running it
 
-Open the file directly, or serve the folder with any static server. The hub
+Open the files directly (start at `login-16x9.html`, then "Sign in" or the
+table link to reach `table-16x9.html`), or serve the folder with any static
+server. The hub
 base defaults to `http://localhost:8899/hub` (the poker dev hub:
 `node poker/local-server.js`) and can be pointed anywhere with `?hub=<url>`.
 

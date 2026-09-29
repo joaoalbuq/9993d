@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2b1d">
+<title>999 Casino — The table · fullscreen 16:9</title>
+<style>
+  /* ============================================================
+     table-16x9.html — the fullscreen 16:9 table, REVAMP PREVIEW.
+     The next side-by-side page after login-16x9.html: it sits
+     beside the existing app and edits nothing.
+
+     House rules kept from the revamp spec:
+       · zero runtime dependencies, no CDN, no asset pipeline
+       · the 3D stage is raw WebGL with runtime canvas textures
+       · safe-area insets on every interactive element
+       · no page scroll; the felt-filling stage owns the viewport
+       · portrait is primary; landscape widens the camera, never crops
+     Geometry follows the spec's table constants (see GEOMETRY).
+     ============================================================ */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --felt:  #1f6b45;
+    --deep:  #0b2b1d;
+    --rail:  #241a12;
+    --accent:#d8b56a;
+    --ink:   #f4ead2;
+    --print: #f7f1e2;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--deep);
+    color: var(--ink);
+    font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #gl {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block; z-index: 0;
+    touch-action: none;
+  }
+
+  /* projected totals / names — positioned per frame from the 3D camera */
+  #labels { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+  .lab {
+    position: absolute; transform: translate(-50%, -50%);
+    text-align: center; white-space: nowrap;
+    text-shadow: 0 2px 10px rgba(0,0,0,.75);
+  }
+  .lab b { display: block; font-size: 30px; font-weight: 800; letter-spacing: 0.02em; line-height: 1.05; }
+  .lab span { display: block; margin-top: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.28em;
+    opacity: 0.72; text-transform: uppercase; }
+  .lab.win b { color: color-mix(in srgb, var(--accent) 92%, white); }
+  .lab.lose b { opacity: 0.55; }
+  .lab.bust b { color: #ff9d8a; }
+
+  /* ---------- the 16:9 stage (HUD over the felt) ----------- */
+  #stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1600px; height: 900px;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center;
+    font-size: 24px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  #stage > * { pointer-events: auto; }
+
+  .hud-top {
+    position: absolute; left: 3em; right: 3em; top: 2em;
+    display: flex; align-items: center; justify-content: space-between; gap: 1em;
+  }
+  .brandchip {
+    display: flex; align-items: center; gap: 0.7em;
+    font-size: 0.72em; font-weight: 700; letter-spacing: 0.34em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 82%, transparent);
+    background: rgba(5, 14, 10, 0.5);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius: 2em; padding: 0.75em 1.3em;
+  }
+  .brandchip b { color: var(--accent); letter-spacing: 0.18em; }
+
+  .shotpill {
+    font-size: 0.66em; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 72%, transparent);
+    background: rgba(5, 14, 10, 0.5);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-radius: 2em; padding: 0.75em 1.3em;
+    transition: opacity .3s ease;
+  }
+
+  .tools {
+    position: absolute; right: 3em; top: 6.2em;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.8em;
+  }
+  .tool {
+    font: inherit; font-size: 0.68em; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink); background: rgba(5, 14, 10, 0.55);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+    border-radius: 1.4em; padding: 0.8em 1.35em;
+    cursor: pointer; text-decoration: none;
+    touch-action: manipulation;
+    transition: border-color .15s ease, transform .14s ease;
+  }
+  .tool:hover { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+  .tool:active { transform: translateY(1px) scale(0.99); }
+
+  .swatches { display: flex; gap: 0.5em; background: rgba(5, 14, 10, 0.5);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-radius: 2em; padding: 0.55em 0.75em; }
+  .sw {
+    width: 1.7em; height: 1.7em; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.25);
+    cursor: pointer; padding: 0;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+  .sw:hover { transform: translateY(-2px); }
+  .sw[aria-pressed="true"] {
+    box-shadow: 0 0 0 2px var(--deep), 0 0 0 4px var(--accent);
+  }
+
+  /* ---------- the thumb action bar ------------------------- */
+  .bar {
+    position: absolute; left: 50%; bottom: 0;
+    transform: translateX(-50%);
+    width: min(46em, calc(100% - 4em));
+    display: flex; flex-direction: column; align-items: center; gap: 0.85em;
+    padding: 1em 1.6em calc(1.1em + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(5,14,10,0) 0%, rgba(5,14,10,0.72) 32%, rgba(5,14,10,0.92) 100%);
+    border-radius: 2em 2em 0 0;
+  }
+  .status {
+    font-size: 0.72em; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 82%, transparent);
+    text-align: center; min-height: 1.2em;
+  }
+  .status .dot { display: inline-block; width: 0.62em; height: 0.62em; border-radius: 50%;
+    background: var(--accent); margin-right: 0.7em; vertical-align: 0.06em; }
+  .acts { display: flex; gap: 0.7em; width: 100%; justify-content: center; }
+  .act {
+    flex: 1 1 0; max-width: 9.5em; height: 3.6em;
+    border-radius: 1.3em; border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+    background: rgba(255,255,255,0.08);
+    color: var(--ink); font: inherit; font-size: 0.92em; font-weight: 700; letter-spacing: 0.06em;
+    cursor: pointer; touch-action: manipulation;
+    transition: transform .14s ease, filter .14s ease, opacity .14s ease;
+  }
+  .act.primary {
+    border: none;
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 88%, white),
+      color-mix(in srgb, var(--accent) 78%, black));
+    color: #171006;
+  }
+  .act:hover:not([disabled]) { filter: brightness(1.06); }
+  .act:active:not([disabled]) { transform: translateY(1px) scale(0.985); }
+  .act[disabled] { opacity: 0.38; cursor: default; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+  /* ---------- phone landscape (short viewport) ------------- */
+  body.compact #stage {
+    inset: 0; left: 0; top: 0; width: auto; height: 100dvh; transform: none;
+    font-size: clamp(11px, 2.7vh, 15px);
+  }
+  body.compact .hud-top { top: max(0.9em, env(safe-area-inset-top)); left: 1.4em; right: 1.4em; }
+  body.compact .tools { top: 4.6em; right: 1.4em; }
+  body.compact .bar {
+    width: 100%; border-radius: 0;
+    padding: 0.7em 1em calc(0.8em + env(safe-area-inset-bottom));
+    flex-direction: row; justify-content: center;
+  }
+  body.compact .status { font-size: 0.62em; }
+  body.compact .acts { width: auto; }
+  body.compact .act { height: 3.2em; max-width: 7.6em; }
+
+  /* ---------- portrait (phone / iPad upright) -------------- */
+  body.stacked #stage {
+    inset: 0; left: 0; top: 0; width: auto; height: 100dvh; transform: none;
+    font-size: clamp(13px, 3.6vw, 19px);
+  }
+  body.stacked .hud-top {
+    top: max(1em, env(safe-area-inset-top));
+    left: max(1em, env(safe-area-inset-left)); right: max(1em, env(safe-area-inset-right));
+  }
+  body.stacked .shotpill { display: none; }
+  body.stacked .tools {
+    top: auto; bottom: calc(9.4em + env(safe-area-inset-bottom));
+    right: max(1em, env(safe-area-inset-right));
+    flex-direction: row; align-items: center;
+  }
+  body.stacked .bar {
+    width: 100%; border-radius: 2em 2em 0 0;
+    padding: 0.9em 1.1em calc(1em + env(safe-area-inset-bottom));
+  }
+  body.stacked .act { height: 3.9em; }
+
+  /* phones get fatter thumbs */
+  body.phone .act { height: 4.1em; font-size: 1em; }
+  body.phone .tool { padding: 0.95em 1.5em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<div id="labels" aria-hidden="true"></div>
+
+<div id="stage">
+  <header class="hud-top">
+    <div class="brandchip"><b>999</b> Casino · Blackjack</div>
+    <div class="shotpill" id="shotpill">Wide table</div>
+  </header>
+
+  <div class="tools">
+    <a class="tool" href="login-16x9.html">Sign in</a>
+    <button class="tool" id="zoom" type="button">Zoom out</button>
+    <div class="swatches" id="swatches" role="group" aria-label="Table cloth palette"></div>
+  </div>
+
+  <footer class="bar">
+    <p class="status" id="status"><span class="dot"></span><span id="statusTxt">Dealing…</span></p>
+    <div class="acts" role="group" aria-label="Table actions">
+      <button class="act primary" id="btnHit" type="button" disabled>Hit</button>
+      <button class="act" id="btnStand" type="button" disabled>Stand</button>
+      <button class="act" id="btnDouble" type="button" disabled>Double</button>
+      <button class="act" id="btnSplit" type="button" disabled>Split</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= cloth palettes ========================
+     One record paints felt, rail, accent and ink together — the
+     same records as login-16x9.html (stand-ins for
+     999-bridge/src/theme.js until that repo is wired in).      */
+  var CLOTHS = [
+    { id: 'classic-house', label: 'Classic house', felt: '#1f6b45', deep: '#0b2b1d', rail: '#241a12', accent: '#d8b56a', ink: '#f4ead2', print: '#f7f1e2' },
+    { id: 'platinum',      label: 'Platinum',      felt: '#8b95a1', deep: '#2b323b', rail: '#1b2027', accent: '#e8edf4', ink: '#eef2f7', print: '#141a22' },
+    { id: 'ocean',         label: 'Ocean',         felt: '#145a70', deep: '#072a36', rail: '#0e2b33', accent: '#6fd6d2', ink: '#e6f6f6', print: '#eafcfa' },
+    { id: 'felt-noir',     label: 'Felt noir',     felt: '#26272b', deep: '#0c0c0f', rail: '#141418', accent: '#c8a24c', ink: '#eae6dd', print: '#f2ede2' },
+    { id: 'amethyst',      label: 'Amethyst',      felt: '#4b2a72', deep: '#221237', rail: '#2c1a44', accent: '#c9a6ff', ink: '#f1e9ff', print: '#f6efff' },
+    { id: 'black-gold',    label: 'Black gold',    felt: '#17110a', deep: '#080604', rail: '#241a0c', accent: '#e4c169', ink: '#f5e6c4', print: '#f8eccc' }
+  ];
+  var CLOTH_KEY = '999.login.cloth.v1';   /* shared with the login page */
+  var current = CLOTHS[0];
+
+  /* ================= GEOMETRY (spec constants) =============
+     Felt 4.05 x 2.35 world HALF-extents (8.10 x 4.70 cloth).
+     The cloth plate is anisotropic: 45 x 32 plate units map onto
+     the felt — 0.09 world per plate-x, 0.0734 per plate-y.
+     Card 0.749 x 1.049 world = 8.33 x 14.29 plate.
+     Hand stacks: one card of cloth wide; each card after the
+     first lifts STACK_LIFT of its length, exposing its top strip
+     where the rank prints — so the corner index font
+     (FACE_INDEX_PX) must fit a STACK_MIN strip on a 448px face.
+     The dealer keeps a non-overlapping sideways fan: pitched at
+     least one card width apart, never coincident quads.          */
+  var FELT_RX = 4.05, FELT_RZ = 2.35;
+  var CARD_W = 0.749, CARD_L = 1.049;
+  var STACK_LIFT = 0.135, STACK_MIN = 0.132;
+  var FACE_PX = 448, FACE_INDEX_PX = 62;
+  var CAM_PITCH = 1.0, CAM_FOV = 48;
+
+  var BOX_N = 6;
+  function boxX(i) { return (i - (BOX_N - 1) / 2) * 1.14; }
+  var BOX_Z = 1.28;            /* near arc — the boxes sit here  */
+  var DEALER_Z = -1.55;        /* far edge — the dealer's row     */
+  var FAN_PITCH = 0.86;        /* >= one card width (0.749)       */
+
+  /* ================= small math ============================ */
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function mPersp(fovy, aspect, near, far) {
+    var f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+    return new Float32Array([
+      f / aspect, 0, 0, 0,
+      0, f, 0, 0,
+      0, 0, (far + near) * nf, -1,
+      0, 0, 2 * far * near * nf, 0
+    ]);
+  }
+  function mLookAt(eye, center) {
+    var up = [0, 1, 0];
+    var zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
+    var zl = Math.hypot(zx, zy, zz) || 1; zx /= zl; zy /= zl; zz /= zl;
+    var xx = up[1] * zz - up[2] * zy, xy = up[2] * zx - up[0] * zz, xz = up[0] * zy - up[1] * zx;
+    var xl = Math.hypot(xx, xy, xz) || 1; xx /= xl; xy /= xl; xz /= xl;
+    var yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+    return new Float32Array([
+      xx, yx, zx, 0,
+      xy, yy, zy, 0,
+      xz, yz, zz, 0,
+      -(xx * eye[0] + xy * eye[1] + xz * eye[2]),
+      -(yx * eye[0] + yy * eye[1] + yz * eye[2]),
+      -(zx * eye[0] + zy * eye[1] + zz * eye[2]), 1
+    ]);
+  }
+  function mMul(a, b) {
+    var o = new Float32Array(16);
+    for (var c = 0; c < 4; c++) for (var r = 0; r < 4; r++) {
+      o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+    }
+    return o;
+  }
+  /* translate + yaw + non-uniform xz scale */
+  function mXform(x, y, z, ry, sx, sz) {
+    var c = Math.cos(ry), s = Math.sin(ry);
+    return new Float32Array([
+      c * sx, 0, -s * sx, 0,
+      0, 1, 0, 0,
+      s * sz, 0, c * sz, 0,
+      x, y, z, 1
+    ]);
+  }
+
+  /* ================= WebGL base ============================ */
+  var cv = document.getElementById('gl');
+  var gl = cv.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+  if (!gl) {
+    document.getElementById('statusTxt').textContent = 'WebGL unavailable — the 3D table cannot open';
+    return;
+  }
+
+  var VS = [
+    'attribute vec3 aPos;', 'attribute vec2 aUV;',
+    'uniform mat4 uMVP;',
+    'varying vec2 vUV;', 'varying vec3 vPos;',
+    'void main(){ vUV = aUV; vPos = aPos;',
+    '  gl_Position = uMVP * vec4(aPos, 1.0); }'
+  ].join('\n');
+
+  var FS = [
+    'precision mediump float;',
+    'varying vec2 vUV;', 'varying vec3 vPos;',
+    'uniform sampler2D uTex;', 'uniform float uUseTex;',
+    'uniform vec4 uTint;', 'uniform float uAdd;',
+    'uniform vec4 uWorld;',
+    'void main(){',
+    '  vec4 t = texture2D(uTex, vUV);',
+    '  vec3 col = mix(uTint.rgb, t.rgb * uTint.rgb, uUseTex);',
+    '  vec2 wxz = uWorld.xy + (vUV - 0.5) * uWorld.zw;',
+    '  float lamp = 1.0 - 0.14 * smoothstep(2.2, 8.6, length(wxz));',
+    '  col *= lamp;',
+    '  float a = t.a * uTint.a;',
+    '  if (uAdd > 0.5) { gl_FragColor = vec4(col * a, a); }',
+    '  else { gl_FragColor = vec4(col, a); }',
+    '}'
+  ].join('\n');
+
+  function shader(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  var aPos = gl.getAttribLocation(prog, 'aPos');
+  var aUV = gl.getAttribLocation(prog, 'aUV');
+  var uMVP = gl.getUniformLocation(prog, 'uMVP');
+  var uTex = gl.getUniformLocation(prog, 'uTex');
+  var uUseTex = gl.getUniformLocation(prog, 'uUseTex');
+  var uTint = gl.getUniformLocation(prog, 'uTint');
+  var uAdd = gl.getUniformLocation(prog, 'uAdd');
+  var uWorld = gl.getUniformLocation(prog, 'uWorld');
+  gl.enableVertexAttribArray(aPos);
+  gl.enableVertexAttribArray(aUV);
+  gl.uniform1i(uTex, 0);
+
+  /* unit quad on the XZ plane; v=1 is the FAR edge so uploaded
+     canvas textures read upright toward the dealer.             */
+  var quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -0.5, 0, -0.5, 0, 1,
+     0.5, 0, -0.5, 1, 1,
+    -0.5, 0,  0.5, 0, 0,
+     0.5, 0,  0.5, 1, 0
+  ]), gl.STATIC_DRAW);
+  var quadIdx = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIdx);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 2, 1, 3]), gl.STATIC_DRAW);
+
+  var TEX_CACHE = {};
+  function canvasTexture(key, w, h, draw) {
+    if (TEX_CACHE[key]) return TEX_CACHE[key];
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    var t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    TEX_CACHE[key] = t;
+    return t;
+  }
+
+  function drawQuad(tex, useTex, tint, x, y, z, ry, sx, sz, additive) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 20, 0);
+    gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 20, 12);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIdx);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1f(uUseTex, useTex);
+    gl.uniform4fv(uTint, tint);
+    gl.uniform1f(uAdd, additive ? 1 : 0);
+    gl.uniform4f(uWorld, x, z, sx, sz);
+    gl.uniformMatrix4fv(uMVP, false, mMul(MVP, mXform(x, y, z, ry, sx, sz)));
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+  }
+
+  var MVP = mPersp(CAM_FOV * Math.PI / 180, 1, 0.1, 60);
+
+  /* ================= procedural textures ===================
+     Every texture is drawn in a canvas at runtime — no asset
+     pipeline, no downloads (spec: textures procedural).        */
+  function hexRgb(hex) {
+    var h = hex.replace('#', '');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function rgba(hex, a) { var c = hexRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+
+  var SUIT = ['\u2660', '\u2665', '\u2666', '\u2663'];   /* spade heart diamond club */
+  var RED = [false, true, true, false];
+
+  /* ---- the felt: 200 px per world unit -------------------
+     The cloth plate is ANISOTROPIC: 0.09 world per plate-x,
+     0.0734 per plate-y — so the weave tiles are 18 x 15 px,
+     not square. Drawing them square would squash the cloth.   */
+  var FELT_PX = 200;
+  var feltCv = document.createElement('canvas');
+  feltCv.width = Math.round(FELT_RX * 2 * FELT_PX);
+  feltCv.height = Math.round(FELT_RZ * 2 * FELT_PX);
+  var feltTex = gl.createTexture();
+
+  function paintFelt() {
+    var c = feltCv.getContext('2d'), W = feltCv.width, H = feltCv.height;
+    var f = current.felt, p = current.print, d = current.deep;
+
+    c.clearRect(0, 0, W, H);
+    var g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, rgba(d, 0.42));
+    g.addColorStop(0.28, f);
+    g.addColorStop(0.72, f);
+    g.addColorStop(1, rgba(d, 0.5));
+    c.fillStyle = g;
+    c.fillRect(0, 0, W, H);
+
+    /* anisotropic weave: 18px plate-x by 15px plate-y */
+    for (var y = 0; y < H; y += 15) {
+      for (var x = 0; x < W; x += 18) {
+        var v = Math.random() * 22 - 11;
+        c.fillStyle = 'rgba(' + (v > 0 ? '255,255,255,' : '0,0,0,') + Math.abs(v) / 260 + ')';
+        c.fillRect(x, y, 18, 15);
+      }
+    }
+
+    /* the printed identity — spec 4.2 */
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = rgba(p, 0.16);
+    c.font = '800 ' + Math.round(0.42 * FELT_PX) + 'px Georgia, "Times New Roman", serif';
+    c.fillText('BLACKJACK', W / 2, H * 0.30);
+    try { c.letterSpacing = '0.30em'; } catch (e) { }
+    c.font = '600 ' + Math.round(0.105 * FELT_PX) + 'px Georgia, serif';
+    c.fillStyle = rgba(p, 0.13);
+    c.fillText('DEALER MUST DRAW ALL 17', W / 2, H * 0.30 + 0.30 * FELT_PX);
+    try { c.letterSpacing = '0.18em'; } catch (e) { }
+    c.font = '700 ' + Math.round(0.17 * FELT_PX) + 'px Georgia, serif';
+    c.fillStyle = rgba(p, 0.15);
+    c.fillText('3 : 2', W * 0.22, H * 0.36);
+    c.fillText('999', W * 0.78, H * 0.36);
+    try { c.letterSpacing = '0em'; } catch (e) { }
+
+    /* the betting arc + six box spots + the dealer's arc */
+    c.strokeStyle = rgba(p, 0.14);
+    c.lineWidth = Math.round(0.014 * FELT_PX);
+    c.beginPath();
+    c.ellipse(W / 2, H * 0.92, W * 0.46, H * 0.42, 0, Math.PI * 1.08, Math.PI * 1.92);
+    c.stroke();
+    for (var i = 0; i < BOX_N; i++) {
+      var bx = (boxX(i) + FELT_RX) * FELT_PX;
+      var bz = (BOX_Z + 0.86 + FELT_RZ) * FELT_PX;   /* bet spot, toward the player */
+      c.beginPath();
+      c.ellipse(bx, bz, 0.30 * FELT_PX, 0.21 * FELT_PX, 0, 0, Math.PI * 2);
+      c.stroke();
+    }
+    c.beginPath();
+    c.ellipse(W / 2, (DEALER_Z + 0.95 + FELT_RZ) * FELT_PX, W * 0.30, 0.26 * FELT_PX, 0, 0, Math.PI * 2);
+    c.stroke();
+
+    /* soft centre light pool, baked */
+    var lp = c.createRadialGradient(W / 2, H * 0.52, 0, W / 2, H * 0.52, W * 0.55);
+    lp.addColorStop(0, rgba(current.accent, 0.07));
+    lp.addColorStop(1, rgba(current.accent, 0));
+    c.fillStyle = lp;
+    c.fillRect(0, 0, W, H);
+
+    gl.bindTexture(gl.TEXTURE_2D, feltTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, feltCv);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  /* ---- card faces ----------------------------------------
+     320 x 448 = the card's 0.749 x 1.049 world ratio.
+     The corner index prints at y = 16 with a 62px font
+     (FACE_INDEX_PX) so its ink reaches 16 + 62*0.7 = 59.4px —
+     inside the 13.5% (60px) top strip STACK_LIFT exposes.
+     A ten prints "10", never "T".                               */
+  function faceTexture(rank, suit) {
+    var key = 'f' + rank + suit;
+    return canvasTexture(key, 320, 448, function (c, W, H) {
+      c.fillStyle = '#f7f2e6';
+      c.fillRect(0, 0, W, H);
+      c.strokeStyle = 'rgba(20,16,10,0.16)';
+      c.lineWidth = 6;
+      c.strokeRect(8, 8, W - 16, H - 16);
+      var ink = RED[suit] ? '#b3242c' : '#191410';
+      c.fillStyle = ink;
+      c.textAlign = 'left';
+      c.textBaseline = 'top';
+      c.font = '800 ' + FACE_INDEX_PX + 'px "Segoe UI", Arial, sans-serif';
+      c.fillText(rank, 18, 16);           /* y=16, the visible strip */
+      c.font = '700 46px "Segoe UI Symbol", "Segoe UI", Arial, sans-serif';
+      c.fillText(SUIT[suit], 20, 84);
+      /* the body mark */
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.font = '700 168px "Segoe UI Symbol", "Segoe UI", Arial, sans-serif';
+      c.fillText(SUIT[suit], W / 2, H / 2 - 8);
+      c.font = '800 74px Georgia, serif';
+      c.fillText(rank, W / 2, H / 2 + 118);
+      /* mirrored index, bottom-right */
+      c.save();
+      c.translate(W - 18, H - 16);
+      c.rotate(Math.PI);
+      c.textAlign = 'left'; c.textBaseline = 'top';
+      c.font = '800 ' + FACE_INDEX_PX + 'px "Segoe UI", Arial, sans-serif';
+      c.fillText(rank, 0, 0);
+      c.restore();
+    });
+  }
+
+  var backTex = null;
+  function getBackTex() {
+    return backTex || (backTex = (function () {
+      return canvasTexture('back', 320, 448, function (c, W, H) {
+        c.fillStyle = current.deep;
+        c.fillRect(0, 0, W, H);
+        c.strokeStyle = rgba(current.accent, 0.5);
+        c.lineWidth = 5;
+        c.strokeRect(14, 14, W - 28, H - 28);
+        c.save();
+        c.beginPath(); c.rect(22, 22, W - 44, H - 44); c.clip();
+        c.strokeStyle = rgba(current.accent, 0.18);
+        c.lineWidth = 3;
+        for (var x = -H; x < W + H; x += 26) {
+          c.beginPath(); c.moveTo(x, 0); c.lineTo(x + H, H); c.stroke();
+          c.beginPath(); c.moveTo(x, H); c.lineTo(x + H, 0); c.stroke();
+        }
+        c.restore();
+        c.fillStyle = rgba(current.accent, 0.75);
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = '800 92px Georgia, serif';
+        c.fillText('999', W / 2, H / 2);
+      });
+    })());
+  }
+
+  /* ---- the "next to play" ring + chips -------------------- */
+  var ringTex = canvasTexture('ring', 256, 256, function (c, W, H) {
+    var g = c.createRadialGradient(W / 2, H / 2, W * 0.16, W / 2, H / 2, W * 0.5);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(0.62, 'rgba(255,255,255,0.85)');
+    g.addColorStop(0.82, 'rgba(255,255,255,0.22)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, W, H);
+  });
+
+  var CHIP_TINTS = ['#d8b56a', '#c84444', '#e8e4d8', '#3d7fd6', '#2f9e63'];
+  var chipTex = canvasTexture('chip', 128, 128, function (c, W, H) {
+    c.clearRect(0, 0, W, H);
+    c.beginPath(); c.arc(W / 2, H / 2, W * 0.46, 0, Math.PI * 2);
+    c.fillStyle = '#fff'; c.fill();
+    c.lineWidth = 7; c.strokeStyle = 'rgba(0,0,0,0.28)';
+    c.beginPath(); c.arc(W / 2, H / 2, W * 0.425, 0, Math.PI * 2); c.stroke();
+    for (var k = 0; k < 8; k++) {
+      var a = k * Math.PI / 4;
+      c.fillStyle = 'rgba(255,255,255,0.85)';
+      c.beginPath();
+      c.arc(W / 2 + Math.cos(a) * W * 0.375, H / 2 + Math.sin(a) * H * 0.375, 11, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.beginPath(); c.arc(W / 2, H / 2, W * 0.24, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(0,0,0,0.22)'; c.lineWidth = 5; c.stroke();
+  });
+
+  /* ================= cloth palettes -> scene =============== */
+  var root = document.documentElement;
+  var themeMeta = document.querySelector('meta[name=theme-color]');
+  function applyCloth(c) {
+    current = c;
+    root.style.setProperty('--felt', c.felt);
+    root.style.setProperty('--deep', c.deep);
+    root.style.setProperty('--rail', c.rail);
+    root.style.setProperty('--accent', c.accent);
+    root.style.setProperty('--ink', c.ink);
+    root.style.setProperty('--print', c.print);
+    if (themeMeta) themeMeta.setAttribute('content', c.deep);
+    var sw = document.querySelectorAll('.sw');
+    for (var i = 0; i < sw.length; i++) sw[i].setAttribute('aria-pressed', String(CLOTHS[i] === c));
+    try { localStorage.setItem(CLOTH_KEY, c.id); } catch (e) { }
+    paintFelt();
+    backTex = null;                 /* rebuilt on next use, tinted by this cloth */
+    delete TEX_CACHE['back'];
+  }
+
+  /* ================= layout / fit ==========================
+     Same contract as poker/client/stage-fit.js: portrait is
+     primary, short landscape compacts, and the camera widens
+     (never crops) when the viewport narrows.                   */
+  var VW = 0, VH = 0, DPR = 1;
+  function fit() {
+    var vv = window.visualViewport;
+    var w = Math.round((vv && vv.width) || window.innerWidth);
+    var h = Math.round((vv && vv.height) || window.innerHeight);
+    var portrait = w / h < 1;
+    document.body.classList.toggle('stacked', portrait);
+    document.body.classList.toggle('compact', !portrait && h < 520);
+    document.body.classList.toggle('phone', w < 900);
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    VW = w; VH = h;
+    cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+    gl.viewport(0, 0, cv.width, cv.height);
+
+    /* wide viewports: the 1600x900 HUD stage scales to fit, so
+       the chrome never crops at the edges (same contract as
+       login-16x9.html / stage-fit.js).                          */
+    var stage = document.getElementById('stage');
+    if (portrait || h < 520) {
+      stage.style.transform = 'none';
+      stage.style.height = h + 'px';
+    } else {
+      stage.style.height = '';
+      var s = Math.min(w / 1600, h / 900);
+      stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+    }
+  }
+
+  /* ================= cards & scoring ======================= */
+  var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  function dealRank() {
+    /* weighted toward a ten-value card, like a real shoe */
+    if (Math.random() < 0.31) return ['10', 'J', 'Q', 'K'][Math.floor(Math.random() * 4)];
+    return RANKS[Math.floor(Math.random() * RANKS.length)];
+  }
+  function score(cards) {
+    var total = 0, aces = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].rank;
+      if (r === 'A') { aces++; total += 11; }
+      else if (r === 'J' || r === 'Q' || r === 'K') total += 10;
+      else total += parseInt(r, 10);
+    }
+    while (total > 21 && aces) { total -= 10; aces--; }
+    return total;
+  }
+
+  /* ================= the table state ======================= */
+  var YOUR = 2;                       /* your box — index 2 = seat-3
+     (the game reports a box as an index; the seat id is +1)    */
+  var SHOE = [2.55, 0.62, DEALER_Z - 0.12];
+  var game = {
+    phase: 'idle',                    /* idle | dealing | acting | dealer | settle | pause */
+    acting: -1,
+    hands: [],
+    dealer: { cards: [] },
+    token: 0
+  };
+  function later(ms, fn) {
+    var t = game.token;
+    setTimeout(function () { if (t === game.token) fn(); }, ms);
+  }
+  function cardsOut() {
+    if (game.dealer.cards.length) return true;
+    for (var i = 0; i < game.hands.length; i++) if (game.hands[i].cards.length) return true;
+    return false;
+  }
+
+  /* Hand layout (spec 4.3): a hand stacks VERTICALLY from its
+     first card — one card of cloth wide. Each card after the
+     first sits STACK_LIFT (0.135) of a card length further on,
+     so its visible band is its top strip where the rank prints.
+     The y-bump keeps the quads apart in depth (spec 3: never
+     coincident card quads).                                      */
+  function handSpot(i, k) {
+    return { x: boxX(i), y: 0.016 + k * 0.009, z: BOX_Z - k * STACK_LIFT * CARD_L, ry: 0 };
+  }
+  /* The dealer keeps a SIDeways fan: his row has no headroom to
+     climb into, so cards sit pitched at least one card width
+     apart (0.86 > 0.749) — no overlap, no flicker.              */
+  function dealerSpot(j, n) {
+    return { x: (j - (n - 1) / 2) * FAN_PITCH, y: 0.016 + j * 0.005, z: DEALER_Z, ry: 0 };
+  }
+  function cardTarget(c) {
+    return c.dealer ? dealerSpot(c.idx, game.dealer.cards.length) : handSpot(c.box, c.idx);
+  }
+
+  function makeCard(isDealer, box, idx) {
+    return {
+      rank: dealRank(), suit: Math.floor(Math.random() * 4),
+      dealer: isDealer, box: box, idx: idx,
+      t0: performance.now(), dur: 430,
+      from: [SHOE[0], SHOE[1], SHOE[2]]
+    };
+  }
+  function dealTo(box) {
+    var h = game.hands[box];
+    h.cards.push(makeCard(false, box, h.cards.length));
+  }
+  function dealToDealer() {
+    var d = game.dealer;
+    d.cards.push(makeCard(true, -1, d.cards.length));
+  }
+
+  /* ================= the round machine ===================== */
+  function startRound() {
+    game.token++;
+    game.phase = 'dealing';
+    game.acting = -1;
+    game.hands = [];
+    for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null });
+    game.dealer = { cards: [] };
+    setStatus('Dealing — one to each box, then the dealer');
+
+    /* Deal order (spec 4.5, European): one card each to boxes
+       1…6, one to the dealer, then a second to boxes 1…6.       */
+    var seq = [], t = 200, i;
+    for (i = 0; i < BOX_N; i++) seq.push({ box: i });
+    seq.push({ dealer: true });
+    for (i = 0; i < BOX_N; i++) seq.push({ box: i });
+    seq.forEach(function (s) {
+      later(t, function () {
+        if (s.dealer) dealToDealer(); else dealTo(s.box);
+      });
+      t += 700;                        /* one card per ~0.7s */
+    });
+    later(t + 350, beginTurns);
+  }
+
+  function beginTurns() {
+    game.phase = 'acting';
+    game.acting = -1;
+    nextBox();
+  }
+  function nextBox() {
+    var i = game.acting + 1;
+    while (i < BOX_N && game.hands[i].done) i++;
+    if (i >= BOX_N) { beginDealer(); return; }
+    game.acting = i;
+    if (i === YOUR) {
+      var s = score(game.hands[i].cards);
+      if (s >= 21) { later(750, playerStand); return; }
+      setStatus('Your move — hit, stand or double');
+      enableActions(true);
+    } else {
+      setStatus('Seat ' + (i + 1) + ' decides');
+      later(850, botStep);
+    }
+  }
+  function botStep() {
+    var h = game.hands[game.acting];
+    if (score(h.cards) < 17 && h.cards.length < 5) {
+      dealTo(game.acting);
+      later(850, botStep);
+    } else {
+      h.done = true;
+      nextBox();
+    }
+  }
+
+  function playerHit() {
+    if (game.phase !== 'acting' || game.acting !== YOUR) return;
+    dealTo(YOUR);
+    if (score(game.hands[YOUR].cards) >= 21) playerStand();
+    else updateActions();
+  }
+  function playerStand() {
+    if (game.phase !== 'acting' || game.acting !== YOUR) return;
+    enableActions(false);
+    game.hands[YOUR].done = true;
+    nextBox();
+  }
+  function playerDouble() {
+    if (game.phase !== 'acting' || game.acting !== YOUR) return;
+    var h = game.hands[YOUR];
+    if (h.cards.length !== 2) return;
+    h.doubled = true;
+    dealTo(YOUR);
+    playerStand();
+  }
+
+  /* The dealer ALWAYS plays his hand out to 17 (S17) — even if
+     every box already busted (spec 4.5).                       */
+  function beginDealer() {
+    game.phase = 'dealer';
+    enableActions(false);
+    setStatus('Dealer draws to 17');
+    later(500, dealerStep);
+  }
+  function dealerStep() {
+    var d = game.dealer;
+    if (score(d.cards) < 17 && d.cards.length < 6) {
+      dealToDealer();
+      later(750, dealerStep);
+    } else {
+      later(650, settle);
+    }
+  }
+
+  function settle() {
+    game.phase = 'settle';
+    var ds = score(game.dealer.cards);
+    var dbust = ds > 21;
+    for (var i = 0; i < BOX_N; i++) {
+      var h = game.hands[i], s = score(h.cards);
+      if (s > 21) h.result = 'bust';
+      else if (dbust || s > ds) h.result = 'win';
+      else if (s === ds) h.result = 'push';
+      else h.result = 'lose';
+    }
+    setStatus('Round settles — the frame returns to the dealer');
+    /* spec 4.4: a round ENDS on the dealer's hand — after the
+       per-box payout walk the camera returns to the dealer,
+       never parking on the last paid box.                       */
+    later(3400, clearRound);
+  }
+  function clearRound() {
+    game.token++;
+    game.phase = 'pause';
+    game.dealer = { cards: [] };
+    game.hands = [];
+    for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null });
+    setStatus('Next hand');
+    later(1100, startRound);
+  }
+
+  /* ================= the camera director ===================
+     "The camera is a rule, not an interpolation" (spec 4.4):
+       · after the deal, the shot is the cards, not the room
+       · while a box decides, the camera HOLDS that box
+       · during the dealer's play the dealer's hand owns the frame
+       · a round ends on the dealer's hand
+       · a table holding cards never parks on the wide shot
+     CAM_PITCH = 1.0 rad, CAM_FOV = 48. User zoom (the 3D zoom
+     control) survives every shot change.                        */
+  var cam = { eye: [0, 5.9, 5.3], look: [0, 0, -0.1] };
+  var userZoom = false;
+  function zoomMul() { return userZoom ? 0.78 : 1; }
+
+  function pose(look, dist, az) {
+    dist *= zoomMul() * clamp(1.15 / (VW / Math.max(VH, 1)), 1, 1.8);  /* widen, never crop */
+    var h = Math.cos(CAM_PITCH) * dist, v = Math.sin(CAM_PITCH) * dist;
+    return { eye: [look[0] + Math.sin(az) * h, look[1] + v, look[2] + Math.cos(az) * h], look: look };
+  }
+
+  function desiredShot() {
+    if (game.phase === 'dealer' || game.phase === 'settle') {
+      /* the dealer's hand owns the frame — and the round ends on it */
+      var p = pose([0, 0.05, DEALER_Z + 0.55], 4.15, 0);
+      p.name = "The dealer's hand";
+      return p;
+    }
+    if (game.phase === 'acting' && game.acting >= 0) {
+      /* while a box decides, hold THAT box */
+      var bx = boxX(game.acting);
+      var q = pose([bx * 0.62, 0.05, BOX_Z - 0.30], 4.55, -bx * 0.13);
+      q.name = 'Holding seat ' + (game.acting + 1);
+      return q;
+    }
+    if (cardsOut()) {
+      /* dealing: the shot is the cards, not the whole room */
+      var t = pose([0, 0.05, 0.12], 6.3, 0);
+      t.name = 'The table';
+      return t;
+    }
+    var w = pose([0, 0.05, -0.12], 8.6, 0);
+    w.name = 'Wide table';
+    return w;
+  }
+
+  function updateCamera(dt) {
+    var goal = desiredShot();
+    var k = 1 - Math.exp(-dt * 3.2);
+    for (var i = 0; i < 3; i++) {
+      cam.eye[i] += (goal.eye[i] - cam.eye[i]) * k;
+      cam.look[i] += (goal.look[i] - cam.look[i]) * k;
+    }
+    var pill = document.getElementById('shotpill');
+    if (pill.textContent !== goal.name) pill.textContent = goal.name;
+  }
+
+  /* ================= labels (projected totals) =============
+     Totals print BELOW the hand — projected from the live
+     camera so they clear every card corner at any rotation.     */
+  var labelsWrap = document.getElementById('labels');
+  var labelEls = [];
+  for (var li = 0; li <= BOX_N; li++) {
+    var el = document.createElement('div');
+    el.className = 'lab';
+    el.innerHTML = '<b>—</b><span></span>';
+    labelsWrap.appendChild(el);
+    labelEls.push(el);
+  }
+  function project(p) {
+    var m = MVP;
+    var cw = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
+    if (cw <= 0.001) return null;
+    var cx = (m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) / cw;
+    var cy = (m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13]) / cw;
+    return { x: (cx * 0.5 + 0.5) * VW, y: (0.5 - cy * 0.5) * VH };
+  }
+  function updateLabels() {
+    /* totals print below the hand — but never under the thumb
+       bar: a label that would collide climbs clear of it.       */
+    var barTop = document.querySelector('.bar').getBoundingClientRect().top;
+    var dodge = function (y) { return Math.min(y, barTop - 34); };
+    for (var i = 0; i < BOX_N; i++) {
+      var el = labelEls[i], h = game.hands[i];
+      if (!h || !h.cards.length) { el.style.opacity = 0; continue; }
+      var p = project([boxX(i), 0.12, BOX_Z + 1.12]);
+      if (!p) { el.style.opacity = 0; continue; }
+      el.style.opacity = 1;
+      el.style.left = p.x + 'px';
+      el.style.top = dodge(p.y) + 'px';
+      var s = score(h.cards);
+      el.querySelector('b').textContent = s > 21 ? 'BUST' : String(s);
+      el.querySelector('span').textContent = (i === YOUR ? 'You · seat ' : 'Seat ') + (i + 1);
+      el.className = 'lab' + (h.result === 'win' ? ' win' : h.result === 'lose' || h.result === 'bust' ? ' lose' : '') + (s > 21 ? ' bust' : '');
+    }
+    var del = labelEls[BOX_N], d = game.dealer;
+    if (!d.cards.length) { del.style.opacity = 0; return; }
+    var dp = project([0, 0.12, DEALER_Z + 1.02]);
+    if (!dp) { del.style.opacity = 0; return; }
+    del.style.opacity = 1;
+    del.style.left = dp.x + 'px';
+    del.style.top = dodge(dp.y) + 'px';
+    var ds2 = score(d.cards);
+    del.querySelector('b').textContent = ds2 > 21 ? 'BUST' : String(ds2);
+    del.querySelector('span').textContent = 'Dealer';
+    del.className = 'lab' + (ds2 > 21 ? ' win' : '');
+  }
+
+  /* ================= render loop =========================== */
+  var proj = mPersp(CAM_FOV * Math.PI / 180, 1, 0.1, 60);
+  var lastTs = 0, animOn = false, rafId = 0;
+
+  function drawScene(ts) {
+    var dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.1) : 0.016;
+    lastTs = ts;
+
+    updateCamera(dt);
+    MVP = mMul(proj, mLookAt(cam.eye, cam.look));
+
+    gl.clearColor(hexRgb(current.deep)[0] / 255, hexRgb(current.deep)[1] / 255, hexRgb(current.deep)[2] / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    var white = [1, 1, 1, 1];
+
+    /* the rail, then the felt — the felt fills the frame */
+    drawQuad(feltTex, 0, hexTint(current.rail, 1), 0, 0, 0, 0, FELT_RX * 2 + 1.15, FELT_RZ * 2 + 1.15, false);
+    drawQuad(feltTex, 1, white, 0, 0.004, 0, 0, FELT_RX * 2, FELT_RZ * 2, false);
+
+    /* shoe / discard rack / chip tray — the live set (spec 4.2) */
+    drawQuad(feltTex, 0, hexTint(current.deep, 1), SHOE[0], 0.012, SHOE[2], -0.18, 1.25, 0.9, false);
+    drawQuad(feltTex, 0, hexTint(current.deep, 1), -SHOE[0], 0.012, SHOE[2], 0.18, 1.25, 0.9, false);
+    for (var tc = 0; tc < 5; tc++) {
+      drawQuad(chipTex, 1, hexTint(CHIP_TINTS[tc], 1), -1.28 + tc * 0.64, 0.012, DEALER_Z - 0.78, 0, 0.5, 0.5, false);
+    }
+
+    /* each box's bet stack */
+    for (var b = 0; b < BOX_N; b++) {
+      drawQuad(chipTex, 1, hexTint(CHIP_TINTS[b % CHIP_TINTS.length], 1),
+        boxX(b), 0.012, BOX_Z + 0.86, 0, 0.56, 0.56, false);
+    }
+
+    /* the "next to play" ring — driven by the game's acting box
+       (seat id = reported index + 1), on the cloth at the box.  */
+    if (game.phase === 'acting' && game.acting >= 0) {
+      var pulse = 0.55 + 0.25 * Math.sin(ts / 320);
+      gl.depthMask(false);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      drawQuad(ringTex, 1, hexTint(current.accent, pulse), boxX(game.acting), 0.008, BOX_Z + 0.18, 0, 3.15, 2.35, true);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(true);
+    }
+
+    /* the cards — vertical stacks for the boxes, a sideways
+       fan for the dealer, all flying out of the shoe            */
+    var now = ts;
+    function drawCardMesh(c) {
+      var p = clamp((now - c.t0) / c.dur, 0, 1);
+      var e = 1 - Math.pow(1 - p, 3);
+      var tgt = cardTarget(c);
+      var x = lerp(c.from[0], tgt.x, e);
+      var z = lerp(c.from[2], tgt.z, e);
+      var y = lerp(c.from[1], tgt.y, e) + Math.sin(p * Math.PI) * 0.5 * (1 - e * 0.35);
+      var ry = lerp(-0.35, tgt.ry, e);
+      drawQuad(faceTexture(c.rank, c.suit), 1, white, x, y, z, ry, CARD_W, CARD_L, false);
+    }
+    for (var i2 = 0; i2 < BOX_N; i2++) {
+      var hh = game.hands[i2];
+      if (!hh) continue;
+      for (var k = 0; k < hh.cards.length; k++) drawCardMesh(hh.cards[k]);
+    }
+    for (var j = 0; j < game.dealer.cards.length; j++) drawCardMesh(game.dealer.cards[j]);
+
+    updateLabels();
+  }
+
+  function frame(ts) {
+    drawScene(ts);
+    if (animOn) rafId = requestAnimationFrame(frame);
+  }
+  function startAnim() {
+    if (animOn) return;
+    animOn = true;
+    lastTs = 0;
+    rafId = requestAnimationFrame(frame);
+  }
+  function stopAnim() { animOn = false; if (rafId) cancelAnimationFrame(rafId); }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) stopAnim(); else startAnim();
+  });
+
+  /* ================= UI plumbing ========================== */
+  function hexTint(hex, a) {
+    var c = hexRgb(hex);
+    return [c[0] / 255, c[1] / 255, c[2] / 255, a];
+  }
+
+  var statusTxt = document.getElementById('statusTxt');
+  function setStatus(s) { statusTxt.textContent = s; }
+
+  var btnHit = document.getElementById('btnHit');
+  var btnStand = document.getElementById('btnStand');
+  var btnDouble = document.getElementById('btnDouble');
+  var btnSplit = document.getElementById('btnSplit');
+
+  function updateActions() {
+    var live = game.phase === 'acting' && game.acting === YOUR;
+    var h = game.hands[YOUR];
+    btnHit.disabled = !live;
+    btnStand.disabled = !live;
+    btnDouble.disabled = !live || !h || h.cards.length !== 2;
+    /* pairs split on the live table; the preview keeps the control
+       visible in the thumb bar but inert */
+    btnSplit.disabled = true;
+  }
+  function enableActions(on) {
+    if (!on) {
+      btnHit.disabled = btnStand.disabled = btnDouble.disabled = btnSplit.disabled = true;
+      return;
+    }
+    updateActions();
+  }
+  btnHit.addEventListener('click', playerHit);
+  btnStand.addEventListener('click', playerStand);
+  btnDouble.addEventListener('click', playerDouble);
+
+  /* keyboard parity for the desktop preview */
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'h' || e.key === 'H') playerHit();
+    else if (e.key === 's' || e.key === 'S') playerStand();
+    else if (e.key === 'd' || e.key === 'D') playerDouble();
+  });
+
+  /* the 3D zoom control — the label reflects the NEXT action,
+     and user zoom survives every director shot change (4.4).   */
+  var zoomBtn = document.getElementById('zoom');
+  function syncZoomLabel() { zoomBtn.textContent = userZoom ? 'Zoom in' : 'Zoom out'; }
+  zoomBtn.addEventListener('click', function () {
+    userZoom = !userZoom;
+    syncZoomLabel();
+  });
+
+  /* cloth swatches — one record paints the HUD and the 3D felt */
+  var swWrap = document.getElementById('swatches');
+  CLOTHS.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sw';
+    b.title = c.label;
+    b.setAttribute('aria-label', 'Table cloth: ' + c.label);
+    b.setAttribute('aria-pressed', 'false');
+    b.style.background = 'radial-gradient(circle at 32% 28%, ' + c.felt + ', ' + c.deep + ' 78%)';
+    b.addEventListener('click', function () { applyCloth(c); });
+    swWrap.appendChild(b);
+  });
+
+  /* ================= boot ================================= */
+  var saved = null;
+  try { saved = localStorage.getItem(CLOTH_KEY); } catch (e) { }
+  applyCloth(CLOTHS.filter(function (c) { return c.id === saved; })[0] || CLOTHS[0]);
+  syncZoomLabel();
+  fit();
+  startAnim();
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', fit);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+  startRound();
+
+})();
+</script>
+</body>
+</html>
