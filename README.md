@@ -7,6 +7,8 @@ No three.js, no CDN, no asset pipeline: every texture is drawn at runtime,
 every page is self-contained, and nothing here touches the live app — these
 are additive screens kept beside it for side-by-side comparison.
 
+**▶ Play it live: https://joaoalbuq.github.io/9993d/**
+
 *(workspace folder: `3dfullscreen/`)*
 
 ---
@@ -78,7 +80,15 @@ the pages fetch their own origin and the browser never enters CORS — no
 preflight, no `Access-Control-*` needed on any answer. The host injects
 `window.__HUB_BASE__` into the pages it serves so they know the route.
 
-## Quickstart
+## Play it
+
+**https://joaoalbuq.github.io/9993d/** — GitHub Pages, no install: the portal
+opens onto the sign-in and the 3D table. The table is fully playable there
+(deal, hit/stand/double, the camera director, all six cloths); sign-in needs
+a hub, so on the public host it degrades to the visible preview state by
+design.
+
+## Quickstart (with the hub)
 
 ```bash
 node poker/local-server.js    # the dev hub on :8899
