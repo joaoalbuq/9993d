@@ -373,6 +373,9 @@
       var timer = setTimeout(function () { ac.abort(); }, HUB_TIMEOUT_MS);
       var h = {};
       if (o.body !== undefined) h['content-type'] = 'application/json';
+      if (o.headers) for (var hk in o.headers) {
+        if (Object.prototype.hasOwnProperty.call(o.headers, hk)) h[hk] = o.headers[hk];
+      }
       if (o.auth) {
         var t = (o.auth === true) ? token : o.auth;
         if (t) h['authorization'] = 'Bearer ' + t;
@@ -416,6 +419,18 @@
           path += '&migrate=' + encodeURIComponent(Math.round(Number(o.migrate)));
         }
         return call('GET', path);
+      },
+      /* one settled round = one move (PRD 7.3: an idempotency-key is
+         mandatory and a replayed key must not double-pay). delta > 0
+         credits, delta < 0 debits; the hub answers { balanceAfter }. */
+      move: function (playerId, delta, reason, idemKey) {
+        var n = Math.round(Number(delta) || 0);
+        if (!n) return Promise.resolve({ ok: false, status: 0, body: {}, error: 'zero-delta' });
+        return call('POST', n < 0 ? '/wallet/debit' : '/wallet/credit', {
+          body: { playerId: playerId, delta: Math.abs(n), reason: reason || 'misc', roomId: null },
+          headers: { 'idempotency-key': idemKey || ('nonce:' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 10)) },
+          auth: true
+        });
       }
     };
   }
@@ -457,6 +472,19 @@
     who.setAttribute('href', 'login-16x9.html');
     who.removeAttribute('aria-label');
   }
+  /* the signed-in seat: who the hub verified, and a per-tab hand counter
+     so every settled round gets its OWN idempotency key — a reused key
+     would be swallowed as a replay and the hand would never pay.        */
+  var you = { sub: null, name: null, sid: null, hand: 0 };
+  try {
+    you.sid = sessionStorage.getItem('999.table.sid');
+    if (!you.sid) {
+      you.sid = Math.random().toString(36).slice(2, 10);
+      sessionStorage.setItem('999.table.sid', you.sid);
+    }
+    you.hand = parseInt(sessionStorage.getItem('999.table.hand') || '0', 10) || 0;
+  } catch (e) { you.sid = you.sid || Math.random().toString(36).slice(2, 10); }
+
   function loadWallet() {
     var rec = adoptedSession();
     var token = null;
@@ -466,11 +494,49 @@
     if (rec && rec.name) showWho(rec.name, null);    /* greet at once; the hub confirms below */
     hub.verify(token).then(function (r) {
       if (!r.ok) { showSignInLink(); return; }       /* a stale session goes back to the link */
+      you.sub = r.body.sub; you.name = r.body.name;
       showWho(r.body.name, null);
-      hub.wallet(r.body.sub).then(function (w) {
-        if (w.ok && typeof w.body.balance === 'number') showWho(r.body.name, w.body.balance);
-      });
+      refreshWallet();
     });
+  }
+  /* the pill always renders the hub's answer, never a number we kept. */
+  function refreshWallet() {
+    if (!you.sub) return Promise.resolve(null);
+    return hub.wallet(you.sub).then(function (w) {
+      if (w.ok && typeof w.body.balance === 'number') showWho(you.name, w.body.balance);
+      return w;
+    });
+  }
+
+  /* ================= the wallet tracks play ================
+     One settled round = one move on YOUR seat (PRD 7.3):
+     a win pays 1:1, a loss or bust costs the stake, a push
+     moves nothing. Unit bet 25 (DEFAULT_RULES); double
+     doubles the stake. Reasons follow the hub's ledger
+     conventions: bj_bet (a debit = play volume) and bj_prize. */
+  var UNIT_BET = 25;
+  function handNet(h) {
+    var stake = UNIT_BET * (h.doubled ? 2 : 1);
+    if (h.result === 'win') return stake;
+    if (h.result === 'lose' || h.result === 'bust') return -stake;
+    return 0;                                          /* a push returns the stake */
+  }
+  function settleWallet() {
+    if (!you.sub) return;                              /* nobody signed in — nothing to track */
+    var h = game.hands[YOUR];
+    if (!h || !h.result) return;
+    var net = handNet(h);
+    if (!net) { refreshWallet(); return; }             /* a push: unchanged, but never stale */
+    you.hand++;
+    try { sessionStorage.setItem('999.table.hand', String(you.hand)); } catch (e) { }
+    hub.move(you.sub, net, net < 0 ? 'bj_bet' : 'bj_prize',
+      'table:' + you.sub + ':' + you.sid + ':' + you.hand).then(function (r) {
+        if (r.ok && typeof r.body.balanceAfter === 'number') {
+          showWho(you.name, r.body.balanceAfter);      /* the hub's answer, not ours */
+        } else {
+          refreshWallet();                             /* 409/timeout: fall back to hub truth */
+        }
+      });
   }
 
   /* ================= GEOMETRY (spec constants) =============
@@ -1075,6 +1141,7 @@
       else h.result = 'lose';
     }
     setStatus('Round settles — the frame returns to the dealer');
+    settleWallet();   /* the pill tracks play: one wallet move per settled round */
     /* spec 4.4: a round ENDS on the dealer's hand — after the
        per-box payout walk the camera returns to the dealer,
        never parking on the last paid box.                       */

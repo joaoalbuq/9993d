@@ -33,7 +33,8 @@ are additive screens kept beside it for side-by-side comparison.
 - **The hub, one origin away** — `serve.js` serves the pages and proxies
   `/hub/*`, so sign-in is same-origin: no preflight, no CORS in the
   conversation at all. The signed-in **name and live wallet balance** follow
-  you to the table.
+  you to the table — and every settled round settles your seat against the
+  hub wallet (unit bet 25, double doubles), so the balance tracks play.
 - **Guest names are credentials** — unguessable handles (`Guest-` + 16
   random chars, ≈82 bits) replace the enumerable `Guest-NNNN` space;
   sessions verify against the hub, and existing handles are adopted from the
@@ -112,6 +113,10 @@ answers with CORS headers.
   back to the dealer.
 - **Sign-in, end to end** — mint → wallet → verify restore, same-origin with
   zero preflights, and a visible preview degrade when no hub answers.
+- **The wallet tracks play** — live-sampled rounds settle the seat against
+  the hub: win +25 `bj_prize`, lose/bust −25 `bj_bet` (doubled −50), a push
+  moves nothing but the pill; a replayed idempotency key returns the
+  original result and pays nothing.
 - **Clean pages** — `node --check` on every inline script, no console
   errors.
 
