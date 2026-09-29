@@ -21,9 +21,11 @@ are additive screens kept beside it for side-by-side comparison.
   backs off so the whole table still fits — it widens, never crops, and
   nothing is stretched to make it fit.
 - **The camera is a rule, not an interpolation** — while a box decides the
-  camera **holds** that box; the dealer's hand owns the frame while it
-  plays; a round **ends on the dealer's hand**; a table holding cards never
-  parks on the wide shot.
+  camera **holds** that box, tight on its cards and bet; the dealer's hand
+  owns the frame while it plays; a round **ends on the dealer's hand**; a
+  table holding cards never parks on the wide shot. Every shot fits its
+  subject (box stack, dealer fan, whole table) at any viewport — the camera
+  widens, never crops.
 - **Six real table cloths** — the palette set vendored verbatim from
   `999-bridge/src/theme.js`: felt, rail, accent and cloth-ink, with the two
   derived values computed by the bridge's own `shade()`. One choice paints

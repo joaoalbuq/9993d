@@ -1107,9 +1107,10 @@
     var aspect = VW / Math.max(VH, 1);
     dist *= clamp(1.15 / aspect, 1, 1.8);              /* widen, never crop */
     if (halfW) {
-      /* a TABLE shot fits the TABLE: with the real viewport aspect, narrow
-         screens back the camera off — the table never crops, and nothing is
-         stretched to make it fit (16:9 frame, 16:9 frustum). */
+      /* a shot fits its SUBJECT: with the real viewport aspect, narrow
+         screens back the camera off — the table (or the held box, or the
+         dealer's fan) never crops, and nothing is stretched to make it fit
+         (16:9 frame, 16:9 frustum). */
       dist = Math.max(dist, halfW / (Math.tan(CAM_FOV * Math.PI / 360) * Math.max(aspect, 0.2)));
     }
     dist *= zoomMul();                                 /* the user's zoom survives every shot */
@@ -1119,15 +1120,21 @@
 
   function desiredShot() {
     if (game.phase === 'dealer' || game.phase === 'settle') {
-      /* the dealer's hand owns the frame — and the round ends on it */
-      var p = pose([0, 0.05, DEALER_Z + 0.55], 4.15, 0);
+      /* the dealer's hand owns the frame — and the round ends on it.
+         halfW is the six-card fan (2.53) plus margin: the fan never crops,
+         whatever the viewport. */
+      var p = pose([0, 0.05, DEALER_Z + 0.55], 3.5, 0, 2.7);
       p.name = "The dealer's hand";
       return p;
     }
     if (game.phase === 'acting' && game.acting >= 0) {
-      /* while a box decides, hold THAT box */
+      /* while a box decides, hold THAT box — aim at the box itself and
+         come in close (2.95, not the old 4.55): with the frustum fixed a
+         wide hold left the box a sliver. halfW is the box's stack plus its
+         off-axis seat margin, so narrow frames back the camera off rather
+         than crop the cards. */
       var bx = boxX(game.acting);
-      var q = pose([bx * 0.62, 0.05, BOX_Z - 0.30], 4.55, -bx * 0.13);
+      var q = pose([bx * 0.62, 0.05, BOX_Z], 2.95, -bx * 0.13, Math.abs(bx) * 0.38 + 0.85);
       q.name = 'Holding seat ' + (game.acting + 1);
       return q;
     }
@@ -1183,6 +1190,13 @@
       if (!h || !h.cards.length) { el.style.opacity = 0; continue; }
       var p = project([boxX(i), 0.12, BOX_Z + 1.12]);
       if (!p) { el.style.opacity = 0; continue; }
+      /* a tight hold can push a total past the frame edge — a half-cut pill
+         helps no one: neighbours hide until they fit again, but the held
+         box's own total dodges inward and stays on screen */
+      if (p.x < 60 || p.x > VW - 60) {
+        if (i !== game.acting) { el.style.opacity = 0; continue; }
+        p.x = clamp(p.x, 60, VW - 60);
+      }
       el.style.opacity = 1;
       el.style.left = p.x + 'px';
       el.style.top = dodge(p.y) + 'px';
@@ -1195,6 +1209,7 @@
     if (!d.cards.length) { del.style.opacity = 0; return; }
     var dp = project([0, 0.12, DEALER_Z + 1.02]);
     if (!dp) { del.style.opacity = 0; return; }
+    if (dp.x < 60 || dp.x > VW - 60) { del.style.opacity = 0; return; }
     del.style.opacity = 1;
     del.style.left = dp.x + 'px';
     del.style.top = dodge(dp.y) + 'px';
