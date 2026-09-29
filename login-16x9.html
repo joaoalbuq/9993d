@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2b1d">
+<title>999 Casino — Enter the floor · fullscreen 16:9</title>
+<style>
+  /* ============================================================
+     login-16x9.html — the fullscreen 16:9 login, REVAMP PREVIEW.
+     Standalone and self-contained on purpose: it exists beside the
+     existing sign-in (poker/client/index.html) so both can be seen
+     live at once. Nothing here edits or replaces anything.
+
+     House rules kept from the revamp spec:
+       · zero runtime dependencies, no CDN, no asset pipeline
+       · safe-area insets on every interactive element
+       · no page scroll; the felt fills the viewport
+       · degrade visibly: a dead hub never blocks the screen
+     ============================================================ */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* one cloth record → felt, rail, accent and ink together */
+    --felt:  #1f6b45;
+    --deep:  #0b2b1d;
+    --rail:  #241a12;
+    --accent:#d8b56a;
+    --ink:   #f4ead2;   /* UI text — always on the dark glass panel */
+    --print: #f7f1e2;   /* the felt's printed ink — per-cloth contrast floor */
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--deep);
+    color: var(--ink);
+    font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #felt {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    z-index: 0;
+  }
+
+  /* ---------- the 16:9 stage -------------------------------- */
+  #stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1600px; height: 900px;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center;
+    font-size: 24px;
+    display: grid;
+    grid-template-columns: 1.08fr 0.92fr;
+    align-items: center;
+    gap: 3.5em;
+    padding: 0 5em 4em;
+    z-index: 1;
+  }
+
+  /* ---------- brand block ----------------------------------- */
+  .brand { max-width: 34em; }
+
+  .mark { display: flex; align-items: center; gap: 0.9em; }
+  .word {
+    font-size: 1.7em; font-weight: 800; letter-spacing: 0.08em;
+    color: var(--ink);
+  }
+  .word span { color: var(--accent); letter-spacing: 0.32em; font-weight: 600; }
+
+  .kicker {
+    margin-top: 1.6em;
+    font-size: 0.78em; font-weight: 700; letter-spacing: 0.42em;
+    color: color-mix(in srgb, var(--accent) 88%, white);
+    opacity: 0.92;
+  }
+  .brand h1 {
+    margin-top: 0.35em;
+    font-size: 3.1em; line-height: 1.02; font-weight: 800; letter-spacing: -0.015em;
+    text-shadow: 0 0.12em 0.7em rgba(0,0,0,.45);
+  }
+  .lede {
+    margin-top: 0.8em;
+    font-size: 1.02em; line-height: 1.55;
+    color: color-mix(in srgb, var(--ink) 78%, transparent);
+    max-width: 26em;
+  }
+
+  .specs {
+    margin-top: 1.9em; list-style: none;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em 1.6em;
+  }
+  .specs li {
+    border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    padding-left: 0.85em;
+  }
+  .specs b { display: block; font-size: 1.02em; letter-spacing: 0.14em; color: var(--ink); }
+  .specs span { display: block; margin-top: 0.15em; font-size: 0.72em; letter-spacing: 0.05em;
+    color: color-mix(in srgb, var(--ink) 62%, transparent); }
+
+  .cloth { margin-top: 2.1em; display: flex; align-items: center; gap: 1em; }
+  .cloth-label { font-size: 0.72em; letter-spacing: 0.32em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 60%, transparent); }
+  .swatches { display: flex; gap: 0.55em; }
+  .sw {
+    width: 2.1em; height: 2.1em; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.25);
+    cursor: pointer; padding: 0;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+  .sw:hover { transform: translateY(-2px); }
+  .sw[aria-pressed="true"] {
+    box-shadow: 0 0 0 2px var(--deep), 0 0 0 4px var(--accent);
+  }
+
+  /* ---------- the sign-in panel (HUD over the felt) ---------- */
+  .panel {
+    width: 30em; max-width: 100%;
+    justify-self: end;
+    background: rgba(5, 14, 10, 0.58);
+    backdrop-filter: blur(22px) saturate(1.12);
+    -webkit-backdrop-filter: blur(22px) saturate(1.12);
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    border-radius: 1.7em;
+    box-shadow: 0 3em 8em rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12);
+    padding: 2.3em;
+    user-select: none;
+  }
+
+  .eyebrow { font-size: 0.68em; font-weight: 700; letter-spacing: 0.4em;
+    color: color-mix(in srgb, var(--accent) 90%, white); }
+  .panel h2 { margin-top: 0.35em; font-size: 1.9em; letter-spacing: -0.01em; }
+  .sub { margin-top: 0.7em; font-size: 0.86em; line-height: 1.6;
+    color: color-mix(in srgb, var(--ink) 72%, transparent); }
+
+  form { margin-top: 1.6em; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  input {
+    width: 100%; height: 3.4em;
+    border-radius: 1em; border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.07);
+    color: var(--ink); font-size: 1.02em; font-family: inherit;
+    padding: 0 1.15em;
+    touch-action: manipulation;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  input::placeholder { color: color-mix(in srgb, var(--ink) 48%, transparent); }
+  input:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+    background: rgba(255,255,255,0.1); }
+
+  button.primary, a.primary {
+    display: block; width: 100%; height: 3.4em; margin-top: 0.9em;
+    border: none; border-radius: 1em;
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 88%, white),
+      color-mix(in srgb, var(--accent) 78%, black));
+    color: #171006; font-size: 1.04em; font-weight: 700; letter-spacing: 0.03em;
+    font-family: inherit;
+    cursor: pointer; text-align: center; line-height: 3.4em; text-decoration: none;
+    touch-action: manipulation;
+    transition: transform .14s ease, filter .14s ease;
+  }
+  button.primary:hover, a.primary:hover { filter: brightness(1.05); }
+  button.primary:active, a.primary:active { transform: translateY(1px) scale(0.99); }
+  button.primary[disabled] { opacity: 0.6; cursor: default; }
+
+  .hint { margin-top: 1.15em; font-size: 0.78em; line-height: 1.5;
+    color: color-mix(in srgb, var(--ink) 58%, transparent); }
+  button.link {
+    border: none; background: none; padding: 0; cursor: pointer;
+    color: var(--accent); font: inherit; text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .err { margin-top: 0.9em; min-height: 1.2em; font-size: 0.8em; line-height: 1.45;
+    color: #ffb4a8; }
+  .err.ok { color: #a9e6c3; }
+
+  .done { margin-top: 1.2em; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.55em; margin-top: 1.15em; }
+  .chip {
+    font-size: 0.74em; letter-spacing: 0.06em;
+    padding: 0.5em 0.9em; border-radius: 0.8em;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+    color: color-mix(in srgb, var(--ink) 82%, transparent);
+  }
+  .chip.warn { border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--accent); }
+  button.link.alone { display: inline-block; margin-top: 1.15em; font-size: 0.82em; }
+
+  .hubline {
+    margin-top: 1.7em; padding-top: 1.1em;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; gap: 0.6em;
+    font-size: 0.68em; letter-spacing: 0.12em;
+    color: color-mix(in srgb, var(--ink) 46%, transparent);
+  }
+  .dot { width: 0.65em; height: 0.65em; border-radius: 50%; background: #d8b56a; flex: none; }
+  .dot.live { background: #55d98b; }
+  .dot.dead { background: #e0705f; }
+
+  /* ---------- footer strip ---------------------------------- */
+  .strip {
+    position: absolute; left: 5em; right: 5em; bottom: 1.6em;
+    display: flex; justify-content: space-between; gap: 1em;
+    font-size: 0.68em; letter-spacing: 0.18em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 44%, transparent);
+    border-top: 1px solid rgba(255,255,255,0.09);
+    padding-top: 1em;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+  /* ---------- compact: phone landscape (short viewport) ------ */
+  body.compact #stage {
+    inset: 0; left: 0; top: 0; width: auto; height: 100dvh; transform: none;
+    font-size: clamp(11px, 2.7vh, 15px);
+    grid-template-columns: 1fr 1fr;
+    gap: 2.2em;
+    padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  }
+  body.compact .lede, body.compact .specs { display: none; }
+  body.compact .brand h1 { font-size: 2.5em; }
+  body.compact .cloth { margin-top: 1.2em; }
+  body.compact .panel { padding: 1.7em; }
+  body.compact .strip { position: static; margin-top: 0.6em; }
+  body.compact .strip span:last-child { display: none; }
+
+  /* ---------- stacked: portrait (phone / iPad upright) ------- */
+  body.stacked #stage {
+    inset: 0; left: 0; top: 0; width: auto; height: 100dvh; transform: none;
+    font-size: clamp(14px, 4.1vw, 20px);
+    display: flex; flex-direction: column; justify-content: safe center; justify-content: center;
+    gap: 1.15em;
+    padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+             max(14px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+  body.stacked .brand { max-width: none; }
+  body.stacked .kicker { margin-top: 1em; font-size: 0.72em; }
+  body.stacked .brand h1 { font-size: 2.15em; margin-top: 0.18em; }
+  body.stacked .lede { display: none; }
+  body.stacked .specs { margin-top: 1.1em; grid-template-columns: repeat(4, auto); gap: 0.5em 1.2em; }
+  body.stacked .specs li { padding-left: 0.6em; }
+  body.stacked .specs b { font-size: 0.92em; }
+  body.stacked .specs span { display: none; }
+  body.stacked .cloth { margin-top: 1em; gap: 0.7em; }
+  body.stacked .cloth-label { white-space: nowrap; letter-spacing: 0.22em; font-size: 0.64em; }
+  body.stacked .panel { width: 100%; max-width: 32em; justify-self: center; align-self: center; padding: 1.55em; }
+  body.stacked .panel h2 { font-size: 1.6em; }
+  body.stacked .sub { margin-top: 0.5em; }
+  body.stacked form { margin-top: 1.2em; }
+  body.stacked .hubline { margin-top: 1.2em; padding-top: 0.85em; }
+  body.stacked .strip { position: static; padding-top: 0.7em; font-size: 0.62em; }
+  body.stacked .strip span:last-child { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="felt" aria-hidden="true"></canvas>
+
+<div id="stage">
+
+  <header class="brand">
+    <div class="mark">
+      <div class="word">999 <span>CASINO</span></div>
+    </div>
+    <p class="kicker">BLACKJACK · THE FULL TABLE</p>
+    <h1>The floor is open.</h1>
+    <p class="lede">A fullscreen 3D table — six boxes, one dealer, and one wallet shared
+      across every game. Sign in once; the hub keeps the chips.</p>
+
+    <ul class="specs">
+      <li><b>6 DECKS</b><span>75% penetration · manual shuffle</span></li>
+      <li><b>S17</b><span>dealer stands on all 17</span></li>
+      <li><b>3 : 2</b><span>blackjack pays</span></li>
+      <li><b>DAS</b><span>double any two · late surrender</span></li>
+    </ul>
+
+    <div class="cloth">
+      <span class="cloth-label">Table cloth</span>
+      <div class="swatches" id="swatches" role="group" aria-label="Table cloth palette"></div>
+    </div>
+  </header>
+
+  <section class="panel" id="panel">
+    <form id="form" novalidate>
+      <p class="eyebrow">MEMBERS &amp; GUESTS</p>
+      <h2>Sign in</h2>
+      <p class="sub">The hub mints your session and opens your wallet — shared with the
+        blackjack floor. Guests: just press Enter.</p>
+
+      <label class="vh" for="name">Your name</label>
+      <input id="name" name="name" maxlength="24" autocomplete="off" autocapitalize="words"
+             spellcheck="false" enterkeyhint="go" placeholder="Your name (or your Guest name)">
+
+      <button class="primary" id="enter" type="submit"><span id="enterLbl">Enter the floor</span></button>
+
+      <p class="hint">No account? <button type="button" class="link" id="guest">Play as a guest</button>
+        — the hub issues a guest handle.</p>
+      <p class="err" id="err" role="status" aria-live="polite"></p>
+    </form>
+
+    <div class="done" id="done" hidden>
+      <p class="eyebrow" id="doneEyebrow">SESSION MINTED</p>
+      <h2 id="doneTitle">Welcome</h2>
+      <p class="sub" id="doneSub">The hub opened your wallet.</p>
+      <div class="chip-row">
+        <span class="chip" id="chipSub">u-…</span>
+        <span class="chip" id="chipWallet">chips —</span>
+        <span class="chip warn" id="chipPreview" hidden>PREVIEW · nothing minted</span>
+      </div>
+      <a class="primary" id="goLobby" href="#">Continue to the floor</a>
+      <button class="link alone" type="button" id="again">Use another name</button>
+      <p class="err" id="doneNote"></p>
+    </div>
+
+    <p class="hubline"><span class="dot" id="hubDot"></span><span id="hubTxt">HUB —</span></p>
+  </section>
+
+  <footer class="strip">
+    <span>999 Casino · play-money social casino</span>
+    <span>fullscreen 16:9 · revamp preview</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= cloth palettes =========================
+     One record paints felt, rail, accent and ink together — the
+     same rule as the revamp spec (§4.2). Values are stand-ins for
+     999-bridge/src/theme.js until that repo is wired in.        */
+  var CLOTHS = [
+    { id: 'classic-house', label: 'Classic house', felt: '#1f6b45', deep: '#0b2b1d', rail: '#241a12', accent: '#d8b56a', ink: '#f4ead2', print: '#f7f1e2' },
+    { id: 'platinum',      label: 'Platinum',      felt: '#8b95a1', deep: '#2b323b', rail: '#1b2027', accent: '#e8edf4', ink: '#eef2f7', print: '#141a22' },
+    { id: 'ocean',         label: 'Ocean',         felt: '#145a70', deep: '#072a36', rail: '#0e2b33', accent: '#6fd6d2', ink: '#e6f6f6', print: '#eafcfa' },
+    { id: 'felt-noir',     label: 'Felt noir',     felt: '#26272b', deep: '#0c0c0f', rail: '#141418', accent: '#c8a24c', ink: '#eae6dd', print: '#f2ede2' },
+    { id: 'amethyst',      label: 'Amethyst',      felt: '#4b2a72', deep: '#221237', rail: '#2c1a44', accent: '#c9a6ff', ink: '#f1e9ff', print: '#f6efff' },
+    { id: 'black-gold',    label: 'Black gold',    felt: '#17110a', deep: '#080604', rail: '#241a0c', accent: '#e4c169', ink: '#f5e6c4', print: '#f8eccc' }
+  ];
+  var CLOTH_KEY = '999.login.cloth.v1';
+  var GUEST_KEY = 'royale.guestname.v1';       // the existing shared guest handle key
+  var IDENTITY_KEY = 'royale.identity.v1';     // the existing BJ-bridge identity shape
+
+  var root = document.documentElement;
+  var themeMeta = document.querySelector('meta[name=theme-color]');
+  var current = CLOTHS[0];
+
+  function hexRgb(hex) {
+    var h = hex.replace('#', '');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function rgba(hex, a) { var c = hexRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+
+  function applyCloth(c) {
+    current = c;
+    root.style.setProperty('--felt', c.felt);
+    root.style.setProperty('--deep', c.deep);
+    root.style.setProperty('--rail', c.rail);
+    root.style.setProperty('--accent', c.accent);
+    root.style.setProperty('--ink', c.ink);
+    root.style.setProperty('--print', c.print);
+    if (themeMeta) themeMeta.setAttribute('content', c.deep);
+    var sw = document.querySelectorAll('.sw');
+    for (var i = 0; i < sw.length; i++) sw[i].setAttribute('aria-pressed', String(CLOTHS[i] === c));
+    try { localStorage.setItem(CLOTH_KEY, c.id); } catch (e) { }
+    paintStatic();
+    if (!animOn) frame(0);
+  }
+
+  /* ================= the felt canvas ========================
+     Full-viewport, drawn once per resize/cloth (offscreen), with
+     one drifting light pool composited per frame. Pixel ratio is
+     capped at 2 — the biggest cost on a phone is the fill rate.   */
+  var cv = document.getElementById('felt');
+  var ctx = cv.getContext('2d');
+  var off = document.createElement('canvas');
+  var octx = off.getContext('2d');
+  var noise = (function () {
+    var c = document.createElement('canvas'); c.width = c.height = 192;
+    var x = c.getContext('2d'), img = x.createImageData(192, 192);
+    for (var i = 0; i < img.data.length; i += 4) {
+      var v = 128 + (Math.random() * 2 - 1) * 26;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 26;
+    }
+    x.putImageData(img, 0, 0);
+    return c;
+  })();
+
+  var W = 0, H = 0, DPR = 1;
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fitCanvas() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    paintStatic();
+    if (!animOn) frame(0);
+  }
+
+  function paintStatic() {
+    off.width = Math.round(W * DPR); off.height = Math.round(H * DPR);
+    octx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    /* cloth base */
+    var g = octx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, current.deep);
+    g.addColorStop(0.45, current.felt);
+    g.addColorStop(1, current.deep);
+    octx.fillStyle = g;
+    octx.fillRect(0, 0, W, H);
+
+    /* weave noise */
+    var pat = octx.createPattern(noise, 'repeat');
+    octx.globalCompositeOperation = 'overlay';
+    octx.fillStyle = pat;
+    octx.fillRect(0, 0, W, H);
+    octx.globalCompositeOperation = 'source-over';
+
+    /* the light pool */
+    var lp = octx.createRadialGradient(W * 0.5, H * 0.44, 0, W * 0.5, H * 0.44, Math.max(W, H) * 0.62);
+    lp.addColorStop(0, rgba(current.accent, 0.10));
+    lp.addColorStop(1, rgba(current.accent, 0));
+    octx.fillStyle = lp;
+    octx.fillRect(0, 0, W, H);
+
+    /* vignette — the room falls away at the edges */
+    var vg = octx.createRadialGradient(W * 0.5, H * 0.46, Math.min(W, H) * 0.22, W * 0.5, H * 0.46, Math.max(W, H) * 0.78);
+    vg.addColorStop(0, rgba(current.deep, 0));
+    vg.addColorStop(1, rgba(current.deep, 0.85));
+    octx.fillStyle = vg;
+    octx.fillRect(0, 0, W, H);
+
+    /* the felt's printed identity */
+    var s = Math.min(W, H);
+    octx.save();
+    octx.textAlign = 'center';
+    octx.textBaseline = 'middle';
+    try { octx.letterSpacing = '0.34em'; } catch (e) { }
+
+    /* betting arc */
+    octx.strokeStyle = rgba(current.print, 0.13);
+    octx.lineWidth = Math.max(1.5, s * 0.0032);
+    octx.beginPath();
+    octx.ellipse(W * 0.5, H * 0.74, W * 0.44, H * 0.24, 0, Math.PI * 1.06, Math.PI * 1.94);
+    octx.stroke();
+
+    octx.fillStyle = rgba(current.print, 0.17);
+    octx.font = '700 ' + Math.round(s * 0.055) + 'px ' + '-apple-system, "Segoe UI", Roboto, sans-serif';
+    octx.fillText('BLACKJACK', W * 0.5, H * 0.72);
+
+    try { octx.letterSpacing = '0.22em'; } catch (e) { }
+    octx.fillStyle = rgba(current.print, 0.11);
+    octx.font = '600 ' + Math.round(s * 0.021) + 'px ' + '-apple-system, "Segoe UI", Roboto, sans-serif';
+    octx.fillText('DEALER MUST DRAW ALL 17', W * 0.5, H * 0.72 + s * 0.068);
+
+    try { octx.letterSpacing = '0.28em'; } catch (e) { }
+    octx.fillStyle = rgba(current.print, 0.12);
+    octx.font = '700 ' + Math.round(s * 0.03) + 'px ' + '-apple-system, "Segoe UI", Roboto, sans-serif';
+    octx.fillText('3 : 2', W * 0.5 - s * 0.3, H * 0.86);
+    octx.fillText('999', W * 0.5 + s * 0.3, H * 0.86);
+
+    octx.restore();
+  }
+
+  /* one light pool, drifting slowly — paused when hidden */
+  var animOn = false, rafId = 0, lastTs = 0;
+  function frame(ts) {
+    if (ts - lastTs < 33) { if (animOn) rafId = requestAnimationFrame(frame); return; } /* ~30fps */
+    lastTs = ts;
+    ctx.drawImage(off, 0, 0, W, H);
+    var t = ts / 1000;
+    var cx = W * (0.5 + Math.sin(t * 0.12) * 0.02);
+    var cy = H * (0.44 + Math.cos(t * 0.09) * 0.015);
+    var a = 0.09 + Math.sin(t * 0.25) * 0.018;
+    var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.6);
+    g.addColorStop(0, rgba(current.accent, a));
+    g.addColorStop(1, rgba(current.accent, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    if (animOn) rafId = requestAnimationFrame(frame);
+  }
+  function startAnim() {
+    if (reduceMotion || animOn) return;
+    animOn = true;
+    rafId = requestAnimationFrame(frame);
+  }
+  function stopAnim() { animOn = false; if (rafId) cancelAnimationFrame(rafId); }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) stopAnim(); else startAnim();
+  });
+
+  /* ================= the 16:9 stage fit =====================
+     Wide viewports: the 1600×900 stage scaled to fit (the cinematic
+     letterbox; the felt fills the screen behind it). Short landscape
+     (phone in hand) and portrait get full-viewport arrangements.   */
+  var stage = document.getElementById('stage');
+  function fit() {
+    var vv = window.visualViewport;
+    var w = (vv && vv.width) || window.innerWidth;
+    var h = (vv && vv.height) || window.innerHeight;
+    var portrait = w / h < 1;
+    var compact = !portrait && h < 520;
+
+    document.body.classList.toggle('stacked', portrait);
+    document.body.classList.toggle('compact', compact);
+
+    if (portrait || compact) {
+      stage.style.transform = 'none';
+      stage.style.height = h + 'px';      /* a mobile keyboard must not crop the panel */
+    } else {
+      stage.style.height = '';
+      var s = Math.min(w / 1600, h / 900);
+      stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+    }
+  }
+
+  /* ================= hub transport ==========================
+     Same contract as poker/client/hub.js:
+       POST /session {name}          -> {token, sub, name, locked}
+       POST /session/verify {token}  -> {sub, name, locked}
+       GET  /wallet?player=<sub>
+     No content-type header is sent so the request stays CORS-simple;
+     the hub parses the raw body either way. A dead hub degrades to a
+     visible preview state — it never blocks the screen (spec §9.3).   */
+  function hubBase() {
+    var q = new URLSearchParams(location.search).get('hub');
+    if (q) return q.replace(/\/+$/, '');
+    if (location.port === '8899') return '/hub';           /* served by the dev host */
+    return 'http://localhost:8899/hub';
+  }
+  var BASE = hubBase();
+
+  function post(path, body) {
+    var ctl = new AbortController();
+    var timer = setTimeout(function () { ctl.abort(); }, 3500);
+    return fetch(BASE + path, {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+      signal: ctl.signal
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        return { ok: r.ok, status: r.status, body: b };
+      });
+    }).catch(function () {
+      return { ok: false, status: 0, body: { error: 'hub unreachable' } };
+    }).then(function (v) { clearTimeout(timer); return v; });
+  }
+  function get(path) {
+    var ctl = new AbortController();
+    var timer = setTimeout(function () { ctl.abort(); }, 3500);
+    return fetch(BASE + path, { signal: ctl.signal })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+      .catch(function () { return { ok: false, body: {} }; })
+      .then(function (v) { clearTimeout(timer); return v; });
+  }
+
+  /* the guest handle follows the existing bridge's shape and key */
+  function guestName() {
+    var n = null;
+    try { n = localStorage.getItem(GUEST_KEY); } catch (e) { }
+    if (n) return n;
+    n = 'Guest-' + Math.floor(1000 + Math.random() * 9000);
+    try { localStorage.setItem(GUEST_KEY, n); } catch (e) { }
+    return n;
+  }
+  function slug(name) {
+    return String(name).toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 24);
+  }
+
+  /* ================= sign-in flow =========================== */
+  var form = document.getElementById('form');
+  var input = document.getElementById('name');
+  var enterBtn = document.getElementById('enter');
+  var enterLbl = document.getElementById('enterLbl');
+  var err = document.getElementById('err');
+  var done = document.getElementById('done');
+  var hubDot = document.getElementById('hubDot');
+  var hubTxt = document.getElementById('hubTxt');
+
+  function setHub(state, txt) {
+    hubDot.className = 'dot' + (state ? ' ' + state : '');
+    hubTxt.textContent = txt;
+  }
+
+  function showDone(o) {
+    form.hidden = true;
+    done.hidden = false;
+    document.getElementById('doneEyebrow').textContent = o.preview ? 'PREVIEW MODE' : 'SESSION MINTED';
+    document.getElementById('doneTitle').textContent = o.title;
+    document.getElementById('doneSub').textContent = o.sub;
+    document.getElementById('chipSub').textContent = o.subChip;
+    document.getElementById('chipWallet').textContent = o.wallet;
+    document.getElementById('chipWallet').hidden = !o.wallet;
+    document.getElementById('chipPreview').hidden = !o.preview;
+    document.getElementById('doneNote').textContent = o.note || '';
+    document.getElementById('doneNote').className = 'err' + (o.preview ? '' : ' ok');
+    var go = document.getElementById('goLobby');
+    go.href = o.lobbyHref;
+    if (o.locked) {
+      document.getElementById('doneNote').textContent =
+        'This account is under a responsible-play lock.';
+    }
+  }
+
+  function signIn(name) {
+    enterBtn.disabled = true;
+    enterLbl.textContent = 'Minting your session…';
+    err.textContent = '';
+    err.className = 'err';
+
+    post('/session', { name: name }).then(function (r) {
+      enterBtn.disabled = false;
+      enterLbl.textContent = 'Enter the floor';
+
+      if (r.ok) {
+        setHub('live', 'HUB LIVE — ' + BASE);
+        try { sessionStorage.setItem('poker.token', r.body.token); } catch (e) { }
+        try { localStorage.setItem(IDENTITY_KEY, JSON.stringify({ sub: r.body.sub, token: r.body.token, name: r.body.name })); } catch (e) { }
+        var lobbyHref = BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(r.body.name);
+        showDone({
+          title: 'Welcome, ' + r.body.name,
+          sub: 'The hub minted your session and opened your wallet — shared with the blackjack floor.',
+          subChip: r.body.sub,
+          wallet: 'chips —',
+          lobbyHref: lobbyHref,
+          locked: r.body.locked
+        });
+        get('/wallet?player=' + encodeURIComponent(r.body.sub)).then(function (w) {
+          if (w.ok && typeof w.body.balance === 'number') {
+            document.getElementById('chipWallet').textContent =
+              w.body.balance.toLocaleString('en-US') + ' chips';
+          }
+        });
+        return;
+      }
+
+      if (r.status === 400 || r.status === 401) {
+        /* the hub answered — surface its exact refusal */
+        err.textContent = r.body.error || ('HTTP ' + r.status);
+        setHub('live', 'HUB LIVE — ' + BASE);
+        return;
+      }
+
+      /* hub unreachable from this preview: degrade visibly, stay usable */
+      setHub('dead', 'HUB UNREACHABLE — ' + BASE);
+      showDone({
+        preview: true,
+        title: 'Preview sign-in, ' + name,
+        sub: 'The hub did not answer from this preview, so nothing was minted. ' +
+             'The full flow runs the moment the hub is reachable.',
+        subChip: 'u-' + slug(name),
+        wallet: '',
+        lobbyHref: BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(name),
+        note: 'Hub not reachable from this preview — a dev hub on localhost answers without ' +
+          'CORS headers for this origin. Opened from the app origin, the same click mints a real ' +
+          'session. Override with ?hub=<url>.',
+      });
+    });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = input.value.trim();
+    if (!name) {
+      name = guestName();
+      input.value = name;
+    }
+    signIn(name);
+  });
+
+  document.getElementById('guest').addEventListener('click', function () {
+    var name = guestName();
+    input.value = name;
+    signIn(name);
+  });
+
+  document.getElementById('again').addEventListener('click', function () {
+    done.hidden = true;
+    form.hidden = false;
+    input.focus();
+    input.select();
+  });
+
+  /* keep the panel in view when a mobile keyboard opens */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function () {
+      fit();
+      if (document.activeElement === input) {
+        document.getElementById('panel').scrollIntoView({ block: 'center' });
+      }
+    });
+  }
+
+  /* ================= cloth swatches ========================= */
+  var swWrap = document.getElementById('swatches');
+  CLOTHS.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sw';
+    b.title = c.label;
+    b.setAttribute('aria-label', 'Table cloth: ' + c.label);
+    b.setAttribute('aria-pressed', 'false');
+    b.style.background = 'radial-gradient(circle at 32% 28%, ' + c.felt + ', ' + c.deep + ' 78%)';
+    b.addEventListener('click', function () { applyCloth(c); });
+    swWrap.appendChild(b);
+  });
+
+  /* ================= boot ================================== */
+  var saved = null;
+  try { saved = localStorage.getItem(CLOTH_KEY); } catch (e) { }
+  var initial = CLOTHS.filter(function (c) { return c.id === saved; })[0] || CLOTHS[0];
+  applyCloth(initial);
+  fitCanvas();
+  fit();
+  startAnim();
+  window.addEventListener('resize', function () { fitCanvas(); fit(); });
+  window.addEventListener('orientationchange', function () { fitCanvas(); fit(); });
+
+  try {
+    var pre = localStorage.getItem(GUEST_KEY);
+    if (pre) input.value = pre;
+  } catch (e) { }
+
+  /* a session minted earlier restores as "welcome back" */
+  var token = null;
+  try { token = sessionStorage.getItem('poker.token'); } catch (e) { }
+  if (token) {
+    setHub('', 'HUB — CHECKING SESSION…');
+    post('/session/verify', { token: token }).then(function (r) {
+      if (r.ok) {
+        setHub('live', 'HUB LIVE — ' + BASE);
+        showDone({
+          title: 'Welcome back, ' + r.body.name,
+          sub: 'Your session is still warm — the wallet follows you across the floor.',
+          subChip: r.body.sub,
+          wallet: '',
+          lobbyHref: BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(r.body.name),
+          locked: r.body.locked
+        });
+      } else {
+        setHub(r.status ? 'live' : 'dead', r.status ? ('HUB LIVE — ' + BASE) : ('HUB UNREACHABLE — ' + BASE));
+      }
+    });
+  } else {
+    setHub('', 'HUB — ' + BASE);
+  }
+})();
+</script>
+</body>
+</html>
