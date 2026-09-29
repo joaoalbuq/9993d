@@ -1,117 +1,119 @@
-# 3dfullscreen — 999 Casino, the fullscreen 16:9 build
+# 9993d — 999 Casino · the fullscreen 16:9 build
 
-The side-by-side build of the **full 3D fullscreen revamp**: new screens that
-coexist with the live app so both can be compared at once. Nothing existing is
-modified — every screen here is an additive, self-contained page.
+**The table is the screen.** One cloth, one dealer, six boxes, and a camera
+that holds whoever is deciding — a full 3D blackjack table rendered live in
+raw WebGL, with a fullscreen sign-in in the same presentation language.
+No three.js, no CDN, no asset pipeline: every texture is drawn at runtime,
+every page is self-contained, and nothing here touches the live app — these
+are additive screens kept beside it for side-by-side comparison.
 
-## What's in here
+*(workspace folder: `3dfullscreen/`)*
 
-### `login-16x9.html` — the fullscreen 16:9 sign-in
+---
 
-A different login page in the revamp's presentation language, kept beside the
-existing sign-in (`poker/client/index.html` on the dev hub) for live comparison.
+## Highlights
 
-- **Fullscreen, three arrangements** — a 16:9 stage letterboxed to fit on
-  desktop and iPad landscape, a compact two-column layout on phone landscape,
-  and a stacked portrait layout that fits a phone with no scroll. Safe-area
-  insets everywhere; `visualViewport` keeps the panel above the mobile keyboard.
-- **Six table cloths, the real ones** — `classic-house`, `platinum`, `ocean`,
-  `felt-noir`, `amethyst`, `black-gold`, vendored verbatim from
-  `999-bridge/src/theme.js` (commit `5185558`). One palette record paints felt,
-  accent, ink and the felt's printed ink together (the revamp's "one record,
-  three consumers" rule). Ids are load-bearing — they travel in `?theme=<id>`
-  and in saved choices — add, never rename. The two extra values this page
-  wears (`deep`, the room behind the glass; UI `ink`) are derived with the
-  bridge's own `shade()`, never hand-picked. The choice persists under
-  `maison21.theme` (what `maison-21/src/theme.ts` reads) with the legacy
-  `999.login.cloth.v1` key adopted and kept in sync.
+- **A table fitted to the frame** — a 16:9 screen gets a 16:9 frustum: the
+  felt spans the viewport edge to edge, undistorted, every box in frame
+  (measured at 1280×720 and 1920×1080). On a phone portrait the camera
+  backs off so the whole table still fits — it widens, never crops, and
+  nothing is stretched to make it fit.
+- **The camera is a rule, not an interpolation** — while a box decides the
+  camera **holds** that box; the dealer's hand owns the frame while it
+  plays; a round **ends on the dealer's hand**; a table holding cards never
+  parks on the wide shot.
+- **Six real table cloths** — the palette set vendored verbatim from
+  `999-bridge/src/theme.js`: felt, rail, accent and cloth-ink, with the two
+  derived values computed by the bridge's own `shade()`. One choice paints
+  the 2D felt, the 3D cloth and the HUD together, and travels in `?theme=<id>`.
+- **The hub, one origin away** — `serve.js` serves the pages and proxies
+  `/hub/*`, so sign-in is same-origin: no preflight, no CORS in the
+  conversation at all. The signed-in **name and live wallet balance** follow
+  you to the table.
+- **Guest names are credentials** — unguessable handles (`Guest-` + 16
+  random chars, ≈82 bits) replace the enumerable `Guest-NNNN` space;
+  sessions verify against the hub, and existing handles are adopted from the
+  legacy keys so every wallet keeps its sub.
+
+## The screens
+
+### `login-16x9.html` — the fullscreen sign-in
+
+- **Fullscreen, three arrangements** — a 16:9 stage that fills a 16:9 screen
+  exactly, a compact two-column layout on phone landscape, and a stacked
+  portrait layout that fits a phone with no scroll. Safe-area insets
+  everywhere; `visualViewport` keeps the panel above the mobile keyboard.
 - **The felt is the screen** — procedural canvas: weave noise, light pool,
   vignette, and the printed identity (`BLACKJACK`, `DEALER MUST DRAW ALL 17`,
-  `3 : 2`, `999`). No assets, no CDN. Pixel ratio capped at 2; the light drift
-  pauses when the tab is hidden and collapses under `prefers-reduced-motion`.
+  `3 : 2`, `999`). Pixel ratio capped at 2; the light drift pauses when the
+  tab is hidden and collapses under `prefers-reduced-motion`.
 - **The hub's real client, vendored** — `makeHubClient` from
-  `999-bridge/src/hub-client.js` (commit `5185558`): `POST /session {name}`
-  mints `{token, sub, name, locked}`, `POST /session/verify` restores a warm
-  session, `GET /wallet` opens the balance. The never-throws contract is kept
-  exactly — every call returns `{ok, status, body, error}` and an unreachable
-  hub degrades to a visible preview state, never a blank or blocked screen.
-  "Continue to the floor" hands off to the existing lobby via its `?as=`
-  deep-link.
-- **Guest names are credentials** — vendored from `999-bridge/src/identity.js`
-  (commit `5185558`): a guest handle is minted **unguessable**
-  (`Guest-` + 16 random base36 chars ≈ 82 bits) replacing the enumerable
-  `Guest-NNNN` space. Existing handles are **adopted, never reset** — new
-  `999.*.v1` keys first, then the legacy `royale.*` keys — so every wallet a
-  player already has keeps its sub, and the session mirrors to
-  `sessionStorage['poker.token']` for the live app.
+  `999-bridge/src/hub-client.js`: `session` mints, `verify` restores a warm
+  session, `wallet` opens the balance. The never-throws contract is kept
+  exactly — an unreachable hub degrades to a visible preview state, never a
+  blank or blocked screen.
 
-### `table-16x9.html` — the fullscreen 16:9 table (the screen behind the login)
+### `table-16x9.html` — the 3D table (the screen behind the login)
 
-A felt-filling **3D stage in raw WebGL** — no three.js, no CDN, no asset
-pipeline; every texture (felt weave, card faces, backs, chips, the next-to-play
-ring) is drawn in a canvas at runtime. The table owns the whole viewport.
-
-- **The camera director is a rule, not an interpolation** (spec §4.4),
-  verified live: while a box decides the camera **holds that box** with the
-  pulsing "next to play" ring on the cloth; during the dealer's play the
-  **dealer's hand owns the frame**; a round **ends on the dealer's hand** (the
-  frame returns to the dealer after the payout walk, never the last paid box);
-  and a table holding cards **never parks on the wide establishing shot** —
-  during the deal the shot is the cards, not the room. Camera `CAM_PITCH = 1.0`,
-  `CAM_FOV = 48` — and the frustum matches the frame's ratio, so a fullscreen
-  16:9 screen gets a 16:9 frustum: the table fits it exactly, undistorted and
-  edge to edge (verified at 1280×720 and 1920×1080 — every felt corner in
-  frame, both outer boxes included). The table shots carry a width-fit floor,
-  so even a phone portrait shows the whole table (the camera backs off) and
-  nothing is ever stretched to make it fit. The zoom control's label reflects
-  the next action and user zoom survives every shot change.
-- **The hand layout is the readable-table rule** (spec §4.3): each hand stacks
-  vertically from its first card — **one card of cloth wide** — and each card
-  after the first lifts `STACK_LIFT = 0.135` of its length so the visible band
-  is its **top strip, where the rank prints**. The lift and the corner index
-  are one decision: the index draws at y = 16 on a 448px face at
-  `FACE_INDEX_PX = 62`, so its ink fits the `STACK_MIN = 0.132` strip. A ten
-  prints **"10"**, never "T". The dealer keeps a **sideways fan** pitched
-  `0.86` world apart (> one card width `0.749`) — no coincident quads, no
-  flicker. Totals print **below** each hand and dodge clear of the thumb bar.
-- **Six boxes, one dealer hand, a shoe, and the chip tray** — the deal order is
-  the spec's European ceremony: one card to each box 1…6, one to the dealer,
-  a second to each box 1…6, one card per ~0.7s. The dealer **always plays his
-  hand out to 17** (S17) even when every box has ended.
-- **Thumb action bar** — Hit / Stand / Double / Split above the safe area;
-  fatter thumbs on phones, `H`/`S`/`D` keys for desktop. Split is visible but
-  inert in this preview. Same six real cloth palettes as the login (shared
-  `maison21.theme` + adopted `999.login.cloth.v1` keys; `?theme=<id>` wins),
-  one record painting HUD and 3D felt together.
-- **The player follows the page** — signed in at the login, the table reads
-  its session back from storage, verifies it with the hub, and the header
-  pill wears the **name and live wallet balance the hub reports**
-  (`session/verify` + `wallet`) — never a local guess. When space is tight
-  the name yields to an ellipsis before the balance does, and on a phone
-  portrait the pill takes the header's freed right slot so the tools row
-  stays all controls. Not signed in — or a stale session — and the pill is
-  the Sign in link again.
-- **Arrangements mirror the login** — a 16:9 stage letterboxed on wide
-  screens, full-bleed compact on phone landscape, stacked portrait primary.
-  The camera **widens rather than crops** when the viewport narrows.
+- **Raw WebGL, zero deps** — every texture (felt weave, card faces, backs,
+  chips, the next-to-play ring) is drawn in a canvas at runtime. The table
+  owns the whole viewport.
+- **The readable-table rule** — each hand stacks vertically, one card of
+  cloth wide, each card after the first lifting so its **top strip — where
+  the rank prints — stays visible**. A ten prints **"10"**, never "T". The
+  dealer keeps a sideways fan pitched a card-width apart: no coincident
+  quads, no flicker. Totals print below each hand and dodge the thumb bar.
+- **The full ceremony** — six boxes, a dealer hand, a shoe and a chip tray;
+  European deal order (one to each box 1…6, the dealer, then a second to
+  each), one card per ~0.7s, and the dealer **always plays out to 17** (S17)
+  even when every box has ended.
+- **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
+  `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
+  action and user zoom survives every shot change.
 
 ### `serve.js` — the preview host with the hub on one origin
 
-`node 3dfullscreen/serve.js` serves both pages **and proxies `/hub/*` to the
-dev hub** (`HUB_UPSTREAM`, default `http://localhost:8899/hub`), so the pages
-fetch their own origin and the browser never enters CORS at all — no
+`node serve.js` serves both pages **and proxies `/hub/*` to the dev hub**, so
+the pages fetch their own origin and the browser never enters CORS — no
 preflight, no `Access-Control-*` needed on any answer. The host injects
-`window.__HUB_BASE__` into the pages it serves so they know the route;
-verified end to end: sign-in mints a real session with two same-origin
-fetches and zero preflights, and a reload restores through `session/verify`.
+`window.__HUB_BASE__` into the pages it serves so they know the route.
 
-## Running it
+## Quickstart
 
-Run the dev hub (`node poker/local-server.js`), then `node serve.js` in this
-folder and open `http://127.0.0.1:8787/` — one origin for pages and hub.
+```bash
+node poker/local-server.js    # the dev hub on :8899
+node serve.js                 # pages + /hub proxy on :8787
+```
 
-Served any other way — opened as files, or behind a static host — the pages
-fall back to the dev hub directly at `http://localhost:8899/hub`, which
-answers **with CORS headers** (`poker/hub/hub-stub.js`), and `?hub=<url>`
-points them anywhere. A hub that cannot answer at all still degrades to the
-visible preview state, never a blank screen.
+Open **http://127.0.0.1:8787/** — sign in as a guest, and the wallet follows
+you to the table. `?hub=<url>` points the pages anywhere; served bare (as
+files or behind a static host) they fall back to the dev hub directly, which
+answers with CORS headers.
+
+## Verified
+
+- **16:9 fit** — felt corners project inside the frame at 1280×720
+  (x ∈ [3, 1277]) and 1920×1080 (x ∈ [4, 1916]); the whole table fits a
+  390×844 phone portrait (x ∈ [5, 385]); the HUD stage fills 16:9 exactly.
+- **The camera director** — the full shot cycle live-sampled on the running
+  page: wide table → the table → holds 1…6 → the dealer's hand → settle →
+  back to the dealer.
+- **Sign-in, end to end** — mint → wallet → verify restore, same-origin with
+  zero preflights, and a visible preview degrade when no hub answers.
+- **Clean pages** — `node --check` on every inline script, no console
+  errors.
+
+## Layout
+
+| Path | What it is |
+| --- | --- |
+| `login-16x9.html` | The fullscreen 16:9 sign-in (2D canvas felt engine) |
+| `table-16x9.html` | The fullscreen 16:9 table (raw WebGL 3D engine) |
+| `serve.js` | Static host + same-origin `/hub` proxy (zero-dep Node) |
+| `README.md` | This page |
+
+Cloth palettes, the hub client and identity handling are vendored from
+`999-bridge` (commit `5185558`) into the pages themselves — each page runs
+from a single file, no imports, no build step. The cloth choice persists
+under `maison21.theme` (what `maison-21/src/theme.ts` reads), with the
+legacy `999.login.cloth.v1` key adopted and kept in sync.
