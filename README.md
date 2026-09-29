@@ -90,7 +90,8 @@ server. The hub
 base defaults to `http://localhost:8899/hub` (the poker dev hub:
 `node poker/local-server.js`) and can be pointed anywhere with `?hub=<url>`.
 
-Note: a dev hub answers `/hub/*` JSON **without CORS headers**, so a page served
-from another origin sees the preview degrade path. Served from the app's own
-origin — or against a hub with CORS open, as the production topology requires —
-the same click mints a real session.
+The dev hub answers `/hub/*` **with CORS headers** (`poker/hub/hub-stub.js`),
+so a page served from any origin mints a real session — verified end to end
+from this preview: preflight → `POST /session` → `GET /wallet`, and a reload
+restores the session through `POST /session/verify`. A hub that cannot answer
+at all still degrades to the visible preview state, never a blank screen.

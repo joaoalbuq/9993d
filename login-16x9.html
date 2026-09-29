@@ -813,9 +813,8 @@
         subChip: 'u-' + slug(name),
         wallet: '',
         lobbyHref: BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(name),
-        note: 'Hub not reachable from this preview — a dev hub on localhost answers without ' +
-          'CORS headers for this origin. Opened from the app origin, the same click mints a real ' +
-          'session. Override with ?hub=<url>.',
+        note: 'Hub not reachable — nothing was minted. The dev hub on localhost:8899 answers ' +
+          'this flow when it is running. Override the hub address with ?hub=<url>.',
       });
     });
   }
