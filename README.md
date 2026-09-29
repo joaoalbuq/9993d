@@ -58,8 +58,13 @@ ring) is drawn in a canvas at runtime. The table owns the whole viewport.
   frame returns to the dealer after the payout walk, never the last paid box);
   and a table holding cards **never parks on the wide establishing shot** —
   during the deal the shot is the cards, not the room. Camera `CAM_PITCH = 1.0`,
-  `CAM_FOV = 48`. The zoom control's label reflects the next action and user
-  zoom survives every shot change.
+  `CAM_FOV = 48` — and the frustum matches the frame's ratio, so a fullscreen
+  16:9 screen gets a 16:9 frustum: the table fits it exactly, undistorted and
+  edge to edge (verified at 1280×720 and 1920×1080 — every felt corner in
+  frame, both outer boxes included). The table shots carry a width-fit floor,
+  so even a phone portrait shows the whole table (the camera backs off) and
+  nothing is ever stretched to make it fit. The zoom control's label reflects
+  the next action and user zoom survives every shot change.
 - **The hand layout is the readable-table rule** (spec §4.3): each hand stacks
   vertically from its first card — **one card of cloth wide** — and each card
   after the first lifts `STACK_LIFT = 0.135` of its length so the visible band

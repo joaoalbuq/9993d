@@ -1103,8 +1103,16 @@
   var userZoom = false;
   function zoomMul() { return userZoom ? 0.78 : 1; }
 
-  function pose(look, dist, az) {
-    dist *= zoomMul() * clamp(1.15 / (VW / Math.max(VH, 1)), 1, 1.8);  /* widen, never crop */
+  function pose(look, dist, az, halfW) {
+    var aspect = VW / Math.max(VH, 1);
+    dist *= clamp(1.15 / aspect, 1, 1.8);              /* widen, never crop */
+    if (halfW) {
+      /* a TABLE shot fits the TABLE: with the real viewport aspect, narrow
+         screens back the camera off — the table never crops, and nothing is
+         stretched to make it fit (16:9 frame, 16:9 frustum). */
+      dist = Math.max(dist, halfW / (Math.tan(CAM_FOV * Math.PI / 360) * Math.max(aspect, 0.2)));
+    }
+    dist *= zoomMul();                                 /* the user's zoom survives every shot */
     var h = Math.cos(CAM_PITCH) * dist, v = Math.sin(CAM_PITCH) * dist;
     return { eye: [look[0] + Math.sin(az) * h, look[1] + v, look[2] + Math.cos(az) * h], look: look };
   }
@@ -1125,11 +1133,11 @@
     }
     if (cardsOut()) {
       /* dealing: the shot is the cards, not the whole room */
-      var t = pose([0, 0.05, 0.12], 6.3, 0);
+      var t = pose([0, 0.05, 0.12], 6.3, 0, 4.4);
       t.name = 'The table';
       return t;
     }
-    var w = pose([0, 0.05, -0.12], 8.6, 0);
+    var w = pose([0, 0.05, -0.12], 8.6, 0, 4.4);
     w.name = 'Wide table';
     return w;
   }
@@ -1205,6 +1213,10 @@
     lastTs = ts;
 
     updateCamera(dt);
+    /* the frustum matches the frame: a 16:9 viewport gets a 16:9 frustum.
+       The old square frustum stretched the table to fill whatever screen it
+       got — shapes wrong, and the table's sides cropped at 16:9. */
+    proj = mPersp(CAM_FOV * Math.PI / 180, VW / Math.max(VH, 1), 0.1, 60);
     MVP = mMul(proj, mLookAt(cam.eye, cam.look));
 
     gl.clearColor(hexRgb(current.deep)[0] / 255, hexRgb(current.deep)[1] / 255, hexRgb(current.deep)[2] / 255, 1);
