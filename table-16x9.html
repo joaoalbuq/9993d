@@ -431,6 +431,14 @@
           headers: { 'idempotency-key': idemKey || ('nonce:' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 10)) },
           auth: true
         });
+      },
+      /* the bridge's verb pair, verbatim: sign is the caller's intent,
+         the wire is always /wallet/credit or /wallet/debit. */
+      credit: function (playerId, delta, reason, idemKey) {
+        return this.move(playerId, Math.abs(Number(delta) || 0), reason, idemKey);
+      },
+      debit: function (playerId, delta, reason, idemKey) {
+        return this.move(playerId, -Math.abs(Number(delta) || 0), reason, idemKey);
       }
     };
   }
@@ -497,6 +505,13 @@
       you.sub = r.body.sub; you.name = r.body.name;
       showWho(r.body.name, null);
       refreshWallet();
+      /* sign-in can land mid-deal: the hand in flight gets its
+         stake the moment the seat is known — a hand already
+         settled never does (and never orphans a bet). */
+      var live = game.hands[YOUR];
+      if (live && !live.betChain && !live.result && game.phase !== 'pause' && game.phase !== 'idle') {
+        placeBet(live, false);
+      }
     });
   }
   /* the pill always renders the hub's answer, never a number we kept. */
@@ -508,35 +523,55 @@
     });
   }
 
-  /* ================= the wallet tracks play ================
-     One settled round = one move on YOUR seat (PRD 7.3):
-     a win pays 1:1, a loss or bust costs the stake, a push
-     moves nothing. Unit bet 25 (DEFAULT_RULES); double
-     doubles the stake. Reasons follow the hub's ledger
-     conventions: bj_bet (a debit = play volume) and bj_prize. */
+  /* ================= real stakes on the table =============
+     A stake is REAL money (PRD 7.3): the bet is debited when
+     the hand is dealt, a double debits one more unit, and
+     settle PAYS the hand — a win returns the stake plus 1:1,
+     a push returns the stake, a loss keeps it. The stake is
+     taken first, so a hand can never overdraw the wallet.
+     Every move carries its own idempotency key (bet / dbl /
+     pay + hand number): a replay never double-pays, and a
+     reconnect never eats a hand. Reasons follow the hub's
+     ledger conventions: bj_bet (a debit = play volume),
+     bj_prize, bj_push.                                       */
   var UNIT_BET = 25;
-  function handNet(h) {
-    var stake = UNIT_BET * (h.doubled ? 2 : 1);
-    if (h.result === 'win') return stake;
-    if (h.result === 'lose' || h.result === 'bust') return -stake;
-    return 0;                                          /* a push returns the stake */
+  function handKey(kind) {
+    return 'table:' + you.sub + ':' + you.sid + ':' + kind + ':' + you.hand;
+  }
+  function applyMove(kind, verb, amount, reason) {
+    return hub[verb](you.sub, amount, reason, handKey(kind)).then(function (r) {
+      if (r.ok && typeof r.body.balanceAfter === 'number') {
+        showWho(you.name, r.body.balanceAfter);      /* the hub's answer, not ours */
+        return r.body.balanceAfter;
+      }
+      refreshWallet();                               /* 409/timeout: fall back to hub truth */
+      return null;
+    });
+  }
+  function placeBet(h, extra) {
+    if (!you.sub) return;                            /* nobody signed in — no stakes */
+    if (!extra) {
+      you.hand++;                                    /* one hand number per round */
+      try { sessionStorage.setItem('999.table.hand', String(you.hand)); } catch (e) { }
+    }
+    h.betChain = (h.betChain || Promise.resolve()).then(function () {
+      return applyMove(extra ? 'dbl' : 'bet', 'debit', UNIT_BET, 'bj_bet').then(function (bal) {
+        if (bal != null) h.stake = (h.stake || 0) + UNIT_BET;
+        return bal;
+      });
+    });
   }
   function settleWallet() {
-    if (!you.sub) return;                              /* nobody signed in — nothing to track */
+    if (!you.sub) return;                            /* nobody signed in — nothing to settle */
     var h = game.hands[YOUR];
-    if (!h || !h.result) return;
-    var net = handNet(h);
-    if (!net) { refreshWallet(); return; }             /* a push: unchanged, but never stale */
-    you.hand++;
-    try { sessionStorage.setItem('999.table.hand', String(you.hand)); } catch (e) { }
-    hub.move(you.sub, net, net < 0 ? 'bj_bet' : 'bj_prize',
-      'table:' + you.sub + ':' + you.sid + ':' + you.hand).then(function (r) {
-        if (r.ok && typeof r.body.balanceAfter === 'number') {
-          showWho(you.name, r.body.balanceAfter);      /* the hub's answer, not ours */
-        } else {
-          refreshWallet();                             /* 409/timeout: fall back to hub truth */
-        }
-      });
+    if (!h) return;
+    (h.betChain || Promise.resolve()).then(function () {
+      var stake = h.stake || 0;
+      if (!stake || !h.result) { refreshWallet(); return; }        /* unstaked: hub truth */
+      if (h.result !== 'win' && h.result !== 'push') { refreshWallet(); return; }  /* a loss keeps the stake */
+      return applyMove('pay', 'credit', h.result === 'win' ? 2 * stake : stake,
+        h.result === 'win' ? 'bj_prize' : 'bj_push');
+    });
   }
 
   /* ================= GEOMETRY (spec constants) =============
@@ -1040,9 +1075,10 @@
     game.phase = 'dealing';
     game.acting = -1;
     game.hands = [];
-    for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null });
+    for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null });
     game.dealer = { cards: [] };
     setStatus('Dealing — one to each box, then the dealer');
+    placeBet(game.hands[YOUR], false);   /* real stakes: the bet is in before the cards */
 
     /* Deal order (spec 4.5, European): one card each to boxes
        1…6, one to the dealer, then a second to boxes 1…6.       */
@@ -1107,6 +1143,7 @@
     var h = game.hands[YOUR];
     if (h.cards.length !== 2) return;
     h.doubled = true;
+    placeBet(h, true);   /* a double is a second stake */
     dealTo(YOUR);
     playerStand();
   }
