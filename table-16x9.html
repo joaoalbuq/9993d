@@ -250,18 +250,73 @@
   'use strict';
 
   /* ================= cloth palettes ========================
-     One record paints felt, rail, accent and ink together — the
-     same records as login-16x9.html (stand-ins for
-     999-bridge/src/theme.js until that repo is wired in).      */
-  var CLOTHS = [
-    { id: 'classic-house', label: 'Classic house', felt: '#1f6b45', deep: '#0b2b1d', rail: '#241a12', accent: '#d8b56a', ink: '#f4ead2', print: '#f7f1e2' },
-    { id: 'platinum',      label: 'Platinum',      felt: '#8b95a1', deep: '#2b323b', rail: '#1b2027', accent: '#e8edf4', ink: '#eef2f7', print: '#141a22' },
-    { id: 'ocean',         label: 'Ocean',         felt: '#145a70', deep: '#072a36', rail: '#0e2b33', accent: '#6fd6d2', ink: '#e6f6f6', print: '#eafcfa' },
-    { id: 'felt-noir',     label: 'Felt noir',     felt: '#26272b', deep: '#0c0c0f', rail: '#141418', accent: '#c8a24c', ink: '#eae6dd', print: '#f2ede2' },
-    { id: 'amethyst',      label: 'Amethyst',      felt: '#4b2a72', deep: '#221237', rail: '#2c1a44', accent: '#c9a6ff', ink: '#f1e9ff', print: '#f6efff' },
-    { id: 'black-gold',    label: 'Black gold',    felt: '#17110a', deep: '#080604', rail: '#241a0c', accent: '#e4c169', ink: '#f5e6c4', print: '#f8eccc' }
+     VENDORED from 999-bridge/src/theme.js (commit 5185558) —
+     the same records as login-16x9.html. Ids are load-bearing:
+     they travel in ?theme=<id> and in saved choices — add, do
+     not rename. Four tokens per palette: felt (the playing
+     surface), rail (the bed the table sits in), accent (the
+     lines and edges), ink (the print ON the cloth). This scene
+     wears two DERIVED values, computed with the bridge's own
+     shade(), never hand-picked:
+       deep   the room behind the table = shade(rail, -0.35)
+       print  the real `ink` token, printing on the felt        */
+  var DEFAULT_PALETTE_ID = 'classic-house';
+  var PALETTES = [
+    { id: 'classic-house', label: 'Classic House',  felt: '#0B5C3A', rail: '#1A1A1A', accent: '#C9A227', ink: '#D4AF37' },
+    { id: 'platinum',      label: 'Night Platinum', felt: '#0E1412', rail: '#121212', accent: '#C0C0C8', ink: '#E8E8EC' },
+    { id: 'ocean',         label: 'Ocean Ops',      felt: '#0A2F2C', rail: '#05080C', accent: '#2EC4B6', ink: '#00D4E6' },
+    { id: 'felt-noir',     label: 'Felt Noir',      felt: '#0F3D2E', rail: '#0B0F0C', accent: '#1F6B4A', ink: '#F2EFE4' },
+    { id: 'amethyst',      label: 'Amethyst Salon', felt: '#1A0F24', rail: '#0A0710', accent: '#B8A0E8', ink: '#D4C4F0' },
+    { id: 'black-gold',    label: 'Black Gold',     felt: '#0A0F0C', rail: '#111111', accent: '#D4A017', ink: '#B8860B' }
   ];
-  var CLOTH_KEY = '999.login.cloth.v1';   /* shared with the login page */
+  function paletteById(id) {
+    for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === id) return PALETTES[i];
+    return PALETTES[0];
+  }
+  function isPaletteId(v) {
+    if (typeof v !== 'string') return false;
+    for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === v) return true;
+    return false;
+  }
+  /* hex -> hex, walking toward white (t>0) or black (t<0) — verbatim
+     from theme.js, so no consumer invents a hue. */
+  function shade(hex, t) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return hex;
+    var n = parseInt(m[1], 16);
+    var target = t >= 0 ? 255 : 0;
+    var a = Math.min(1, Math.abs(t));
+    var ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      return Math.round(c + (target - c) * a);
+    });
+    return '#' + ch.map(function (c) { return c.toString(16).padStart(2, '0'); }).join('');
+  }
+  function clothRecord(p) {
+    return {
+      id: p.id, label: p.label,
+      felt: p.felt, rail: p.rail, accent: p.accent,
+      print: p.ink,
+      deep: shade(p.rail, -0.35),
+      ink: shade(p.ink, 0.55)
+    };
+  }
+  var CLOTHS = PALETTES.map(clothRecord);
+  var THEME_KEY = 'maison21.theme';            /* what maison-21/src/theme.ts reads — one choice, three consumers */
+  var LEGACY_CLOTH_KEY = '999.login.cloth.v1'; /* pre-bridge key, adopted once */
+  function loadClothId() {
+    var q = null;
+    try { q = new URLSearchParams(location.search).get('theme'); } catch (e) { }
+    if (isPaletteId(q)) return q;              /* ids travel in the embed URL */
+    var v = null;
+    try { v = localStorage.getItem(THEME_KEY); } catch (e) { }
+    if (isPaletteId(v)) return v;
+    try { v = localStorage.getItem(LEGACY_CLOTH_KEY); } catch (e) { }
+    return isPaletteId(v) ? v : DEFAULT_PALETTE_ID;
+  }
+  function saveClothId(id) {
+    try { localStorage.setItem(THEME_KEY, id); } catch (e) { }
+    try { localStorage.setItem(LEGACY_CLOTH_KEY, id); } catch (e) { }
+  }
   var current = CLOTHS[0];
 
   /* ================= GEOMETRY (spec constants) =============
@@ -645,7 +700,7 @@
     if (themeMeta) themeMeta.setAttribute('content', c.deep);
     var sw = document.querySelectorAll('.sw');
     for (var i = 0; i < sw.length; i++) sw[i].setAttribute('aria-pressed', String(CLOTHS[i] === c));
-    try { localStorage.setItem(CLOTH_KEY, c.id); } catch (e) { }
+    saveClothId(c.id);
     paintFelt();
     backTex = null;                 /* rebuilt on next use, tinted by this cloth */
     delete TEX_CACHE['back'];
@@ -1138,9 +1193,7 @@
   });
 
   /* ================= boot ================================= */
-  var saved = null;
-  try { saved = localStorage.getItem(CLOTH_KEY); } catch (e) { }
-  applyCloth(CLOTHS.filter(function (c) { return c.id === saved; })[0] || CLOTHS[0]);
+  applyCloth(CLOTHS.filter(function (c) { return c.id === loadClothId(); })[0] || CLOTHS[0]);
   syncZoomLabel();
   fit();
   startAnim();

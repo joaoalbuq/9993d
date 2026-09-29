@@ -340,20 +340,132 @@
   'use strict';
 
   /* ================= cloth palettes =========================
-     One record paints felt, rail, accent and ink together — the
-     same rule as the revamp spec (§4.2). Values are stand-ins for
-     999-bridge/src/theme.js until that repo is wired in.        */
-  var CLOTHS = [
-    { id: 'classic-house', label: 'Classic house', felt: '#1f6b45', deep: '#0b2b1d', rail: '#241a12', accent: '#d8b56a', ink: '#f4ead2', print: '#f7f1e2' },
-    { id: 'platinum',      label: 'Platinum',      felt: '#8b95a1', deep: '#2b323b', rail: '#1b2027', accent: '#e8edf4', ink: '#eef2f7', print: '#141a22' },
-    { id: 'ocean',         label: 'Ocean',         felt: '#145a70', deep: '#072a36', rail: '#0e2b33', accent: '#6fd6d2', ink: '#e6f6f6', print: '#eafcfa' },
-    { id: 'felt-noir',     label: 'Felt noir',     felt: '#26272b', deep: '#0c0c0f', rail: '#141418', accent: '#c8a24c', ink: '#eae6dd', print: '#f2ede2' },
-    { id: 'amethyst',      label: 'Amethyst',      felt: '#4b2a72', deep: '#221237', rail: '#2c1a44', accent: '#c9a6ff', ink: '#f1e9ff', print: '#f6efff' },
-    { id: 'black-gold',    label: 'Black gold',    felt: '#17110a', deep: '#080604', rail: '#241a0c', accent: '#e4c169', ink: '#f5e6c4', print: '#f8eccc' }
+     VENDORED from 999-bridge/src/theme.js (commit 5185558) —
+     the one table both sides wear. Ids are load-bearing: they
+     travel in ?theme=<id> and in saved choices — add, do not
+     rename. Four tokens per palette: felt (the playing surface),
+     rail (the bed the table sits in), accent (the lines and
+     edges), ink (the print ON the cloth). This page wears six CSS
+     vars; the two extras are DERIVED with the bridge's own
+     shade(), never hand-picked:
+       --deep  the room behind the glass  = shade(rail, -0.35)
+       --ink   UI text on the glass       = shade(ink, +0.55)
+     (the real `ink` token is exposed here as --print).          */
+  var DEFAULT_PALETTE_ID = 'classic-house';
+  var PALETTES = [
+    { id: 'classic-house', label: 'Classic House',  felt: '#0B5C3A', rail: '#1A1A1A', accent: '#C9A227', ink: '#D4AF37' },
+    { id: 'platinum',      label: 'Night Platinum', felt: '#0E1412', rail: '#121212', accent: '#C0C0C8', ink: '#E8E8EC' },
+    { id: 'ocean',         label: 'Ocean Ops',      felt: '#0A2F2C', rail: '#05080C', accent: '#2EC4B6', ink: '#00D4E6' },
+    { id: 'felt-noir',     label: 'Felt Noir',      felt: '#0F3D2E', rail: '#0B0F0C', accent: '#1F6B4A', ink: '#F2EFE4' },
+    { id: 'amethyst',      label: 'Amethyst Salon', felt: '#1A0F24', rail: '#0A0710', accent: '#B8A0E8', ink: '#D4C4F0' },
+    { id: 'black-gold',    label: 'Black Gold',     felt: '#0A0F0C', rail: '#111111', accent: '#D4A017', ink: '#B8860B' }
   ];
-  var CLOTH_KEY = '999.login.cloth.v1';
-  var GUEST_KEY = 'royale.guestname.v1';       // the existing shared guest handle key
-  var IDENTITY_KEY = 'royale.identity.v1';     // the existing BJ-bridge identity shape
+  function paletteById(id) {
+    for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === id) return PALETTES[i];
+    return PALETTES[0];
+  }
+  function isPaletteId(v) {
+    if (typeof v !== 'string') return false;
+    for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === v) return true;
+    return false;
+  }
+  /* hex -> hex, walking toward white (t>0) or black (t<0) — verbatim
+     from theme.js, so no consumer invents a hue. */
+  function shade(hex, t) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return hex;
+    var n = parseInt(m[1], 16);
+    var target = t >= 0 ? 255 : 0;
+    var a = Math.min(1, Math.abs(t));
+    var ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      return Math.round(c + (target - c) * a);
+    });
+    return '#' + ch.map(function (c) { return c.toString(16).padStart(2, '0'); }).join('');
+  }
+  function clothRecord(p) {
+    return {
+      id: p.id, label: p.label,
+      felt: p.felt, rail: p.rail, accent: p.accent,
+      print: p.ink,
+      deep: shade(p.rail, -0.35),
+      ink: shade(p.ink, 0.55)
+    };
+  }
+  var CLOTHS = PALETTES.map(clothRecord);
+  var THEME_KEY = 'maison21.theme';            /* what src/theme.ts reads — one choice, three consumers */
+  var LEGACY_CLOTH_KEY = '999.login.cloth.v1'; /* pre-bridge key, adopted once */
+  function loadClothId() {
+    var q = null;
+    try { q = new URLSearchParams(location.search).get('theme'); } catch (e) { }
+    if (isPaletteId(q)) return q;              /* ids travel in the embed URL */
+    var v = null;
+    try { v = localStorage.getItem(THEME_KEY); } catch (e) { }
+    if (isPaletteId(v)) return v;
+    try { v = localStorage.getItem(LEGACY_CLOTH_KEY); } catch (e) { }
+    return isPaletteId(v) ? v : DEFAULT_PALETTE_ID;
+  }
+  function saveClothId(id) {
+    try { localStorage.setItem(THEME_KEY, id); } catch (e) { }
+    try { localStorage.setItem(LEGACY_CLOTH_KEY, id); } catch (e) { }
+  }
+
+  /* ================= identity ==============================
+     VENDORED (guest + adopt path) from 999-bridge/src/identity.js
+     (commit 5185558). A guest name is a CREDENTIAL — the hub mints
+     a session from the name alone — so it is minted UNGUESSABLE:
+     'Guest-' + 16 random base36 chars ≈ 82 bits, replacing the old
+     9,000-name 'Guest-NNNN' space where every guest wallet was
+     enumerable. Existing handles are ADOPTED (new keys first, then
+     the legacy royale.* keys), never reset — so every wallet a
+     player already has keeps its sub. The Clerk/external-id path
+     is not wired here; these pages have no sign-in provider.     */
+  var ID_KEYS = { identity: '999.identity.v1', guest: '999.guestname.v1', cache: '999.hubcache.v1' };
+  var LEGACY_KEYS = { identity: 'royale.identity.v1', guest: 'royale.guestname.v1', cache: 'royale.hubcache.v1' };
+  var GUEST_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  var GUEST_RANDOM_CHARS = 16;
+  function randomBytes(n) {
+    var b = new Uint8Array(n);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(b);
+    else for (var i = 0; i < n; i++) b[i] = Math.floor(Math.random() * 256);
+    return b;
+  }
+  function mintGuestName() {
+    var bytes = randomBytes(GUEST_RANDOM_CHARS), out = '';
+    for (var i = 0; i < GUEST_RANDOM_CHARS; i++) out += GUEST_ALPHABET[bytes[i] % GUEST_ALPHABET.length];
+    return 'Guest-' + out;
+  }
+  /* the hub truncates the session name to 24 chars and derives sub
+     from the TRUNCATED string — mirror it so the sub is predictable */
+  function hubName(name) {
+    return String(name == null ? '' : name).trim().slice(0, 24);
+  }
+  function readKey(key) {
+    try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function adoptedGuestName() {
+    try { var g = localStorage.getItem(ID_KEYS.guest); if (g) return g; } catch (e) { }
+    try { var l = localStorage.getItem(LEGACY_KEYS.guest); if (l) return l; } catch (e) { }
+    return null;
+  }
+  function guestName() {
+    var existing = adoptedGuestName();
+    if (existing) return existing;
+    var minted = mintGuestName();
+    /* written to both keys: the canonical one, and the legacy key
+       the live app still reads until it cuts over */
+    try { localStorage.setItem(ID_KEYS.guest, minted); } catch (e) { }
+    try { localStorage.setItem(LEGACY_KEYS.guest, minted); } catch (e) { }
+    return minted;
+  }
+  function persistIdentity(sub, token, name) {
+    var rec = JSON.stringify({ sub: sub, token: token, name: name });
+    try { localStorage.setItem(ID_KEYS.identity, rec); } catch (e) { }
+    try { localStorage.setItem(LEGACY_KEYS.identity, rec); } catch (e) { } /* mirror for the live app during cutover */
+    try { sessionStorage.setItem('poker.token', token); } catch (e) { }    /* the live app's session key */
+  }
+  function adoptedSession() {
+    return readKey(ID_KEYS.identity) || readKey(LEGACY_KEYS.identity);
+  }
 
   var root = document.documentElement;
   var themeMeta = document.querySelector('meta[name=theme-color]');
@@ -376,7 +488,7 @@
     if (themeMeta) themeMeta.setAttribute('content', c.deep);
     var sw = document.querySelectorAll('.sw');
     for (var i = 0; i < sw.length; i++) sw[i].setAttribute('aria-pressed', String(CLOTHS[i] === c));
-    try { localStorage.setItem(CLOTH_KEY, c.id); } catch (e) { }
+    saveClothId(c.id);
     paintStatic();
     if (!animOn) frame(0);
   }
@@ -530,14 +642,81 @@
     }
   }
 
-  /* ================= hub transport ==========================
-     Same contract as poker/client/hub.js:
-       POST /session {name}          -> {token, sub, name, locked}
-       POST /session/verify {token}  -> {sub, name, locked}
-       GET  /wallet?player=<sub>
-     No content-type header is sent so the request stays CORS-simple;
-     the hub parses the raw body either way. A dead hub degrades to a
-     visible preview state — it never blocks the screen (spec §9.3).   */
+  /* ================= hub client ============================
+     VENDORED from 999-bridge/src/hub-client.js (commit 5185558),
+     trimmed to the three verbs these pages call — session, verify,
+     wallet. The contract is kept exactly: it NEVER throws; a
+     transport failure and a business rejection both come back as
+     { ok:false, status, body, error } — and the hub stays the only
+     wallet writer. These pages read the balance; they never compute
+     or move one. A dead hub degrades to a visible preview state —
+     it never blocks the screen (spec §9.3).                     */
+  var HUB_TIMEOUT_MS = 3500;   /* the bridge default is 8000; a preview degrades faster */
+
+  function makeHubClient(opts) {
+    opts = opts || {};
+    var base = opts.base || null;
+    var token = opts.token || null;
+    var rawFetch = (typeof fetch !== 'undefined') ? fetch.bind(window) : null;
+
+    function configured() { return !!(base && rawFetch); }
+
+    function call(method, path, o) {
+      o = o || {};
+      if (!configured()) {
+        return Promise.resolve({ ok: false, status: 0, body: {}, error: 'hub-not-configured' });
+      }
+      var ac = new AbortController();
+      var timer = setTimeout(function () { ac.abort(); }, HUB_TIMEOUT_MS);
+      var h = {};
+      if (o.body !== undefined) h['content-type'] = 'application/json';
+      if (o.auth) {
+        var t = (o.auth === true) ? token : o.auth;
+        if (t) h['authorization'] = 'Bearer ' + t;
+      }
+      return rawFetch(base + path, {
+        method: method,
+        headers: h,
+        body: (o.body === undefined) ? undefined : JSON.stringify(o.body),
+        signal: ac.signal
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (parsed) {
+          if (!res.ok) return { ok: false, status: res.status, body: parsed, error: parsed.error || ('HTTP ' + res.status) };
+          return { ok: true, status: res.status, body: parsed, error: null };
+        });
+      }).catch(function (e) {
+        return { ok: false, status: 0, body: {}, error: (e && e.name === 'AbortError') ? 'timeout' : 'network' };
+      }).then(function (v) { clearTimeout(timer); return v; });
+    }
+
+    return {
+      get base() { return base; },
+      get token() { return token; },
+      setToken: function (t) { token = t || null; return token; },
+      configured: configured,
+      session: function (name) {
+        return call('POST', '/session', { body: { name: name || null } }).then(function (r) {
+          if (r.ok && r.body && r.body.token) token = r.body.token;
+          return r;
+        });
+      },
+      verify: function (t) {
+        return call('POST', '/session/verify', { body: { token: t || token || '' } }).then(function (r) {
+          if (r.ok && r.body && r.body.sub) token = t || token;
+          return r;
+        });
+      },
+      wallet: function (playerId, o) {
+        o = o || {};
+        var path = '/wallet?player=' + encodeURIComponent(playerId);
+        if (o.migrate != null && isFinite(Number(o.migrate))) {
+          path += '&migrate=' + encodeURIComponent(Math.round(Number(o.migrate)));
+        }
+        return call('GET', path);
+      }
+    };
+  }
+
   function hubBase() {
     var q = new URLSearchParams(location.search).get('hub');
     if (q) return q.replace(/\/+$/, '');
@@ -545,40 +724,8 @@
     return 'http://localhost:8899/hub';
   }
   var BASE = hubBase();
+  var hub = makeHubClient({ base: BASE });
 
-  function post(path, body) {
-    var ctl = new AbortController();
-    var timer = setTimeout(function () { ctl.abort(); }, 3500);
-    return fetch(BASE + path, {
-      method: 'POST',
-      body: JSON.stringify(body || {}),
-      signal: ctl.signal
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (b) {
-        return { ok: r.ok, status: r.status, body: b };
-      });
-    }).catch(function () {
-      return { ok: false, status: 0, body: { error: 'hub unreachable' } };
-    }).then(function (v) { clearTimeout(timer); return v; });
-  }
-  function get(path) {
-    var ctl = new AbortController();
-    var timer = setTimeout(function () { ctl.abort(); }, 3500);
-    return fetch(BASE + path, { signal: ctl.signal })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-      .catch(function () { return { ok: false, body: {} }; })
-      .then(function (v) { clearTimeout(timer); return v; });
-  }
-
-  /* the guest handle follows the existing bridge's shape and key */
-  function guestName() {
-    var n = null;
-    try { n = localStorage.getItem(GUEST_KEY); } catch (e) { }
-    if (n) return n;
-    n = 'Guest-' + Math.floor(1000 + Math.random() * 9000);
-    try { localStorage.setItem(GUEST_KEY, n); } catch (e) { }
-    return n;
-  }
   function slug(name) {
     return String(name).toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 24);
   }
@@ -624,14 +771,13 @@
     err.textContent = '';
     err.className = 'err';
 
-    post('/session', { name: name }).then(function (r) {
+    hub.session(hubName(name)).then(function (r) {
       enterBtn.disabled = false;
       enterLbl.textContent = 'Enter the floor';
 
       if (r.ok) {
         setHub('live', 'HUB LIVE — ' + BASE);
-        try { sessionStorage.setItem('poker.token', r.body.token); } catch (e) { }
-        try { localStorage.setItem(IDENTITY_KEY, JSON.stringify({ sub: r.body.sub, token: r.body.token, name: r.body.name })); } catch (e) { }
+        persistIdentity(r.body.sub, r.body.token, r.body.name);
         var lobbyHref = BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(r.body.name);
         showDone({
           title: 'Welcome, ' + r.body.name,
@@ -641,7 +787,7 @@
           lobbyHref: lobbyHref,
           locked: r.body.locked
         });
-        get('/wallet?player=' + encodeURIComponent(r.body.sub)).then(function (w) {
+        hub.wallet(r.body.sub).then(function (w) {
           if (w.ok && typeof w.body.balance === 'number') {
             document.getElementById('chipWallet').textContent =
               w.body.balance.toLocaleString('en-US') + ' chips';
@@ -652,7 +798,7 @@
 
       if (r.status === 400 || r.status === 401) {
         /* the hub answered — surface its exact refusal */
-        err.textContent = r.body.error || ('HTTP ' + r.status);
+        err.textContent = r.error || ('HTTP ' + r.status);
         setHub('live', 'HUB LIVE — ' + BASE);
         return;
       }
@@ -722,9 +868,7 @@
   });
 
   /* ================= boot ================================== */
-  var saved = null;
-  try { saved = localStorage.getItem(CLOTH_KEY); } catch (e) { }
-  var initial = CLOTHS.filter(function (c) { return c.id === saved; })[0] || CLOTHS[0];
+  var initial = CLOTHS.filter(function (c) { return c.id === loadClothId(); })[0] || CLOTHS[0];
   applyCloth(initial);
   fitCanvas();
   fit();
@@ -733,25 +877,34 @@
   window.addEventListener('orientationchange', function () { fitCanvas(); fit(); });
 
   try {
-    var pre = localStorage.getItem(GUEST_KEY);
+    var pre = adoptedGuestName();
     if (pre) input.value = pre;
   } catch (e) { }
 
   /* a session minted earlier restores as "welcome back" */
   var token = null;
   try { token = sessionStorage.getItem('poker.token'); } catch (e) { }
+  var prior = adoptedSession();
+  if (!token && prior) token = prior.token || null;
   if (token) {
     setHub('', 'HUB — CHECKING SESSION…');
-    post('/session/verify', { token: token }).then(function (r) {
+    hub.verify(token).then(function (r) {
       if (r.ok) {
         setHub('live', 'HUB LIVE — ' + BASE);
+        persistIdentity(r.body.sub, token, r.body.name);
         showDone({
           title: 'Welcome back, ' + r.body.name,
           sub: 'Your session is still warm — the wallet follows you across the floor.',
           subChip: r.body.sub,
-          wallet: '',
+          wallet: 'chips —',
           lobbyHref: BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(r.body.name),
           locked: r.body.locked
+        });
+        hub.wallet(r.body.sub).then(function (w) {
+          if (w.ok && typeof w.body.balance === 'number') {
+            document.getElementById('chipWallet').textContent =
+              w.body.balance.toLocaleString('en-US') + ' chips';
+          }
         });
       } else {
         setHub(r.status ? 'live' : 'dead', r.status ? ('HUB LIVE — ' + BASE) : ('HUB UNREACHABLE — ' + BASE));

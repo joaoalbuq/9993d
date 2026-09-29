@@ -15,20 +15,35 @@ existing sign-in (`poker/client/index.html` on the dev hub) for live comparison.
   desktop and iPad landscape, a compact two-column layout on phone landscape,
   and a stacked portrait layout that fits a phone with no scroll. Safe-area
   insets everywhere; `visualViewport` keeps the panel above the mobile keyboard.
-- **Six table cloths** — `classic-house`, `platinum`, `ocean`, `felt-noir`,
-  `amethyst`, `black-gold`. One palette record paints felt, accent, ink and the
-  felt's printed ink together (the revamp's "one record, three consumers" rule).
-  Values are stand-ins until `999-bridge/src/theme.js` is wired in.
+- **Six table cloths, the real ones** — `classic-house`, `platinum`, `ocean`,
+  `felt-noir`, `amethyst`, `black-gold`, vendored verbatim from
+  `999-bridge/src/theme.js` (commit `5185558`). One palette record paints felt,
+  accent, ink and the felt's printed ink together (the revamp's "one record,
+  three consumers" rule). Ids are load-bearing — they travel in `?theme=<id>`
+  and in saved choices — add, never rename. The two extra values this page
+  wears (`deep`, the room behind the glass; UI `ink`) are derived with the
+  bridge's own `shade()`, never hand-picked. The choice persists under
+  `maison21.theme` (what `maison-21/src/theme.ts` reads) with the legacy
+  `999.login.cloth.v1` key adopted and kept in sync.
 - **The felt is the screen** — procedural canvas: weave noise, light pool,
   vignette, and the printed identity (`BLACKJACK`, `DEALER MUST DRAW ALL 17`,
   `3 : 2`, `999`). No assets, no CDN. Pixel ratio capped at 2; the light drift
   pauses when the tab is hidden and collapses under `prefers-reduced-motion`.
-- **The hub's existing session contract** — `POST /session {name}` mints
-  `{token, sub, name, locked}`; a guest handle (`Guest-NNNN`) is minted under
-  the shared `royale.guestname.v1` key so both logins land on the same wallet.
+- **The hub's real client, vendored** — `makeHubClient` from
+  `999-bridge/src/hub-client.js` (commit `5185558`): `POST /session {name}`
+  mints `{token, sub, name, locked}`, `POST /session/verify` restores a warm
+  session, `GET /wallet` opens the balance. The never-throws contract is kept
+  exactly — every call returns `{ok, status, body, error}` and an unreachable
+  hub degrades to a visible preview state, never a blank or blocked screen.
   "Continue to the floor" hands off to the existing lobby via its `?as=`
-  deep-link. A hub that cannot answer degrades to a visible preview state —
-  never a blank or blocked screen.
+  deep-link.
+- **Guest names are credentials** — vendored from `999-bridge/src/identity.js`
+  (commit `5185558`): a guest handle is minted **unguessable**
+  (`Guest-` + 16 random base36 chars ≈ 82 bits) replacing the enumerable
+  `Guest-NNNN` space. Existing handles are **adopted, never reset** — new
+  `999.*.v1` keys first, then the legacy `royale.*` keys — so every wallet a
+  player already has keeps its sub, and the session mirrors to
+  `sessionStorage['poker.token']` for the live app.
 
 ### `table-16x9.html` — the fullscreen 16:9 table (the screen behind the login)
 
@@ -60,8 +75,9 @@ ring) is drawn in a canvas at runtime. The table owns the whole viewport.
   hand out to 17** (S17) even when every box has ended.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area;
   fatter thumbs on phones, `H`/`S`/`D` keys for desktop. Split is visible but
-  inert in this preview. Same six cloth palettes as the login (shared
-  `999.login.cloth.v1` key), one record painting HUD and 3D felt together.
+  inert in this preview. Same six real cloth palettes as the login (shared
+  `maison21.theme` + adopted `999.login.cloth.v1` keys; `?theme=<id>` wins),
+  one record painting HUD and 3D felt together.
 - **Arrangements mirror the login** — a 16:9 stage letterboxed on wide
   screens, full-bleed compact on phone landscape, stacked portrait primary.
   The camera **widens rather than crops** when the viewport narrows.
