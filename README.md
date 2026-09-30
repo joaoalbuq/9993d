@@ -167,7 +167,12 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   own 🔊 toggle, and the page the player was bound for rides along in
   `?from=`. The moment the origin answers the pill offers the door straight
   back to exactly that page — immediately when only the shoe is running,
-  never yanked out of a live hand.
+  never yanked out of a live hand. The **coach** lives here too: at every
+  decision the book play is badged on its button ("book"), each click is
+  judged — "✓ Book play" or "Book says Stand", with a soft cue — and the
+  running score persists with the tray. The book is the shoe's own (two
+  decks, S17, no split, doubles degrading gracefully when they aren't
+  legal), and the 🎓 pill turns the whole mentor off.
 
 ## Play it
 
@@ -264,6 +269,16 @@ answers with CORS headers.
   `?from=`, an idle table returns to it automatically, a hand in play is
   **never** yanked (the pill waits with "Return to the floor"), and the door
   lands on exactly the page — queries included — that was left.
+- **The coach** — 26 decisions marked live and checked against an
+  INDEPENDENT table-driven implementation of the book: 26/26 exact (hard
+  12–16, soft 13–18, doubles and post-hit decisions included), verdicts
+  and score arithmetic exact (50% under deliberate alternating play),
+  marks and cue nodes zero with the coach off and under 🔊 mute while the
+  scoring kept counting, and the score surviving reloads. The driver also
+  caught two real bugs: a verdict cleanup that wiped the NEXT decision's
+  badge at any speed, and a stranded tray — 3:2 payouts leave half-chips
+  and a bank of 12.5 could never bet or refill again; the tray now refills
+  whenever the minimum bet can't be covered.
 - **Sign-in outside localhost** — the live Pages build drives the public hub
   end to end, cross-origin: guest mint → verify → wallet (opening + starter
   grant) → a live round's `bj_bet` debit landing in the hub's own ledger

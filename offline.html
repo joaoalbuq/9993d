@@ -260,6 +260,35 @@
     .card, .chev, .pay, .dot { animation: none; }
     .half, .meter i { transition: none; }
   }
+  /* ---- the coach: book marks + the session score --------- */
+  .coachpill {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    padding: 0.5em 0.85em; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.06); color: inherit; font: inherit; font-size: 0.78em;
+    letter-spacing: 0.06em; cursor: pointer;
+  }
+  .coachpill.off { opacity: 0.55; }
+  .coachhint {
+    margin: 0.35em 0 0; min-height: 1em; font-size: 0.72em; letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(255,255,255,0.72);
+  }
+  .coachhint.ok { color: #43c98a; }
+  .coachhint.miss { color: #e2705f; }
+  .btn.book { position: relative; outline: 2px solid #2f9e63; outline-offset: 2px; }
+  .btn.book::after {
+    content: 'book'; position: absolute; top: -0.72em; right: -0.28em;
+    font-size: 0.58em; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #0d1c13; background: #43c98a; border-radius: 999px; padding: 0.22em 0.62em;
+  }
+  .btn.hit-ok { outline: 2px solid #43c98a; outline-offset: 2px; }
+  .btn.miss { outline: 2px solid #c84444; outline-offset: 2px; animation: coachMiss 0.55s ease; }
+  @keyframes coachMiss {
+    0% { transform: translateX(0); }
+    22% { transform: translateX(-3px); }
+    44% { transform: translateX(3px); }
+    66% { transform: translateX(-2px); }
+    100% { transform: translateX(0); }
+  }
 </style>
 </head>
 <body>
@@ -289,6 +318,7 @@
     <b>999</b><span>Practice shoe</span>
   </div>
   <div class="bank" title="Cosmetic chips — no ledger out here"><i></i><span id="bankTxt">1,000</span></div>
+  <button class="coachpill" id="coachPill" type="button" title="Coach — basic strategy marks and your session score">🎓 <span id="coachScore">Coach</span></button>
   <p class="pill" id="pill"><span class="dot"></span><span id="pillTxt">Waiting for the line…</span><button class="link" id="pillBtn" type="button" hidden></button></p>
 </header>
 
@@ -306,6 +336,7 @@
 
   <div class="mid">
     <p class="status"><span class="dot"></span><span id="statusTxt">Place your bet</span></p>
+    <p class="coachhint" id="coachHint" hidden></p>
     <div class="shoe">
       <div class="shoebox" id="shoeBox"><div class="half a"></div><div class="half b"></div></div>
       <div class="meter"><i id="meterFill" style="width: 100%"></i></div>
@@ -373,13 +404,137 @@
   var you = [], dealerArr = [], shoeArr = [];
 
   try {
-    var saved = parseInt(localStorage.getItem('999.practice.stack'), 10);
+    /* parseFloat: 3:2 payouts leave half-chips behind and the
+       tray keeps every one of them                       */
+    var saved = parseFloat(localStorage.getItem('999.practice.stack'));
     if (isFinite(saved) && saved >= 0) bank = saved;
   } catch (e) { }
+  if (bank < 25) { bank = 1000; saveBank(); }   /* a stranded tray refills at boot */
   function saveBank() {
     try { localStorage.setItem('999.practice.stack', String(bank)); } catch (e) { }
   }
   function fmt(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }
+
+  /* ---- the coach: basic strategy + the session score ------ */
+  /* The book for THIS shoe: two decks, S17, no split. The
+     coach marks the book play at every decision, judges the
+     click against it and keeps the score — the practice
+     floor's whole advantage over the live table.            */
+  var coachOn = true;
+  var coachStats = { decisions: 0, book: 0, streak: 0, best: 0 };
+  try {
+    coachOn = localStorage.getItem('999.practice.coach') !== 'off';
+    var cs = JSON.parse(localStorage.getItem('999.practice.coachstats') || 'null');
+    if (cs && typeof cs.decisions === 'number' && typeof cs.book === 'number') coachStats = cs;
+  } catch (e) { }
+  function saveCoach() {
+    try {
+      localStorage.setItem('999.practice.coach', coachOn ? 'on' : 'off');
+      localStorage.setItem('999.practice.coachstats', JSON.stringify(coachStats));
+    } catch (e) { }
+  }
+  function cardVal(r) {
+    return r === 'A' ? 11 : (r === 'J' || r === 'Q' || r === 'K') ? 10 : parseInt(r, 10);
+  }
+  function isSoft(hand) {
+    var hard = 0, hasA = false;
+    for (var i = 0; i < hand.length; i++) {
+      if (hand[i].r === 'A') { hasA = true; hard += 1; } else hard += cardVal(hand[i].r);
+    }
+    return hasA && hard + 11 <= 21;
+  }
+  function bookPlay() {
+    /* the standing book: 2 decks / S17 / no split. A double
+       that isn't legal degrades to its hit/stand stand-in.   */
+    var upR = dealerArr[0] ? dealerArr[0].r : '10';
+    var up = upR === 'A' ? 11 : (upR === 'J' || upR === 'Q' || upR === 'K' ? 10 : parseInt(upR, 10));
+    var canD = you.length === 2 && bank >= bet;
+    var t = total(you), soft = isSoft(you), play;
+    if (soft) {
+      if (t >= 19) play = 'stand';
+      else if (t === 18) {
+        if (up >= 3 && up <= 6) play = canD ? 'double' : 'stand';
+        else if (up <= 2 || up === 7 || up === 8) play = 'stand';
+        else play = 'hit';
+      } else if (t === 17) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
+      else if (t >= 15) play = (canD && up >= 4 && up <= 6) ? 'double' : 'hit';
+      else play = (canD && up >= 5 && up <= 6) ? 'double' : 'hit';
+    } else {
+      if (t >= 17) play = 'stand';
+      else if (t >= 13) play = up <= 6 ? 'stand' : 'hit';
+      else if (t === 12) play = (up >= 4 && up <= 6) ? 'stand' : 'hit';
+      else if (t === 11) play = canD ? 'double' : 'hit';
+      else if (t === 10) play = (canD && up <= 9) ? 'double' : 'hit';
+      else if (t === 9) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
+      else play = 'hit';
+    }
+    return play;
+  }
+  var coachHint = document.getElementById('coachHint');
+  var lastBook = null;
+  function capWord(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function coachBtnFor(p) {
+    return document.getElementById(p === 'hit' ? 'btnHit' : p === 'stand' ? 'btnStand' : 'btnDouble');
+  }
+  function clearCoachMarks() {
+    ['btnHit', 'btnStand', 'btnDouble'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.classList.remove('book', 'miss', 'hit-ok');
+    });
+  }
+  function coachHide() {
+    clearCoachMarks();
+    lastBook = null;
+    if (coachHint) coachHint.hidden = true;
+  }
+  function coachMark() {
+    clearCoachMarks();
+    lastBook = null;
+    if (!coachOn || !dealerArr.length) { if (coachHint) coachHint.hidden = true; return; }
+    lastBook = bookPlay();
+    var b = coachBtnFor(lastBook);
+    if (b) b.classList.add('book');
+    coachHint.hidden = false;
+    coachHint.className = 'coachhint';
+    coachHint.textContent = 'Book: ' + capWord(lastBook);
+  }
+  function coachVerdict(choice) {
+    if (!coachOn || !lastBook) return;
+    var ok = choice === lastBook;
+    coachStats.decisions++;
+    if (ok) {
+      coachStats.book++;
+      coachStats.streak++;
+      if (coachStats.streak > coachStats.best) coachStats.best = coachStats.streak;
+    } else coachStats.streak = 0;
+    saveCoach();
+    renderCoach();
+    var b = coachBtnFor(choice);
+    if (b) { b.classList.remove('book'); b.classList.add(ok ? 'hit-ok' : 'miss'); }
+    coachHint.hidden = false;
+    coachHint.className = 'coachhint ' + (ok ? 'ok' : 'miss');
+    coachHint.textContent = ok ? '\u2713 Book play' : 'Book says ' + capWord(lastBook);
+    coachCue(ok);
+    lastBook = null;
+    /* clear only the VERDICT's own flash — a newer decision may
+       have already re-marked the book, and its badge is not ours
+       to take (the hint goes only if nothing replaced it)        */
+    later(2400, function () {
+      ['btnHit', 'btnStand', 'btnDouble'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('miss', 'hit-ok');
+      });
+      if (coachHint && lastBook === null) coachHint.hidden = true;
+    });
+  }
+  function renderCoach() {
+    var el = document.getElementById('coachScore');
+    var pct = coachStats.decisions ? Math.round(100 * coachStats.book / coachStats.decisions) : null;
+    el.textContent = coachOn
+      ? (pct == null ? 'Coach' : 'Coach ' + pct + '% \u00b7 ' + coachStats.book + '/' + coachStats.decisions)
+      : 'Coach off';
+    document.getElementById('coachPill').classList.toggle('off', !coachOn);
+  }
 
   function total(hand) {
     var t = 0, aces = 0;
@@ -535,6 +690,18 @@
     burst(c, t + 1.45, 0.05, 'bandpass', 1500, 1.2, 0.1);
     tone(c, 165, t + 1.45, 0.11, 'triangle', 0.12, 105);
   }
+  /* the coach's voice: a bright two-note tick at a book play,
+     a low sigh at a deviation — quiet, and never over the felt */
+  function coachCue(ok) {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime;
+    if (ok) {
+      tone(c, 880, t, 0.09, 'triangle', 0.05);
+      tone(c, 1318.51, t + 0.075, 0.13, 'triangle', 0.04);
+    } else {
+      tone(c, 220, t, 0.18, 'triangle', 0.05, 165);
+    }
+  }
   function stinger(kind) {
     var c = ready(); if (!c) return;
     var t = c.currentTime + 0.02;
@@ -687,13 +854,15 @@
   }
 
   function beginTurn() {
-    if (total(you) >= 21) { later(650, dealerTurn); return; }   /* 21 or bust stands */
+    if (total(you) >= 21) { coachHide(); later(650, dealerTurn); return; }   /* 21 or bust stands */
     phase = 'acting';
     syncUI();
     setStatus('Your move — hit, stand or double');
+    coachMark();
   }
   function hit() {
     if (phase !== 'acting') return;
+    coachVerdict('hit');
     phase = 'dealing';
     syncUI();
     dealCard('you');
@@ -701,10 +870,12 @@
   }
   function stand() {
     if (phase !== 'acting') return;
+    coachVerdict('stand');
     dealerTurn();
   }
   function doubleDown() {
     if (phase !== 'acting' || you.length !== 2 || bank < bet) return;
+    coachVerdict('double');
     bank -= bet; bet *= 2;
     renderBank(); renderBet();
     chipClack(0.03);
@@ -771,7 +942,10 @@
     you = []; dealerArr = [];
     renderHand(elYou, you); renderHand(elDealer, dealerArr); renderTotals();
     renderBet();
-    if (bank <= 0) {
+    /* the tray refills whenever the player can't cover the
+       minimum bet — half-chips from 3:2 payouts must never
+       dead-end the practice floor                        */
+    if (bank < 25) {
       bank = 1000;
       saveBank();
       renderBank();
@@ -813,6 +987,15 @@
     if (master) master.gain.value = audioOn ? 1 : 0;
     syncMuteBtn();
     wakeAudio();
+  });
+
+  /* the coach toggle — marks the book, keeps the score      */
+  document.getElementById('coachPill').addEventListener('click', function () {
+    coachOn = !coachOn;
+    saveCoach();
+    renderCoach();
+    if (!coachOn) coachHide();
+    else if (phase === 'acting') coachMark();
   });
 
   /* ============================================================
@@ -897,6 +1080,7 @@
   renderBet();
   renderTotals();
   syncUI();
+  renderCoach();
   setStatus('Place your bet');
   probe();
 })();
