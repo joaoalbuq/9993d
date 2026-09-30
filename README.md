@@ -192,6 +192,12 @@ answers with CORS headers.
   snaps in the deal, chip clacks landing with the bet debits and each
   payout-walk flight, a rising triad at a won hand and a falling sigh at a
   lost one; the 🔊 toggle silences and restores it all mid-round.
+- **Sign-in outside localhost** — the live Pages build drives the public hub
+  end to end, cross-origin: guest mint → verify → wallet (opening + starter
+  grant) → a live round's `bj_bet` debit landing in the hub's own ledger
+  (10,200 → 10,175 sampled), idempotent replays inert, 409
+  `insufficient_funds` on an empty wallet, and the CORS preflight echoes the
+  Pages origin with the ledger headers.
 - **Offline, end to end** — with the host stopped for real, an offline
   navigation lands on the branded offline state carrying the exact URL in
   `?from=` (queries included); the line probe fails honestly through the
