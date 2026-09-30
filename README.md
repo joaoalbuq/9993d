@@ -120,6 +120,13 @@ answers with CORS headers.
   debit. Every move carries a per-hand idempotency key — a replayed key
   returns the original result and pays nothing — and an insufficient-funds
   bet (409) leaves the hand unstaked and the pill on hub truth.
+- **The felt keeps the ledger** — bet stacks are live chips, not decoration:
+  a stack drops at your box the moment the `bj_bet` debit lands (nothing
+  while the wallet says no), a double doubles it, and at settle the chips
+  fly to the winner — the payout arcs out of the house tray — or to the
+  dealer when the house wins. Sampled chip-by-chip against the ledger:
+  win brings 2× the stake in, a push returns 1×, a loss sends the stack to
+  the tray, and an unstaked hand moves no chips either way.
 - **Clean pages** — `node --check` on every inline script, no console
   errors.
 

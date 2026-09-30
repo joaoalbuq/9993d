@@ -556,7 +556,12 @@
     }
     h.betChain = (h.betChain || Promise.resolve()).then(function () {
       return applyMove(extra ? 'dbl' : 'bet', 'debit', UNIT_BET, 'bj_bet').then(function (bal) {
-        if (bal != null) h.stake = (h.stake || 0) + UNIT_BET;
+        if (bal != null) {
+          h.stake = (h.stake || 0) + UNIT_BET;
+          /* the felt keeps the ledger: a chip lands at the box
+             when — and only when — the debit actually lands   */
+          h.chipT0 = (h.chipT0 || []).concat(performance.now());
+        }
         return bal;
       });
     });
@@ -1075,9 +1080,13 @@
     game.phase = 'dealing';
     game.acting = -1;
     game.hands = [];
-    for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null });
+    for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null, chipT0: [] });
     game.dealer = { cards: [] };
     setStatus('Dealing — one to each box, then the dealer');
+    /* the bots' nominal chips land with the deal; the player's
+       chip waits for the real debit (placeBet below) — a felt
+       stack only exists where a stake landed               */
+    for (i = 0; i < BOX_N; i++) if (i !== YOUR) game.hands[i].chipT0 = [performance.now()];
     placeBet(game.hands[YOUR], false);   /* real stakes: the bet is in before the cards */
 
     /* Deal order (spec 4.5, European): one card each to boxes
@@ -1176,6 +1185,12 @@
       else if (dbust || s > ds) h.result = 'win';
       else if (s === ds) h.result = 'push';
       else h.result = 'lose';
+      /* the felt pays the round exactly as the wallet will: a
+         losing stack flies to the dealer, a winner's payout
+         flies from the house tray back to the box            */
+      h.flyT0 = performance.now() + CHIP_DELAY;
+      var n = (h.chipT0 || []).length;
+      h.flyPay = h.result === 'win' ? n * 2 : h.result === 'push' ? n : 0;
     }
     setStatus('Round settles — the frame returns to the dealer');
     settleWallet();   /* the pill tracks play: one wallet move per settled round */
@@ -1323,6 +1338,63 @@
     del.className = 'lab' + (ds2 > 21 ? ' win' : '');
   }
 
+  /* ================= bet stacks (the felt keeps the ledger) ==
+     A chip quad exists only where a stake landed: the player's
+     chips land with the ledger debit (one per UNIT_BET — so a
+     double doubles the stack), the bots' nominal chips land with
+     the deal. At settle the felt pays the round the way the
+     wallet did: a losing stack flies to the house tray, and a
+     winner's payout flies from the tray back to the box.        */
+  var CHIP_D = 0.56, CHIP_H = 0.024;
+  var CHIP_POP = 420;                 /* a chip drops in when its bet lands */
+  var CHIP_DELAY = 350;               /* settle: the verdict lands first    */
+  var CHIP_FLY = 1150, CHIP_STAG = 150;
+
+  function chipSpot(b, slot) {
+    return [boxX(b) + (slot % 2 ? 0.022 : -0.022), BOX_Z + 0.86 + ((slot % 3) - 1) * 0.018];
+  }
+  function traySpot(k) {
+    /* lands IN FRONT of the tray row — never coincident quads */
+    return [-1.18 + (k % 5) * 0.64, DEALER_Z - 0.62];
+  }
+  function drawBetStack(b, ts) {
+    var h = game.hands[b];
+    if (!h) return;
+    var chips = h.chipT0 || [], i;
+    var flying = h.flyT0 != null && ts >= h.flyT0;
+    var toDealer = flying && (h.result === 'lose' || h.result === 'bust');
+    for (i = 0; i < chips.length; i++) {
+      if (toDealer) chipFly(b, i, i, h.flyT0, ts, true);
+      else chipDrop(b, i, chips[i], ts);
+    }
+    if (flying && h.flyPay) {
+      for (i = 0; i < h.flyPay; i++) chipFly(b, chips.length + i, i, h.flyT0, ts, false);
+    }
+  }
+  function chipDrop(b, slot, t0, ts) {
+    /* the drop-in: a chip lands the moment its stake does */
+    var p = clamp((ts - t0) / CHIP_POP, 0, 1), e = 1 - Math.pow(1 - p, 3);
+    var sp = chipSpot(b, slot), s = lerp(CHIP_D * 0.72, CHIP_D, e);
+    drawQuad(chipTex, 1, hexTint(CHIP_TINTS[b % CHIP_TINTS.length], clamp(p * 5, 0, 1)),
+      sp[0], lerp(0.62, 0.012 + slot * CHIP_H, e), sp[1], 0, s, s, false);
+  }
+  function chipFly(b, slot, k, t0, ts, toDealer) {
+    /* the settle flight: chips arc over the cloth between the
+       box and the house tray, staggered so a stack unwinds   */
+    var q = clamp((ts - (t0 + k * CHIP_STAG + (toDealer ? 0 : 180))) / CHIP_FLY, 0, 1);
+    if (q <= 0 && !toDealer) return;            /* the payout waits its turn */
+    var e = 1 - Math.pow(1 - q, 2.6);
+    var from = toDealer ? chipSpot(b, slot) : traySpot(k);
+    var to = toDealer ? traySpot(k) : chipSpot(b, slot);
+    var y0 = 0.012 + (toDealer ? slot : 0) * CHIP_H;
+    var y1 = 0.012 + (toDealer ? 0 : slot) * CHIP_H;
+    var a = toDealer ? (q > 0.72 ? 1 - (q - 0.72) / 0.28 : 1) : clamp(q * 7, 0, 1);
+    var s = toDealer ? lerp(CHIP_D, CHIP_D * 0.8, e) : lerp(CHIP_D * 0.82, CHIP_D, e);
+    drawQuad(chipTex, 1, hexTint(CHIP_TINTS[b % CHIP_TINTS.length], a),
+      lerp(from[0], to[0], e), lerp(y0, y1, e) + Math.sin(q * Math.PI) * 0.55,
+      lerp(from[1], to[1], e), 0, s, s, false);
+  }
+
   /* ================= render loop =========================== */
   var proj = mPersp(CAM_FOV * Math.PI / 180, 1, 0.1, 60);
   var lastTs = 0, animOn = false, rafId = 0;
@@ -1357,11 +1429,10 @@
       drawQuad(chipTex, 1, hexTint(CHIP_TINTS[tc], 1), -1.28 + tc * 0.64, 0.012, DEALER_Z - 0.78, 0, 0.5, 0.5, false);
     }
 
-    /* each box's bet stack */
-    for (var b = 0; b < BOX_N; b++) {
-      drawQuad(chipTex, 1, hexTint(CHIP_TINTS[b % CHIP_TINTS.length], 1),
-        boxX(b), 0.012, BOX_Z + 0.86, 0, 0.56, 0.56, false);
-    }
+    /* each box's bet stack — the felt's chips tell the truth:
+       a stack appears where a stake landed, grows with a
+       double, and at settle flies to the winner or the dealer */
+    for (var b = 0; b < BOX_N; b++) drawBetStack(b, ts);
 
     /* the "next to play" ring — driven by the game's acting box
        (seat id = reported index + 1), on the cloth at the box.  */
