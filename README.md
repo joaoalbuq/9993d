@@ -94,11 +94,12 @@ are additive screens kept beside it for side-by-side comparison.
   frame holds each box as it pays — chips fly in with the settlement's own
   `+delta` floating at the total, a losing stack flies out to the dealer —
   and the round ends back on the dealer's hand.
-- **The audio ceremony (spec 4.5)** — chip clacks, card snaps, the shoe's
-  riffle and win/lose stingers, every sound Web Audio **synthesis** (no CDN,
-  no bundled sample, no runtime download). Impact then sound: a chip clacks
-  when it lands, a card snaps when it hits the cloth, and one stinger per
-  round marks **your** verdict only. Gated by the 🔊 tool toggle (a mute
+- **The audio ceremony (spec 4.5)** — chip clacks, card whooshes and
+  snaps, the shoe's riffle and win/lose stingers, every sound Web Audio
+  **synthesis** (no CDN, no bundled sample, no runtime download). Impact
+  then sound: a chip clacks when it lands, a whoosh rides each card's
+  flight and its snap lands it, and one stinger per round marks **your**
+  verdict only. Gated by the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
 - **The shoe ceremony (spec 4.5)** — the shoe plays **8 rounds**, then the
   deal pauses: the deck splits in two at the shoe, the halves riffle back
@@ -194,7 +195,9 @@ answers with CORS headers.
   the ledger: win brings 2× the stake in, a push returns 1×, a loss sends
   the stack to the tray, and an unstaked hand moves no chips either way.
 - **The audio ceremony** — live-sampled on the running page: 13 card
-  snaps in the deal, chip clacks landing with the bet debits and each
+  flights in the deal, each a whoosh at the shoe and its snap landing
+  420ms later at the cloth (128 flights sampled, every whoosh paired with
+  exactly one snap), chip clacks landing with the bet debits and each
   payout-walk flight, a rising triad at a won hand and a falling sigh at a
   lost one; the 🔊 toggle silences and restores it all mid-round.
 - **The shoe ceremony** — live-sampled across 40+ ceremonies on the running
