@@ -71,9 +71,54 @@
     margin-top: 2.8rem; font-size: 0.68rem; letter-spacing: 0.26em;
     text-transform: uppercase; color: rgba(236, 219, 165, 0.45);
   }
+
+  /* ---------- the rotate gate: phones/tablets go landscape --- */
+  #gate {
+    position: fixed; inset: 0; z-index: 60;
+    display: none; align-items: center; justify-content: center;
+    text-align: center; padding: 2em;
+    background:
+      radial-gradient(120% 90% at 50% 18%, rgba(11, 92, 58, 0.55), transparent 62%),
+      var(--deep);
+  }
+  body.gated #gate { display: flex; }
+  body.gated main { visibility: hidden; }
+  .gate-card { max-width: 22em; }
+  .gate-phone {
+    width: 2.9em; height: 5.2em; margin: 0 auto 1.5em;
+    border: 3px solid var(--accent); border-radius: 0.7em;
+    position: relative;
+    animation: gateSpin 2.4s cubic-bezier(.6, .05, .35, .95) infinite alternate;
+  }
+  .gate-phone::after {
+    content: ''; position: absolute; left: 50%; bottom: 0.45em;
+    width: 0.7em; height: 0.7em; transform: translateX(-50%);
+    border: 2px solid var(--accent); border-radius: 50%; opacity: 0.7;
+  }
+  @keyframes gateSpin { from { transform: rotate(0); } to { transform: rotate(90deg); } }
+  .gate-kicker {
+    font-size: 0.72rem; letter-spacing: 0.38em; text-transform: uppercase;
+    color: rgba(236, 219, 165, 0.6);
+  }
+  .gate-card h2 { margin-top: 0.55em; font-size: 1.9rem; color: var(--print); }
+  .gate-sub {
+    margin-top: 0.7em; font-size: 0.95rem; line-height: 1.55;
+    color: rgba(236, 219, 165, 0.8);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gate-phone { animation: none; transform: rotate(90deg); }
+  }
 </style>
 </head>
 <body>
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-phone"></div>
+    <p class="gate-kicker">999 Casino · Blackjack</p>
+    <h2>Turn your phone sideways</h2>
+    <p class="gate-sub">The floor plays landscape — rotate your device to come in.</p>
+  </div>
+</div>
 <main>
   <div class="wordmark"><b>999</b> Casino</div>
   <div class="kicker">Blackjack · the full table</div>
@@ -96,5 +141,19 @@
   </div>
   <footer>999 Casino · play-money social casino · fullscreen 16:9 revamp</footer>
 </main>
+<script>
+(function () {
+  'use strict';
+  /* portrait on a phone or tablet is a rotate gate — the portal is
+     read in landscape like everything else. Desktop is untouched. */
+  function fit() {
+    var coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    document.body.classList.toggle('gated', coarse && window.innerWidth / window.innerHeight < 1);
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', fit);
+  fit();
+})();
+</script>
 </body>
 </html>

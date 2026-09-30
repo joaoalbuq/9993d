@@ -21,9 +21,9 @@ are additive screens kept beside it for side-by-side comparison.
 
 - **A table fitted to the frame** — a 16:9 screen gets a 16:9 frustum: the
   felt spans the viewport edge to edge, undistorted, every box in frame
-  (measured at 1280×720 and 1920×1080). On a phone portrait the camera
-  backs off so the whole table still fits — it widens, never crops, and
-  nothing is stretched to make it fit.
+  (measured at 1280×720 and 1920×1080). In a narrow portrait viewport the
+  camera backs off so the whole table still fits — it widens, never crops,
+  and nothing is stretched to make it fit.
 - **The camera is a rule, not an interpolation** — while a box decides the
   camera **holds** that box, tight on its cards and bet; the dealer's hand
   owns the frame while it plays; a round **ends on the dealer's hand**; a
@@ -49,10 +49,14 @@ are additive screens kept beside it for side-by-side comparison.
 
 ### `login-16x9.html` — the fullscreen sign-in
 
-- **Fullscreen, three arrangements** — a 16:9 stage that fills a 16:9 screen
-  exactly, a compact two-column layout on phone landscape, and a stacked
-  portrait layout that fits a phone with no scroll. Safe-area insets
-  everywhere; `visualViewport` keeps the panel above the mobile keyboard.
+- **Fullscreen, landscape-first** — a 16:9 stage that fills a 16:9 screen
+  exactly, and a compact two-column layout on phone landscape. Phones and
+  tablets are landscape-only: portrait shows a rotate gate (“turn your
+  phone sideways”), and the first tap in landscape enters true fullscreen —
+  browser chrome hidden, the screen locked to landscape on Android; iOS
+  keeps the edge-to-edge layout. Desktop keeps the letterboxed stage and
+  its portrait arrangement. Safe-area insets everywhere; `visualViewport`
+  keeps the panel above the mobile keyboard.
 - **The felt is the screen** — procedural canvas: weave noise, light pool,
   vignette, and the printed identity (`BLACKJACK`, `DEALER MUST DRAW ALL 17`,
   `3 : 2`, `999`). Pixel ratio capped at 2; the light drift pauses when the
@@ -117,7 +121,8 @@ answers with CORS headers.
 
 - **16:9 fit** — felt corners project inside the frame at 1280×720
   (x ∈ [3, 1277]) and 1920×1080 (x ∈ [4, 1916]); the whole table fits a
-  390×844 phone portrait (x ∈ [5, 385]); the HUD stage fills 16:9 exactly.
+  a 390×844 portrait viewport (x ∈ [5, 385]); the HUD stage fills 16:9
+  exactly. Phones and tablets in portrait now meet the rotate gate.
 - **The camera director** — the full shot cycle live-sampled on the running
   page: wide table → the table → holds 1…6 → the dealer's hand → settle →
   back to the dealer.

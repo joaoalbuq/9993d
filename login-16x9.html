@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b2b1d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>999 Casino — Enter the floor · fullscreen 16:9</title>
 <style>
   /* ============================================================
@@ -261,12 +264,63 @@
   body.stacked .strip { position: static; padding-top: 0.7em; font-size: 0.62em; }
   body.stacked .strip span:last-child { display: none; }
 
+  /* ---------- the rotate gate: phones/tablets go landscape ---
+     Portrait is not an arrangement on a phone or tablet — it is a
+     gate: rotate to the sideways 16:9 and the floor opens.       */
+  #gate {
+    position: fixed; inset: 0; z-index: 60;
+    display: none; align-items: center; justify-content: center;
+    text-align: center; padding: 2em;
+    background:
+      radial-gradient(120% 90% at 50% 18%, rgba(31, 107, 69, 0.5), transparent 62%),
+      var(--deep);
+  }
+  body.gated #gate { display: flex; }
+  .gate-card { max-width: 22em; }
+  .gate-phone {
+    width: 2.9em; height: 5.2em; margin: 0 auto 1.5em;
+    border: 3px solid var(--accent); border-radius: 0.7em;
+    position: relative;
+    animation: gateSpin 2.4s cubic-bezier(.6, .05, .35, .95) infinite alternate;
+  }
+  .gate-phone::after {
+    content: ''; position: absolute; left: 50%; bottom: 0.45em;
+    width: 0.7em; height: 0.7em; transform: translateX(-50%);
+    border: 2px solid var(--accent); border-radius: 50%; opacity: 0.7;
+  }
+  @keyframes gateSpin { from { transform: rotate(0); } to { transform: rotate(90deg); } }
+  .gate-kicker {
+    font-size: 0.72em; letter-spacing: 0.38em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 60%, transparent);
+  }
+  .gate-card h2 { margin-top: 0.55em; font-size: 1.9em; color: var(--print); }
+  .gate-sub {
+    margin-top: 0.7em; font-size: 0.95em; line-height: 1.55;
+    color: color-mix(in srgb, var(--ink) 78%, transparent);
+  }
+
+  /* the fullscreen toggle rides the footer strip */
+  button.fsbtn {
+    border: none; background: none; padding: 0; cursor: pointer;
+    color: var(--accent); font: inherit; letter-spacing: inherit; text-transform: inherit;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
+    .gate-phone { transform: rotate(90deg); }   /* the end pose, held still */
   }
 </style>
 </head>
 <body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-phone"></div>
+    <p class="gate-kicker">999 Casino · Blackjack</p>
+    <h2>Turn your phone sideways</h2>
+    <p class="gate-sub">The table plays landscape — rotate your device to enter the floor.</p>
+  </div>
+</div>
 
 <canvas id="felt" aria-hidden="true"></canvas>
 
@@ -331,7 +385,7 @@
 
   <footer class="strip">
     <span>999 Casino · play-money social casino</span>
-    <span><a href="table-16x9.html" style="color: var(--accent); text-decoration: none;">The 3D table →</a> · fullscreen 16:9 · revamp preview</span>
+    <span><button class="fsbtn" id="fsBtn" type="button" title="Toggle fullscreen">⤢ Fullscreen</button> · <a href="table-16x9.html" style="color: var(--accent); text-decoration: none;">The 3D table →</a> · fullscreen 16:9 · revamp preview</span>
   </footer>
 </div>
 
@@ -623,23 +677,33 @@
   }
   function stopAnim() { animOn = false; if (rafId) cancelAnimationFrame(rafId); }
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) stopAnim(); else startAnim();
+    if (document.hidden) stopAnim();
+    else if (!document.body.classList.contains('gated')) startAnim();
   });
 
   /* ================= the 16:9 stage fit =====================
      Wide viewports: the 1600×900 stage scaled to fit (the cinematic
      letterbox; the felt fills the screen behind it). Short landscape
-     (phone in hand) and portrait get full-viewport arrangements.   */
+     (phone in hand) gets the full-viewport arrangement; portrait on a
+     phone or tablet is a ROTATE GATE — landscape is the only mobile
+     arrangement, so the sideways screen is the whole screen.      */
   var stage = document.getElementById('stage');
+  function coarsePointer() {
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  }
   function fit() {
     var vv = window.visualViewport;
     var w = (vv && vv.width) || window.innerWidth;
     var h = (vv && vv.height) || window.innerHeight;
     var portrait = w / h < 1;
+    var gate = portrait && coarsePointer();   /* phones/tablets rotate; desktop keeps its layouts */
     var compact = !portrait && h < 520;
 
-    document.body.classList.toggle('stacked', portrait);
+    document.body.classList.toggle('gated', gate);
+    document.body.classList.toggle('stacked', portrait && !gate);
     document.body.classList.toggle('compact', compact);
+    /* the felt sleeps behind the gate — and only wakes for a visible page */
+    if (gate) stopAnim(); else if (!document.hidden) startAnim();
 
     if (portrait || compact) {
       stage.style.transform = 'none';
@@ -650,6 +714,56 @@
       stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
     }
   }
+
+  /* ================= fullscreen (mobile landscape) ==========
+     The first tap on a phone drops the browser chrome and locks
+     the screen to landscape where the platform allows (Android).
+     iOS refuses both and simply keeps the edge-to-edge layout;
+     every call is therefore best-effort, never fatal.            */
+  var fsBtn = document.getElementById('fsBtn');
+  function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  function lockLand() {
+    try {
+      var so = window.screen && window.screen.orientation;
+      if (so && so.lock) { var q = so.lock('landscape'); if (q && q.catch) q.catch(function () { }); }
+    } catch (e) { }
+  }
+  function enterFs() {
+    var el = document.documentElement;
+    try {
+      var p = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+      if (!p) return;
+      var r = p.call(el);
+      if (r && r.then) r.then(lockLand).catch(function () { });
+      else lockLand();
+    } catch (e) { }
+  }
+  function toggleFs() {
+    try {
+      if (fsEl()) {
+        var x = document.exitFullscreen || document.webkitExitFullscreen;
+        if (x) { x.call(document); return; }
+      }
+    } catch (e) { }
+    enterFs();
+  }
+  function syncFsBtn() {
+    if (fsBtn) fsBtn.textContent = fsEl() ? '⤫ Exit fullscreen' : '⤢ Fullscreen';
+  }
+  if (fsBtn) fsBtn.addEventListener('click', toggleFs);
+  document.addEventListener('fullscreenchange', function () { syncFsBtn(); fit(); });
+  document.addEventListener('webkitfullscreenchange', function () { syncFsBtn(); fit(); });
+
+  /* “auto on first tap once loading”: the first touch in landscape
+     enters fullscreen — one gesture, one tap, then never again.   */
+  var fsArmed = true;
+  document.addEventListener('pointerdown', function () {
+    if (!fsArmed) return;
+    if (document.body.classList.contains('gated')) return;   /* still portrait — wait for the turn */
+    if (!coarsePointer()) return;                            /* desktop opts in via the ⤢ toggle */
+    fsArmed = false;
+    enterFs();
+  }, true);
 
   /* ================= hub client ============================
      VENDORED from 999-bridge/src/hub-client.js (commit 5185558),
@@ -897,8 +1011,7 @@
   var initial = CLOTHS.filter(function (c) { return c.id === loadClothId(); })[0] || CLOTHS[0];
   applyCloth(initial);
   fitCanvas();
-  fit();
-  startAnim();
+  fit();            /* fit owns the loop: it starts the felt, or sleeps it behind the gate */
   window.addEventListener('resize', function () { fitCanvas(); fit(); });
   window.addEventListener('orientationchange', function () { fitCanvas(); fit(); });
 
