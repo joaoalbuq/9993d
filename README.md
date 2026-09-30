@@ -120,8 +120,15 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   home-screen chrome.
 - **`sw.js` is a pass-through** — Chrome's installability criteria still
   require a registered fetch handler, so the worker is a network-first
-  shell cache with an offline fallback that never touches `/hub/`: the
-  ledger always goes to the network.
+  shell cache that never touches `/hub/`: the ledger always goes to the
+  network. Connectivity probes (`cache: 'no-store'`) are never cached and
+  never rescued from cache, so the offline page can tell the line is down.
+- **A branded offline state, never a dead screen** — a navigation that
+  can't reach the network lands on `offline.html`: the house chip (inline
+  SVG, so the brand can't 404 offline), "the floor is offline", and the
+  page the player was bound for carried in `?from=`. It probes the line
+  from the page, flips to **"Back online"** the moment the origin answers,
+  and deals the player back into exactly the page they wanted.
 
 ## Play it
 
@@ -175,6 +182,12 @@ answers with CORS headers.
   snaps in the deal, chip clacks landing with the bet debits and each
   payout-walk flight, a rising triad at a won hand and a falling sigh at a
   lost one; the 🔊 toggle silences and restores it all mid-round.
+- **Offline, end to end** — with the host stopped for real, an offline
+  navigation lands on the branded offline state carrying the exact URL in
+  `?from=` (queries included); the line probe fails honestly through the
+  worker (~2s), "Try now" falls back to waiting, and when the host returns
+  the page flips to **Back online** and deals the player into exactly the
+  page they wanted. The ledger still passes through untouched.
 - **Clean pages** — `node --check` on every inline script, no console
   errors.
 
@@ -185,6 +198,7 @@ answers with CORS headers.
 | `index.html` | The portal entry |
 | `login-16x9.html` | The fullscreen 16:9 sign-in (2D canvas felt engine) |
 | `table-16x9.html` | The fullscreen 16:9 table (raw WebGL 3D engine) |
+| `offline.html` | The branded offline state — "back online" returns you to the page you wanted |
 | `manifest.webmanifest` | The PWA manifest — landscape fullscreen, home-screen install |
 | `sw.js` | Installability service worker (network-first, `/hub/` untouched) |
 | `make-icons.js` | Draws the PWA icons procedurally → `media/icon-*.png` |

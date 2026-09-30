@@ -23,7 +23,8 @@ const PAGES = {
   '/': 'login-16x9.html',
   '/index.html': 'index.html',
   '/login-16x9.html': 'login-16x9.html',
-  '/table-16x9.html': 'table-16x9.html'
+  '/table-16x9.html': 'table-16x9.html',
+  '/offline.html': 'offline.html'
 };
 
 /* the PWA shell — same allowlist rule, binary-safe */

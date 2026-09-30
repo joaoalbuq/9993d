@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2b1d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>999 Casino — Blackjack</title>
+<link rel="icon" href="media/icon-192.png">
+<link rel="apple-touch-icon" href="media/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  /* the floor's own tokens (see login-16x9.html) — this page is
+     the branded state the installed app lands on when the line
+     drops: never a browser error screen                    */
+  :root {
+    --felt:  #1f6b45;
+    --deep:  #0b2b1d;
+    --rail:  #241a12;
+    --accent:#d8b56a;
+    --ink:   #f4ead2;
+    --print: #f7f1e2;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    padding: calc(2em + env(safe-area-inset-top)) calc(1.5em + env(safe-area-inset-right))
+             calc(2em + env(safe-area-inset-bottom)) calc(1.5em + env(safe-area-inset-left));
+    background:
+      radial-gradient(120% 90% at 50% 18%, rgba(31, 107, 69, 0.5), transparent 62%),
+      var(--deep);
+    color: var(--ink);
+    font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+  }
+  .card { max-width: 24em; }
+
+  /* the chip mark — inline SVG so the brand cannot 404 offline */
+  .chip {
+    width: 7.4em; height: 7.4em; margin: 0 auto 1.5em;
+    transition: filter 0.6s ease, transform 0.6s ease;
+  }
+  body.back .chip {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 0.9em rgba(216, 181, 106, 0.55));
+  }
+
+  .kicker {
+    margin: 0; font-size: 0.72em; letter-spacing: 0.38em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 60%, transparent);
+  }
+  h1 { margin: 0.55em 0 0; font-size: 1.9em; line-height: 1.15; color: var(--print); }
+  .sub {
+    margin: 0.7em auto 0; max-width: 26em; font-size: 0.95em; line-height: 1.55;
+    color: color-mix(in srgb, var(--ink) 72%, transparent);
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.65em;
+    margin-top: 1.5em; padding: 0.55em 1.1em;
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    border-radius: 999px;
+    font-size: 0.85em; letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--ink) 78%, transparent);
+  }
+  .dot {
+    width: 0.62em; height: 0.62em; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  body.back .dot { background: #79d9a4; animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.35; transform: scale(0.8); }
+  }
+
+  .act {
+    margin-top: 1.6em; padding: 0.82em 1.7em;
+    border: 0; border-radius: 0.85em; font: inherit; font-weight: 600;
+    letter-spacing: 0.05em; cursor: pointer;
+    color: var(--rail);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 88%, white),
+      color-mix(in srgb, var(--accent) 78%, black));
+  }
+  .act:active { transform: translateY(1px); }
+  .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .foot {
+    margin: 2.2em 0 0; font-size: 0.72em; letter-spacing: 0.32em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 42%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; }
+    .chip { transition: none; }
+    body.back .chip { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <!-- the house chip: gold ring, eight notches, 999 at the center —
+       the same mark make-icons.js stamps into the PWA icons -->
+  <svg class="chip" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="46" fill="none" stroke="#d8b56a" stroke-width="7"/>
+    <g stroke="#0b2b1d" stroke-width="6">
+      <line x1="50" y1="1" x2="50" y2="11"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(45 50 50)"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(90 50 50)"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(135 50 50)"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(180 50 50)"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(225 50 50)"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(270 50 50)"/>
+      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(315 50 50)"/>
+    </g>
+    <circle cx="50" cy="50" r="33" fill="#1f6b45"/>
+    <circle cx="50" cy="50" r="33" fill="none" stroke="#d8b56a" stroke-width="2.5"/>
+    <text x="50" y="61" text-anchor="middle" font-size="29" font-weight="700"
+          letter-spacing="1" fill="#d8b56a"
+          font-family="-apple-system, 'Segoe UI', Roboto, system-ui, sans-serif">999</text>
+  </svg>
+
+  <p class="kicker">999 Casino · Blackjack</p>
+  <h1 id="title">The floor is offline</h1>
+  <p class="sub" id="sub">The connection dropped mid-shoe. The table, the shoe
+    and your chips are safe — we deal you back in the moment the line returns.</p>
+  <p class="pill"><span class="dot"></span><span id="pillTxt">Waiting for the line…</span></p>
+  <button class="act" id="act" type="button">Try now</button>
+  <p class="foot">The felt keeps the ledger</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     The offline state, and its 'back online' counterpart.
+
+     The worker lands the player here carrying the page they were
+     bound for (offline.html?from=<url>); when the line returns
+     this state flips to "Back online" and hands them straight
+     back to exactly that page. Connectivity is probed against
+     our OWN origin with a no-store touch the worker passes
+     through and never caches — an answer here really means the
+     line is back. No external hosts, ever.                    */
+  var title = document.getElementById('title');
+  var sub = document.getElementById('sub');
+  var pillTxt = document.getElementById('pillTxt');
+  var act = document.getElementById('act');
+
+  var dest = './table-16x9.html';
+  try {
+    var from = new URL(location.href).searchParams.get('from');
+    if (from) {
+      var u = new URL(from, location.href);
+      /* same origin only, and never back into this page */
+      if (u.origin === location.origin && !/offline\.html$/i.test(u.pathname)) dest = u.href;
+    }
+  } catch (e) { }
+
+  var back = false, retryTimer = 0, goTimer = 0;
+  function go() { location.replace(dest); }
+
+  function setState(ok) {
+    if (ok === back) return;
+    back = ok;
+    document.body.classList.toggle('back', ok);
+    title.textContent = 'Back online';
+    sub.textContent = 'The line is up again — dealing you back into the floor.';
+    pillTxt.textContent = 'Returning to the floor…';
+    act.textContent = 'Back to the floor';
+    clearTimeout(retryTimer);
+    goTimer = setTimeout(go, 1400);          /* a beat to read it, then the floor */
+  }
+
+  function probe() {
+    if (back) return;
+    fetch('./manifest.webmanifest?probe=' + Date.now(), { cache: 'no-store' })
+      .then(function () { setState(true); })
+      .catch(function () {
+        pillTxt.textContent = 'Waiting for the line…';
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(probe, 4000); /* the line comes back quietly */
+      });
+  }
+
+  act.addEventListener('click', function () {
+    if (back) { clearTimeout(goTimer); go(); return; }
+    pillTxt.textContent = 'Checking the line…';
+    probe();
+  });
+  window.addEventListener('online', probe);
+  window.addEventListener('pageshow', probe);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) probe();
+  });
+  probe();
+})();
+</script>
+</body>
+</html>

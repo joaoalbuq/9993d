@@ -3,17 +3,26 @@
 
    Chrome's install criteria still require a registered worker
    with a fetch handler; this one is deliberately small: a
-   network-first pass-through for the app shell with an offline
-   fallback, and NO interference in the ledger — /hub/ traffic
-   (and every non-GET) goes straight to the network, uncached.
-   ============================================================ */
+   network-first pass-through for the app shell, and NO
+   interference in the ledger — /hub/ traffic (and every non-GET)
+   goes straight to the network, uncached.
 
-const CACHE = '999-floor-v1';
+   Offline policy (spec: never a dead screen): a failed
+   NAVIGATION is answered by the branded offline state
+   (offline.html), carrying the page the player was bound for in
+   ?from= — that page shows "Back online" and returns them there.
+   A no-store request is a connectivity probe: never cached, and
+   on failure never rescued — the offline page must be able to
+   tell that the line is still down.                            */
+/* ============================================================ */
+
+const CACHE = '999-floor-v3';
 const SHELL = [
   './',
   './index.html',
   './login-16x9.html',
   './table-16x9.html',
+  './offline.html',
   './manifest.webmanifest',
   './media/icon-180.png',
   './media/icon-192.png',
@@ -42,13 +51,38 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;                 /* ledger writes: never ours */
   if (url.origin !== self.location.origin) return;        /* cross-origin: never ours */
   if (url.pathname.startsWith('/hub/')) return;           /* the hub answers for itself */
+  const probe = e.request.cache === 'no-store';            /* a line check, not a page */
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        if (!probe) {
+          const copy = res.clone();
+          /* the offline page always lives under its bare key —
+             one canonical copy, never a stale query twin      */
+          const key = /\/offline\.html$/.test(url.pathname) ? './offline.html' : e.request;
+          caches.open(CACHE).then((c) => c.put(key, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(e.request).then((m) => m || caches.match('./table-16x9.html')))
+      .catch(() => {
+        if (e.request.mode === 'navigate') {
+          const isOfflinePage = /\/offline\.html$/.test(url.pathname);
+          if (!isOfflinePage) {
+            /* the branded offline state — hand it the page the
+               player was bound for so "back online" can return
+               them to exactly that                            */
+            const dest = new URL('./offline.html', self.location.href);
+            dest.searchParams.set('from', e.request.url);
+            return Response.redirect(dest.href, 302);
+          }
+          /* the offline page itself: its ONE canonical cache
+             entry (the query is ours, not the cache's)         */
+          return caches.match('./offline.html')
+            .then((m) => m || Response.error());
+        }
+        /* everything else: what we cached, or an honest failure —
+           probes must fail loudly so the offline page waits      */
+        return caches.match(e.request).then((m) => m || Response.error());
+      })
   );
 });
