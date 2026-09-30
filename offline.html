@@ -289,6 +289,30 @@
     66% { transform: translateX(-2px); }
     100% { transform: translateX(0); }
   }
+  /* ---- Hi-Lo counting drills ---------------------------- */
+  .countlabel {
+    margin-top: 0.35em; font-size: 0.72em; letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(255,255,255,0.72);
+  }
+  .countlabel.pos { color: #43c98a; }
+  .countlabel.neg { color: #e2705f; }
+  .drill {
+    position: fixed; left: 50%; bottom: 5.4em; transform: translateX(-50%);
+    width: min(21em, 86vw); padding: 0.85em 1em 1em; border-radius: 1em;
+    background: rgba(14, 20, 18, 0.94); border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 0.7em 2em rgba(0,0,0,0.45); text-align: center; z-index: 40;
+  }
+  .drill .dq { margin: 0 0 0.6em; font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
+  .stepper { display: flex; align-items: center; justify-content: center; gap: 0.7em; margin-bottom: 0.7em; }
+  .dval { font-size: 1.5em; font-weight: 700; min-width: 2.4em; }
+  .dbtn {
+    width: 2.4em; height: 2.4em; border-radius: 0.8em; border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08); color: inherit; font: inherit; font-size: 1.1em; cursor: pointer;
+  }
+  .drill .btn { margin: 0 0.3em; }
+  .dverdict { margin: 0.6em 0 0; min-height: 1em; font-size: 0.78em; letter-spacing: 0.08em; text-transform: uppercase; }
+  .dverdict.ok { color: #43c98a; }
+  .dverdict.miss { color: #e2705f; }
 </style>
 </head>
 <body>
@@ -319,6 +343,7 @@
   </div>
   <div class="bank" title="Cosmetic chips — no ledger out here"><i></i><span id="bankTxt">1,000</span></div>
   <button class="coachpill" id="coachPill" type="button" title="Coach — basic strategy marks and your session score">🎓 <span id="coachScore">Coach</span></button>
+  <button class="coachpill" id="countPill" type="button" title="Hi-Lo counting drills — the running count in the meter, and guess the count between rounds">♠ <span id="countScore">Count</span></button>
   <p class="pill" id="pill"><span class="dot"></span><span id="pillTxt">Waiting for the line…</span><button class="link" id="pillBtn" type="button" hidden></button></p>
 </header>
 
@@ -341,6 +366,7 @@
       <div class="shoebox" id="shoeBox"><div class="half a"></div><div class="half b"></div></div>
       <div class="meter"><i id="meterFill" style="width: 100%"></i></div>
       <div class="meterlabel" id="shoeLabel">Shoe</div>
+      <div class="countlabel" id="countLabel">Hi-Lo 0</div>
     </div>
   </div>
 
@@ -354,6 +380,18 @@
     <div class="total" id="youTotal">—</div>
   </section>
 </main>
+
+<div class="drill" id="drillBox" hidden>
+  <p class="dq">What's the running count?</p>
+  <div class="stepper">
+    <button class="dbtn" id="drillMinus" type="button" aria-label="One lower">&minus;</button>
+    <span class="dval" id="drillVal">0</span>
+    <button class="dbtn" id="drillPlus" type="button" aria-label="One higher">+</button>
+  </div>
+  <button class="btn" id="drillLock" type="button">Lock it in</button>
+  <button class="btn ghost" id="drillTell" type="button">Tell me</button>
+  <p class="dverdict" id="drillVerdict"></p>
+</div>
 
 <footer class="bar">
   <button class="chipbtn c25"  id="chip25"  type="button" aria-label="Bet 25">25</button>
@@ -536,6 +574,87 @@
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
   }
 
+  /* ---- Hi-Lo counting drills ------------------------------ */
+  /* The meter tells the truth a card counter watches: the
+     RUNNING count (2-6 = +1, 7-9 = 0, 10-A = -1), reset with
+     every shuffle. Between rounds the drill holds the deal
+     until the player commits to the count — recall, never
+     recognition — or asks for it outright.                    */
+  var HILO = { '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 0, '8': 0, '9': 0, '10': -1, 'J': -1, 'Q': -1, 'K': -1, 'A': -1 };
+  var hiLo = 0, countingOn = true, drillOpen = false, drillVal = 0;
+  var countStats = { guesses: 0, right: 0, offBy: 0 };
+  try {
+    countingOn = localStorage.getItem('999.practice.counting') !== 'off';
+    var cts = JSON.parse(localStorage.getItem('999.practice.counts') || 'null');
+    if (cts && typeof cts.guesses === 'number') countStats = cts;
+  } catch (e) { }
+  function saveCount() {
+    try {
+      localStorage.setItem('999.practice.counting', countingOn ? 'on' : 'off');
+      localStorage.setItem('999.practice.counts', JSON.stringify(countStats));
+    } catch (e) { }
+  }
+  function fmtCount(n) { return n > 0 ? '+' + n : String(n); }
+  function tagCard(r) {
+    hiLo += (HILO[r] || 0);
+    renderCount();
+  }
+  function renderCount() {
+    var el = document.getElementById('countLabel');
+    if (el) {
+      el.hidden = !countingOn;
+      el.textContent = 'Hi-Lo ' + fmtCount(hiLo);
+      el.className = 'countlabel' + (hiLo > 0 ? ' pos' : hiLo < 0 ? ' neg' : '');
+    }
+    var sc = document.getElementById('countScore');
+    if (sc) {
+      sc.textContent = countingOn
+        ? (countStats.guesses ? 'Count ' + Math.round(100 * countStats.right / countStats.guesses) + '% \u00b7 \u00b1' + (countStats.offBy / countStats.guesses).toFixed(1) : 'Count')
+        : 'Count off';
+    }
+    document.getElementById('countPill').classList.toggle('off', !countingOn);
+  }
+  function openDrill() {
+    if (!countingOn) return;
+    drillOpen = true; drillVal = 0;
+    document.getElementById('drillVal').textContent = '0';
+    var v = document.getElementById('drillVerdict');
+    v.textContent = '';
+    v.className = 'dverdict';
+    document.getElementById('drillBox').hidden = false;
+    syncUI();                      /* the deal waits for the count */
+  }
+  function closeDrill() {
+    drillOpen = false;
+    document.getElementById('drillBox').hidden = true;
+    syncUI();
+  }
+  function drillStep(d) {
+    if (!drillOpen) return;
+    drillVal += d;
+    document.getElementById('drillVal').textContent = fmtCount(drillVal);
+  }
+  function drillLock() {
+    if (!drillOpen) return;
+    var ok = drillVal === hiLo;
+    countStats.guesses++;
+    if (ok) countStats.right++;
+    else countStats.offBy += Math.abs(drillVal - hiLo);
+    saveCount(); renderCount();
+    var v = document.getElementById('drillVerdict');
+    v.className = 'dverdict ' + (ok ? 'ok' : 'miss');
+    v.textContent = ok ? '\u2713 The count is ' + fmtCount(hiLo) : 'It was ' + fmtCount(hiLo) + ' \u2014 off by ' + Math.abs(drillVal - hiLo);
+    coachCue(ok);
+    setTimeout(closeDrill, 1800);
+  }
+  function drillTell() {
+    if (!drillOpen) return;
+    var v = document.getElementById('drillVerdict');
+    v.className = 'dverdict';
+    v.textContent = 'It was ' + fmtCount(hiLo);
+    setTimeout(closeDrill, 1400);
+  }
+
   function total(hand) {
     var t = 0, aces = 0;
     for (var i = 0; i < hand.length; i++) {
@@ -551,6 +670,8 @@
   /* ---- the shoe + its ceremony -------------------------- */
   function buildShoe() {
     shoeArr = [];
+    hiLo = 0;                /* a fresh shoe starts the count over */
+    renderCount();
     for (var d = 0; d < DECKS; d++) {
       for (var s = 0; s < 4; s++) {
         for (var r = 0; r < RANKS.length; r++) shoeArr.push({ r: RANKS[r], s: s });
@@ -795,7 +916,7 @@
     document.getElementById('chip100').disabled = !betting || bank < 100;
     document.getElementById('chip500').disabled = !betting || bank < 500;
     document.getElementById('btnClear').disabled = !betting || !bet;
-    document.getElementById('btnDeal').disabled = !betting || !bet;
+    document.getElementById('btnDeal').disabled = !betting || !bet || drillOpen;
     document.getElementById('btnHit').disabled = !acting;
     document.getElementById('btnStand').disabled = !acting;
     document.getElementById('btnDouble').disabled = !acting || you.length !== 2 || bank < bet;
@@ -835,6 +956,7 @@
       landCard(to === 'you' ? elYou : elDealer, card);
       renderTotals();
       renderShoe();
+      tagCard(card.r);   /* the counter sees the card when it lands */
     });
   }
 
@@ -957,7 +1079,7 @@
       setStatus('Place your bet');
     };
     if (shoeArr.length <= CUT) shuffleCeremony(open);
-    else open();
+    else { open(); openDrill(); }   /* between rounds: the count drill */
   }
 
   /* ---- buttons + keyboard parity ------------------------ */
@@ -997,6 +1119,18 @@
     if (!coachOn) coachHide();
     else if (phase === 'acting') coachMark();
   });
+
+  /* Hi-Lo: the meter's count and the guess-the-count drill    */
+  document.getElementById('countPill').addEventListener('click', function () {
+    countingOn = !countingOn;
+    saveCount();
+    renderCount();
+    if (!countingOn) closeDrill();
+  });
+  document.getElementById('drillMinus').addEventListener('click', function () { drillStep(-1); });
+  document.getElementById('drillPlus').addEventListener('click', function () { drillStep(1); });
+  document.getElementById('drillLock').addEventListener('click', drillLock);
+  document.getElementById('drillTell').addEventListener('click', drillTell);
 
   /* ============================================================
      The line: probe our own origin; when it returns, offer the
@@ -1081,6 +1215,7 @@
   renderTotals();
   syncUI();
   renderCoach();
+  renderCount();
   setStatus('Place your bet');
   probe();
 })();

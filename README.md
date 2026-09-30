@@ -172,7 +172,13 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   judged — "✓ Book play" or "Book says Stand", with a soft cue — and the
   running score persists with the tray. The book is the shoe's own (two
   decks, S17, no split, doubles degrading gracefully when they aren't
-  legal), and the 🎓 pill turns the whole mentor off.
+  legal), and the 🎓 pill turns the whole mentor off. The shoe's meter
+  keeps **Hi-Lo** too — 2-6 +1, 7-9 0, 10-A −1, the running count under
+  the shoe bar (green plus, red minus) reset with every riffle. Between
+  rounds a **count drill** holds the deal until the player steps the count
+  in and locks it — recall, never recognition — or asks for it outright;
+  the ♠ pill keeps the score (right % and the average miss) and turns the
+  whole drill off.
 
 ## Play it
 
@@ -279,6 +285,18 @@ answers with CORS headers.
   badge at any speed, and a stranded tray — 3:2 payouts leave half-chips
   and a bank of 12.5 could never bet or refill again; the tray now refills
   whenever the minimum bet can't be covered.
+- **The Hi-Lo drills** — the running count recomputed from the cards the
+  DOM actually showed matched the meter to the card (`3 7 8 6 8` = +2
+  against "Hi-Lo +2" in green, "Hi-Lo -1" wearing red), the drill opening
+  between rounds and holding the Deal button hostage until it is answered,
+  a wrong lock reporting "It was +2 — off by 2" and scoring `0% · ±2.0`,
+  an exact lock "✓ The count is +2" scoring `50% · ±1.0`, and "Tell me"
+  revealing the count without touching the score. The ♠ pill closes a live
+  drill and hides the meter ("Count off"), the count dies with the shoe —
+  a cut-card shuffle resets the meter to zero at 100% — and the score
+  survives reloads. Under 🔊 mute a whole round — chips, flights, snaps and
+  the drill's own cue — constructs zero audio nodes, while one unmuted
+  chip clack immediately constructs one.
 - **Sign-in outside localhost** — the live Pages build drives the public hub
   end to end, cross-origin: guest mint → verify → wallet (opening + starter
   grant) → a live round's `bj_bet` debit landing in the hub's own ledger
