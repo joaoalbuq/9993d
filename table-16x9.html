@@ -1100,11 +1100,6 @@
 
   /* ================= cards & scoring ======================= */
   var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-  function dealRank() {
-    /* weighted toward a ten-value card, like a real shoe */
-    if (Math.random() < 0.31) return ['10', 'J', 'Q', 'K'][Math.floor(Math.random() * 4)];
-    return RANKS[Math.floor(Math.random() * RANKS.length)];
-  }
   function score(cards) {
     var total = 0, aces = 0;
     for (var i = 0; i < cards.length; i++) {
@@ -1186,8 +1181,9 @@
       cutT0 = performance.now();   /* the cut card surfaces — the shuffle is near */
       cutCue();
     }
+    var c = drawCard();      /* the stack deals the card — rank AND suit together */
     return {
-      rank: dealRank(), suit: Math.floor(Math.random() * 4),
+      rank: c.rank, suit: c.suit,
       dealer: isDealer, box: box, idx: idx,
       t0: performance.now(), dur: 430 * pace,
       from: [SHOE[0], SHOE[1], SHOE[2]]
@@ -1220,6 +1216,29 @@
      with the riffle ceremony — the floor's own rhythm.         */
   var SHOE_DECKS = 4, SHOE_CARDS = SHOE_DECKS * 52, SHUFFLE_MS = 2400;
   var shoeDealt = 0, shoeCut = 0, shoeFresh = false;
+  /* The shoe is a REAL stack: four decks, shuffled whole, dealt
+     from the top — depletion is real, the ten-density is real
+     (16 ten-valued cards per deck, no weighting), and every
+     card keeps the suit it was printed with. The cut card is
+     drawn for the shoe; when it surfaces the stack goes back
+     in one riffle.                                           */
+  var shoeArr = [];
+  function buildShoe() {
+    shoeArr = [];
+    for (var d = 0; d < SHOE_DECKS; d++) {
+      for (var s = 0; s < 4; s++) {
+        for (var r = 0; r < RANKS.length; r++) shoeArr.push({ rank: RANKS[r], suit: s });
+      }
+    }
+    for (var i = shoeArr.length - 1; i > 0; i--) {       /* Fisher-Yates */
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = shoeArr[i]; shoeArr[i] = shoeArr[j]; shoeArr[j] = tmp;
+    }
+  }
+  function drawCard() {
+    if (!shoeArr.length) buildShoe();   /* never deal from empty — the cut reshuffles first */
+    return shoeArr.pop();
+  }
   /* The cut card is VISIBLE at the shoe: it surfaces when the
      shuffle is near — CUT_NEAR cards before the cut — rises out
      of the stack with a whisper, and stands at the shoe through
@@ -1230,6 +1249,7 @@
     shoeCut = Math.round(SHOE_CARDS * (0.75 + Math.random() * 0.10));
     cutT0 = 0;               /* a new shoe takes its cut card back */
     shoeFresh = true;        /* its first betting window says so */
+    buildShoe();             /* a fresh stack: 208 cards, shuffled whole */
   }
   newShoe();
   function startRound() {

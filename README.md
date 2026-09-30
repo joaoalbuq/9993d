@@ -111,6 +111,12 @@ are additive screens kept beside it for side-by-side comparison.
   together and the stack squares up while the camera holds "The shoe" —
   twelve card backs and nothing else moving, a paper slide and fourteen
   card snaps sounding with the riffle and two taps as the deck squares.
+  The deal draws from a **true 208-card stack** — four decks built and
+  Fisher-Yates-shuffled whole, dealt from the top, so depletion is real:
+  ten-density exactly 30.77% with no weighting, and every card keeps the
+  suit it was printed with. The visible cut card surfaces 20 cards before
+  the cut, stands at the shoe through its last rounds, and is gone with
+  the riffle that renews the shoe.
 - **The betting interlude, every round** — the floor opens for the oldest
   ritual there is before every deal, not only when the shoe changes: the
   status line reads **"New shoe — place your bets"** when the shoe is fresh
