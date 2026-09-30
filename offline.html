@@ -415,6 +415,7 @@
   <button class="btn ghost" id="btnStand" type="button">Stand</button>
   <button class="btn ghost" id="btnDouble" type="button">Double</button>
   <button class="btn ghost" id="btnLeaks" type="button" hidden>🩹 Leaks</button>
+  <button class="btn ghost" id="btnReview" type="button" hidden>⏪ Review</button>
   <button class="btn ghost" id="btnMute" type="button">🔊 Sound</button>
 </footer>
 
@@ -585,6 +586,18 @@
     arr.sort(function (a, b) { return b.cost - a.cost; });
     return arr;
   }
+  /* the replay reel: the last misses, EXACTLY as they happened —
+     cards, suits, upcard, the click, the book's answer and the
+     price — kept so the review can put the hand back on the
+     felt and let the player take the decision again         */
+  var replay = [];
+  try {
+    var rp = JSON.parse(localStorage.getItem('999.practice.replay') || 'null');
+    if (Array.isArray(rp)) replay = rp;
+  } catch (e) { }
+  function saveReplay() {
+    try { localStorage.setItem('999.practice.replay', JSON.stringify(replay)); } catch (e) { }
+  }
   try {
     coachOn = localStorage.getItem('999.practice.coach') !== 'off';
     var cs = JSON.parse(localStorage.getItem('999.practice.coachstats') || 'null');
@@ -705,6 +718,16 @@
         var lb = document.getElementById('btnLeaks');
         if (lb) lb.hidden = false;
       }
+      replay.push({                      /* ...and the replay reel keeps the hand */
+        yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
+        up: dealerArr[0].rank, us: dealerArr[0].suit,
+        t: total(you), soft: isSoft(you),
+        choice: choice, book: lastBook, cost: Math.round(cost * 100) / 100
+      });
+      if (replay.length > 12) replay.shift();
+      saveReplay();
+      var rb = document.getElementById('btnReview');
+      if (rb) rb.hidden = false;
     }
     saveCoach();
     renderCoach();
@@ -744,6 +767,12 @@
       lb.textContent = leakMode ? 'back to the shoe' : '\uD83E\uDE79 Leaks';
       lb.classList.toggle('on', leakMode);
     }
+    var rb = document.getElementById('btnReview');
+    if (rb) {
+      rb.hidden = !replay.length;
+      rb.textContent = reviewMode ? 'back to the shoe' : '\u23EA Review';
+      rb.classList.toggle('on', reviewMode);
+    }
   }
 
   /* ---- drilling the leaks: forced hands from your worst cells
@@ -754,9 +783,51 @@
      the target upcard — so the exact decision returns, not
      one like it.                                         */
   var leakMode = false, leakQueue = [], leakCell = null;
+  /* ---- the session review: your misses, replayed whole ----
+     The reel holds the last misses exactly as they happened.
+     Review mode replays them costliest-first: the shoe is
+     stacked with the ORIGINAL cards — ranks AND suits — the
+     house refunds whatever the hand once cost the bank, and
+     the decision comes back to the player at the real pace
+     of the deal.                                            */
+  var reviewMode = false, reviewIdx = 0;
+  function reviewDeal() {
+    if (!reviewMode || !replay.length) return;
+    if (reviewIdx >= replay.length) reviewIdx = 0;
+    var r = replay[reviewIdx % replay.length];
+    reviewIdx++;
+    function findAndStack() {
+      var at = [-1, -1, -1];
+      for (var i = shoeArr.length - 1; i >= 0 && (at[0] < 0 || at[1] < 0 || at[2] < 0); i--) {
+        var c = shoeArr[i];
+        if (at[0] < 0 && c.rank === r.yc[0] && c.suit === r.ys[0]) at[0] = i;
+        else if (at[1] < 0 && c.rank === r.up && c.suit === r.us) at[1] = i;
+        else if (at[2] < 0 && c.rank === r.yc[1] && c.suit === r.ys[1]) at[2] = i;
+      }
+      if (at[0] < 0 || at[1] < 0 || at[2] < 0) return false;
+      var c1 = shoeArr[at[0]], cu = shoeArr[at[1]], c2 = shoeArr[at[2]];
+      var rm = [at[0], at[1], at[2]].sort(function (x, y) { return y - x; });
+      for (var j = 0; j < 3; j++) shoeArr.splice(rm[j], 1);
+      shoeArr.push(c2, cu, c1);       /* deal() pops: first, up, second */
+      return true;
+    }
+    if (!findAndStack()) { buildShoe(); findAndStack(); }
+  }
   function renderLeaks() {
     var box = document.getElementById('leakBox');
     if (!box) return;
+    if (reviewMode) {
+      if (!replay.length) { box.hidden = true; box.innerHTML = ''; return; }
+      var rows2 = replay.slice(0, 8).map(function (r2, i2) {
+        var mark = (i2 === reviewIdx % replay.length) ? '\u25B8 ' : '';
+        return '<li>' + mark + (r2.soft ? 'soft ' : 'hard ') + r2.t + ' v ' + r2.up +
+          ' \u00b7 you played ' + r2.choice + ', book ' + r2.book + ' \u00b7 <b>\u2212' + r2.cost + '</b></li>';
+      }).join('');
+      box.innerHTML = '<h3>Session review</h3><ol>' + rows2 + '</ol>' +
+        '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.</p>';
+      box.hidden = false;
+      return;
+    }
     var cells = weakestCells();
     if (!leakMode || !cells.length) { box.hidden = true; box.innerHTML = ''; return; }
     var rows = cells.slice(0, 5).map(function (c) {
@@ -769,13 +840,30 @@
   }
   function toggleLeaks() {
     leakMode = !leakMode;
+    if (leakMode && reviewMode) { reviewMode = false; reviewIdx = 0; }   /* one mode at a time */
     renderCoach();
     renderLeaks();
     if (leakMode) {
       setStatus('Leak drilling \u2014 your worst cells, dealt on purpose');
       if (phase === 'betting' && !bet) leakCell = leakQueue.shift() || null;
-    } else {
+    }    else {
       leakCell = null;
+      if (phase === 'betting') setStatus('Place your bet');
+    }
+  }
+  function toggleReview() {
+    reviewMode = !reviewMode;
+    if (reviewMode && leakMode) leakMode = false;    /* one mode at a time */
+    if (reviewMode && replay.length) {               /* costliest first: sort by cost */
+      replay.sort(function (a, b) { return b.cost - a.cost; });
+      reviewIdx = 0;
+    }
+    renderCoach();
+    renderLeaks();
+    if (reviewMode) {
+      setStatus('Session review \u2014 your misses, replayed whole');
+      if (phase === 'betting' && !bet) setStatus('Session review — place any bet, the house refunds it');
+    } else {
       if (phase === 'betting') setStatus('Place your bet');
     }
   }
@@ -1270,6 +1358,15 @@
     doubled = false;
     you = []; dealerArr = [];
     leakDeal();                                   /* leaks mode stacks the shoe here */
+    reviewDeal();                                 /* review mode reals the reel here */
+    if (reviewMode) {                             /* the house stakes the replay: the
+                                                     stake comes straight back, so a
+                                                     win is pure upside and a miss
+                                                     costs nothing the second time  */
+      bank += bet;
+      saveBank();
+      renderBank();
+    }
     renderHand(elYou, you); renderHand(elDealer, dealerArr); renderTotals();
     phase = 'dealing';
     syncUI();
@@ -1424,6 +1521,9 @@
 
   /* the leaks: the ledger, the panel, the targeted rounds   */
   document.getElementById('btnLeaks').addEventListener('click', toggleLeaks);
+
+  /* the session review: the reel, replayed on the felt       */
+  document.getElementById('btnReview').addEventListener('click', toggleReview);
 
   /* Hi-Lo: the meter's count and the guess-the-count drill    */
   document.getElementById('countPill').addEventListener('click', function () {

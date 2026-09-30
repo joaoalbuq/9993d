@@ -196,7 +196,12 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   is stacked at deal time (three cards lifted from the shoe: hand, hand,
   upcard; a spent shoe earns a fresh shuffle) so "hard 16 v 10" returns
   whole, not something like it. With an empty ledger it teaches the
-  classic — hard 16 v 10, the costliest stand in the book. The shoe's meter
+  classic — hard 16 v 10, the costliest stand in the book. The **⏪
+  Review** mode goes deeper: the last misses are kept as they HAPPENED
+  (cards and suits, the click, the book's answer, the price) and replayed
+  onto the felt costliest-first — the house stakes the replay, so a win
+  is pure upside and the second try costs nothing. Live: a stand on soft
+  13 v Q came back as exactly A♥ 2♦ v Q, price and all. The shoe's meter
   keeps **Hi-Lo** too — 2-6 +1, 7-9 0, 10-A −1, the running count under
   the shoe bar (green plus, red minus) reset with every riffle. Between
   rounds a **count drill** holds the deal until the player steps the count
@@ -379,6 +384,14 @@ answers with CORS headers.
   panel re-ranked with the fresh miss on top of 28 legacy 16-v-10 misses
   costing 0.4 apiece — the coach now aims the shoe at whatever leaks
   most.
+- **The session review** — the reel verified end to end: a deliberate
+  stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
+  cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the
+  ORIGINAL cards, and the felt dealt A♥ 2♦ against the Q exactly, suits
+  included; the panel lists the reel costliest-first with a cursor on the
+  hand in play, the house's stake refund lands at deal (a won replay is
+  pure upside, a lost one free), one mode at a time is enforced with
+  Leaks, and the reel holds the last twelve misses across reloads.
 
 ## Layout
 
