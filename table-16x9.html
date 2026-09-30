@@ -62,6 +62,12 @@
   .lab.win b { color: color-mix(in srgb, var(--accent) 92%, white); }
   .lab.lose b { opacity: 0.55; }
   .lab.bust b { color: #ff9d8a; }
+  .pay {
+    position: absolute; transform: translate(-50%, -50%);
+    font-size: 26px; font-weight: 800; letter-spacing: 0.02em;
+    color: color-mix(in srgb, var(--accent) 92%, white);
+    text-shadow: 0 2px 12px rgba(0,0,0,.85); white-space: nowrap;
+  }
 
   /* ---------- the 16:9 stage (HUD over the felt) ----------- */
   #stage {
@@ -1024,6 +1030,7 @@
   var game = {
     phase: 'idle',                    /* idle | dealing | acting | dealer | settle | pause */
     acting: -1,
+    payoutBox: -1,                    /* the payout walk: -2 before, -1 back at the dealer */
     hands: [],
     dealer: { cards: [] },
     token: 0
@@ -1179,25 +1186,47 @@
     game.phase = 'settle';
     var ds = score(game.dealer.cards);
     var dbust = ds > 21;
+    /* the payout walk (spec 4.4): every staked box takes its
+       beat — the camera HOLDS it while its chips fly to the
+       winner with a +delta at its total, or its stack flies to
+       the dealer — and the frame returns to the dealer after. */
+    game.payoutBox = -2;                 /* the verdict landed; the walk hasn't */
+    game.walk = [];
     for (var i = 0; i < BOX_N; i++) {
       var h = game.hands[i], s = score(h.cards);
       if (s > 21) h.result = 'bust';
       else if (dbust || s > ds) h.result = 'win';
       else if (s === ds) h.result = 'push';
       else h.result = 'lose';
-      /* the felt pays the round exactly as the wallet will: a
-         losing stack flies to the dealer, a winner's payout
-         flies from the house tray back to the box            */
-      h.flyT0 = performance.now() + CHIP_DELAY;
       var n = (h.chipT0 || []).length;
       h.flyPay = h.result === 'win' ? n * 2 : h.result === 'push' ? n : 0;
+      /* the delta is the settlement's own number (spec 5: the
+         renderer never re-derives settlement) — 2:1 on a win,
+         the stake back on a push, nothing where no stake sits  */
+      var stake = h.stake || n * UNIT_BET;
+      h.payDelta = h.result === 'win' ? stake * 2 : h.result === 'push' ? stake : 0;
+      if (n) game.walk.push(i);          /* a beat only where a stake sits */
     }
-    setStatus('Round settles — the frame returns to the dealer');
+    setStatus('Round settles — the payout walk');
+    var beat = 0;
+    game.walk.forEach(function (b) {
+      var h = game.hands[b], at = CHIP_DELAY + beat * WALK_BEAT;
+      h.flyT0 = performance.now() + at;  /* its chips wait for their beat */
+      later(at, function () {
+        game.payoutBox = b;
+        if (h.payDelta) spawnPay(b, h.payDelta);
+      });
+      beat++;
+    });
+    var walkEnd = CHIP_DELAY + Math.max(beat, 1) * WALK_BEAT;
+    later(walkEnd, function () {
+      /* spec 4.4: a round ENDS on the dealer's hand — the walk
+         never parks on the last paid box                       */
+      game.payoutBox = -1;
+      setStatus('Round settles — the frame returns to the dealer');
+    });
     settleWallet();   /* the pill tracks play: one wallet move per settled round */
-    /* spec 4.4: a round ENDS on the dealer's hand — after the
-       per-box payout walk the camera returns to the dealer,
-       never parking on the last paid box.                       */
-    later(3400, clearRound);
+    later(walkEnd + 1300, clearRound);
   }
   function clearRound() {
     game.token++;
@@ -1238,6 +1267,14 @@
   }
 
   function desiredShot() {
+    if (game.phase === 'settle' && game.payoutBox >= 0) {
+      /* the payout walk holds the box it is paying — the same
+         close hold the box got while it decided                */
+      var pb = boxX(game.payoutBox);
+      var pq = pose([pb * 0.62, 0.05, BOX_Z], 2.95, -pb * 0.13, Math.abs(pb) * 0.38 + 0.85);
+      pq.name = 'Paying seat ' + (game.payoutBox + 1);
+      return pq;
+    }
     if (game.phase === 'dealer' || game.phase === 'settle') {
       /* the dealer's hand owns the frame — and the round ends on it.
          halfW is the six-card fan (2.53) plus margin: the fan never crops,
@@ -1304,6 +1341,9 @@
        bar: a label that would collide climbs clear of it.       */
     var barTop = document.querySelector('.bar').getBoundingClientRect().top;
     var dodge = function (y) { return Math.min(y, barTop - 34); };
+    /* during the payout walk the paid box is the held one — its
+       total dodges inward exactly like the deciding box's      */
+    var held = game.phase === 'settle' ? game.payoutBox : game.acting;
     for (var i = 0; i < BOX_N; i++) {
       var el = labelEls[i], h = game.hands[i];
       if (!h || !h.cards.length) { el.style.opacity = 0; continue; }
@@ -1313,7 +1353,7 @@
          helps no one: neighbours hide until they fit again, but the held
          box's own total dodges inward and stays on screen */
       if (p.x < 60 || p.x > VW - 60) {
-        if (i !== game.acting) { el.style.opacity = 0; continue; }
+        if (i !== held) { el.style.opacity = 0; continue; }
         p.x = clamp(p.x, 60, VW - 60);
       }
       el.style.opacity = 1;
@@ -1338,6 +1378,45 @@
     del.className = 'lab' + (ds2 > 21 ? ' win' : '');
   }
 
+  /* ---- the +delta riding the payout walk ------------------
+     The number is the settlement's own — what the wallet just
+     moved (2:1 on a win, the stake back on a push), never
+     re-derived here (spec 5). It floats at the box's total
+     while its chips arrive, then fades.                        */
+  var payEls = [];
+  var PAY_LIFE = 1500;
+  function spawnPay(b, delta) {
+    var el = document.createElement('div');
+    el.className = 'pay';
+    el.textContent = '+' + delta;
+    labelsWrap.appendChild(el);
+    payEls.push({ el: el, box: b, t0: performance.now() });
+  }
+  function updatePay() {
+    var barTop = document.querySelector('.bar').getBoundingClientRect().top;
+    var held = game.phase === 'settle' ? game.payoutBox : game.acting;
+    for (var i = payEls.length - 1; i >= 0; i--) {
+      var pe = payEls[i], age = (performance.now() - pe.t0) / PAY_LIFE;
+      if (age >= 1) {
+        if (pe.el.parentNode) pe.el.parentNode.removeChild(pe.el);
+        payEls.splice(i, 1);
+        continue;
+      }
+      var p = project([boxX(pe.box), 0.12, BOX_Z + 1.12]);
+      if (!p) { pe.el.style.opacity = 0; continue; }
+      /* the same inward dodge as the held total: a +delta at an
+         edge box must never half-crop — while its own box is
+         paid it climbs inboard and stays readable               */
+      if (p.x < 60 || p.x > VW - 60) {
+        if (pe.box !== held) { pe.el.style.opacity = 0; continue; }
+        p.x = clamp(p.x, 60, VW - 60);
+      }
+      pe.el.style.opacity = age > 0.6 ? 1 - (age - 0.6) / 0.4 : 1;
+      pe.el.style.left = p.x + 'px';
+      pe.el.style.top = (Math.min(p.y, barTop - 34) - 46 - age * 30) + 'px';
+    }
+  }
+
   /* ================= bet stacks (the felt keeps the ledger) ==
      A chip quad exists only where a stake landed: the player's
      chips land with the ledger debit (one per UNIT_BET — so a
@@ -1347,8 +1426,10 @@
      winner's payout flies from the tray back to the box.        */
   var CHIP_D = 0.56, CHIP_H = 0.024;
   var CHIP_POP = 420;                 /* a chip drops in when its bet lands */
-  var CHIP_DELAY = 350;               /* settle: the verdict lands first    */
-  var CHIP_FLY = 1150, CHIP_STAG = 150;
+  var WALK_BEAT = 760;                /* the payout walk: one box per beat  */
+  var CHIP_DELAY = 200;               /* settle: the verdict lands first    */
+  var CHIP_FLY = 560, CHIP_STAG = 90; /* a flight lands inside its beat     */
+  var PAY_LAG = 90;                   /* the payout launches a beat behind  */
 
   function chipSpot(b, slot) {
     return [boxX(b) + (slot % 2 ? 0.022 : -0.022), BOX_Z + 0.86 + ((slot % 3) - 1) * 0.018];
@@ -1381,7 +1462,7 @@
   function chipFly(b, slot, k, t0, ts, toDealer) {
     /* the settle flight: chips arc over the cloth between the
        box and the house tray, staggered so a stack unwinds   */
-    var q = clamp((ts - (t0 + k * CHIP_STAG + (toDealer ? 0 : 180))) / CHIP_FLY, 0, 1);
+    var q = clamp((ts - (t0 + k * CHIP_STAG + (toDealer ? 0 : PAY_LAG))) / CHIP_FLY, 0, 1);
     if (q <= 0 && !toDealer) return;            /* the payout waits its turn */
     var e = 1 - Math.pow(1 - q, 2.6);
     var from = toDealer ? chipSpot(b, slot) : traySpot(k);
@@ -1466,6 +1547,7 @@
     for (var j = 0; j < game.dealer.cards.length; j++) drawCardMesh(game.dealer.cards[j]);
 
     updateLabels();
+    updatePay();
   }
 
   function frame(ts) {

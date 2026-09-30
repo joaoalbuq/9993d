@@ -72,7 +72,10 @@ are additive screens kept beside it for side-by-side comparison.
 - **The full ceremony** — six boxes, a dealer hand, a shoe and a chip tray;
   European deal order (one to each box 1…6, the dealer, then a second to
   each), one card per ~0.7s, and the dealer **always plays out to 17** (S17)
-  even when every box has ended.
+  even when every box has ended. Settle is a **payout walk** (spec 4.4): the
+  frame holds each box as it pays — chips fly in with the settlement's own
+  `+delta` floating at the total, a losing stack flies out to the dealer —
+  and the round ends back on the dealer's hand.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
   `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
   action and user zoom survives every shot change.
@@ -122,11 +125,13 @@ answers with CORS headers.
   bet (409) leaves the hand unstaked and the pill on hub truth.
 - **The felt keeps the ledger** — bet stacks are live chips, not decoration:
   a stack drops at your box the moment the `bj_bet` debit lands (nothing
-  while the wallet says no), a double doubles it, and at settle the chips
-  fly to the winner — the payout arcs out of the house tray — or to the
-  dealer when the house wins. Sampled chip-by-chip against the ledger:
-  win brings 2× the stake in, a push returns 1×, a loss sends the stack to
-  the tray, and an unstaked hand moves no chips either way.
+  while the wallet says no), a double doubles it, and at settle the **payout
+  walk** pays each box on its beat: chips arc out of the house tray to the
+  winner with the settlement's own `+delta` (`+50` / `+25` / `+100` sampled
+  at the totals) floating at its total, a losing stack flies to the dealer,
+  and the frame returns to the dealer's hand. Sampled chip-by-chip against
+  the ledger: win brings 2× the stake in, a push returns 1×, a loss sends
+  the stack to the tray, and an unstaked hand moves no chips either way.
 - **Clean pages** — `node --check` on every inline script, no console
   errors.
 
