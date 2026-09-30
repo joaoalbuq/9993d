@@ -111,13 +111,15 @@ are additive screens kept beside it for side-by-side comparison.
   together and the stack squares up while the camera holds "The shoe" —
   twelve card backs and nothing else moving, a paper slide and fourteen
   card snaps sounding with the riffle and two taps as the deck squares.
-- **The new-shoe betting interlude** — when the shoe squares up, the floor
-  opens for the oldest ritual there is: the status line reads **"New shoe —
-  place your bets"**, the bar swaps its actions for a chip picker (25 / 100 /
-  500), the betting circle breathes at your box with the picked stake
-  previewed in felt, and a soft two-note chime opens the window. The picked
-  stake rides the next bet — and its double — into the ledger; the deal
-  follows the 3.8-second window or the Deal tap.
+- **The betting interlude, every round** — the floor opens for the oldest
+  ritual there is before every deal, not only when the shoe changes: the
+  status line reads **"New shoe — place your bets"** when the shoe is fresh
+  and plain **"Place your bets"** the rest of the time, the bar swaps its
+  actions for a chip picker (25 / 100 / 500), the betting circle breathes at
+  your box with the picked stake previewed in felt, and a soft two-note
+  chime opens the window. The picked stake rides the next bet — and its
+  double — into the ledger; the deal follows the 3.8-second window or the
+  Deal tap. A shoe at its cut riffles FIRST — ceremony, then the window.
 - **The cinematic deal** — a slow-motion mode (the 🎬 tool, key `C`) where
   card flights and their sounds stretch **together**: the flight duration
   is the one knob, so the whoosh swells over the stretched flight, the
@@ -256,15 +258,19 @@ answers with CORS headers.
   +550…1356ms (a body tone every third), two square-up taps at +1580 and
   +1800ms — 65 synthesis nodes per ceremony, and **zero** under the 🔊
   mute while the animation still plays.
-- **The new-shoe interlude** — sampled across 30+ shoe cycles on the running
-  page: "Shuffling the shoe…" → "New shoe — place your bets" → the deal,
-  the window measuring exactly 3800ms, the camera holding "Place your
-  bets", and the picker moving the REAL stake — `bj_bet -25` ledger rows
-  after picking 25, `bj_bet -100` after picking 100 (32 and 36 consecutive
-  rows sampled), settlements scaling with the stake. The chime sounds once
-  per window (4 nodes), **zero** under mute across three full ceremonies
-  while the ceremony plays on, and returns on unmute; the Deal tap
-  collapses the window instantly.
+- **The betting interlude, every round** — sampled across 30+ shoe cycles on
+  the running page: "Shuffling the shoe…" → "New shoe — place your bets" →
+  the deal, the window measuring exactly 3800ms, the camera holding "Place
+  your bets", and the picker moving the REAL stake — `bj_bet -25` ledger
+  rows after picking 25, `bj_bet -100` after picking 100 (32 and 36
+  consecutive rows sampled), settlements scaling with the stake. The chime
+  sounds once per window (4 nodes), **zero** under mute across three full
+  ceremonies while the ceremony plays on, and returns on unmute; the Deal
+  tap collapses the window instantly. Re-driven after the window moved to
+  EVERY round: two windows in real time measured 3649 / 3801 ms, the window
+  opening after every "Next hand" with no skipped round, and both shoe
+  crossings ran riffle → "New shoe — place your bets" — ceremony first,
+  bets after, with the cut card surfacing mid-deal on the way in.
 - **The practice shoe under the floor** — 45 hands driven live against the
   offline page: every settlement exact against the rules recomputed from
   the rendered cards (blackjack 3:2 — `+37.5` sampled on a 25 stake, win

@@ -1219,7 +1219,7 @@
      the round plays out to its end, and the NEXT round opens
      with the riffle ceremony — the floor's own rhythm.         */
   var SHOE_DECKS = 4, SHOE_CARDS = SHOE_DECKS * 52, SHUFFLE_MS = 2400;
-  var shoeDealt = 0, shoeCut = 0;
+  var shoeDealt = 0, shoeCut = 0, shoeFresh = false;
   /* The cut card is VISIBLE at the shoe: it surfaces when the
      shuffle is near — CUT_NEAR cards before the cut — rises out
      of the stack with a whisper, and stands at the shoe through
@@ -1229,6 +1229,7 @@
     shoeDealt = 0;
     shoeCut = Math.round(SHOE_CARDS * (0.75 + Math.random() * 0.10));
     cutT0 = 0;               /* a new shoe takes its cut card back */
+    shoeFresh = true;        /* its first betting window says so */
   }
   newShoe();
   function startRound() {
@@ -1238,11 +1239,7 @@
     game.hands = [];
     for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null, chipT0: [] });
     game.dealer = { cards: [] };
-    if (shoeDealt >= shoeCut) {
-      shuffleShoe();        /* the cut card came out — the shoe has earned its ceremony */
-      return;
-    }
-    dealRound();
+    beginBets();            /* every round opens with the window — the floor asks for bets */
   }
   function shuffleShoe() {
     game.phase = 'shuffle';
@@ -1254,18 +1251,24 @@
       beginBets();            /* ...and the floor opens for bets before its first deal */
     });
   }
-  /* The new-shoe interlude: the deck squares up and the floor
-     pauses for the oldest ritual there is — "new shoe, place
-     your bets". The bar swaps its actions for the chip picker,
-     the betting circle breathes at your box with the picked
-     stake previewed in felt, and the deal follows the window
-     (or the Deal tap). The stake rides the next placeBet —
-     and its double — until the picker says otherwise.        */
+  /* The betting interlude, EVERY round: the floor pauses for the
+     oldest ritual there is — "place your bets" — not only when
+     the shoe changes. The bar swaps its actions for the chip
+     picker, the betting circle breathes at your box with the
+     picked stake previewed in felt, and the deal follows the
+     window (or the Deal tap). The stake rides the next placeBet
+     — and its double — until the picker says otherwise. A shoe
+     at its cut riffles BEFORE the deal: ceremony, then bets.  */
   var BETS_MS = 3800;
   function beginBets() {
+    if (shoeDealt >= shoeCut) {
+      shuffleShoe();        /* the cut card came out — the riffle comes first, bets after */
+      return;
+    }
     game.phase = 'bets';
     game.betsT0 = performance.now();
-    setStatus('New shoe — place your bets');
+    var fresh = shoeFresh; shoeFresh = false;
+    setStatus(fresh ? 'New shoe — place your bets' : 'Place your bets');
     betsOpen(0);                  /* the window opens with a soft chime */
     showBetBar(true);
     later(BETS_MS, endBets);
