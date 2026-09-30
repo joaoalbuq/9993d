@@ -207,7 +207,13 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   rounds a **count drill** holds the deal until the player steps the count
   in and locks it — recall, never recognition — or asks for it outright;
   the ♠ pill keeps the score (right % and the average miss) and turns the
-  whole drill off.
+  whole drill off. The drill teaches the **true count** too: the meter
+  reads out decks left ("Shoe 99% · 2.0 dk"), questions ALTERNATE running →
+  true → running, the true verdict shows its own division ("✓ True +2 ·
+  RC +4 over 2.0 dk"), and while you bet a hint translates the count into
+  money — "True +3 — the spread says 2 units" (the old count−1 rule,
+  capped at 6, held at 1 until the edge shows). The pill splits the
+  scores: "Count 60% · ±0.8 · TC 13%".
 
 ## Play it
 
@@ -384,6 +390,15 @@ answers with CORS headers.
   panel re-ranked with the fresh miss on top of 28 legacy 16-v-10 misses
   costing 0.4 apiece — the coach now aims the shoe at whatever leaks
   most.
+- **The true-count training** — decksLeft/trueCount/spreadUnits extracted
+  exactly as shipped and driven through real shoes: 52-of-104 division
+  exact, the 0.25-deck rack floor firing only below 13 cards (rc 5 → tc 20
+  at the empty rack), the spread table pinned (1 unit below tc 2, tc−1
+  above, capped at 6), and 200 full-shoe exhaustion runs holding the
+  sums. Live: 17 drills alternating run/true perfectly, TC stats counted
+  separately from running stats, the meter carrying the deck readout, and
+  the betting hint ladder sampled across its whole range from "True −4 —
+  bet 1 unit" to "True +7 — the spread says 6 units".
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the
@@ -410,6 +425,7 @@ answers with CORS headers.
 | `test/ev999.mc.js` | Monte-Carlo + exact-recursion ground truth for the EV999 pricing engine |
 | `test/ev999.crosscheck.js` | Book-vs-engine agreement sweep over every hand × upcard × double state |
 | `test/leakdrill.test.js` | The stacked-shoe drill: every forced deal must land in its target cell |
+| `test/truecount.test.js` | Decks-left, true count and the bet spread, against real shoes |
 | `README.md` | This page |
 
 Cloth palettes, the hub client and identity handling are vendored from
