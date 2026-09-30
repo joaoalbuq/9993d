@@ -993,6 +993,26 @@
     })());
   }
 
+  /* the cut card: house red, gold border, the house 999 — the
+     one card nobody plays and everybody watches */
+  var cutTex = null;
+  function getCutTex() {
+    return cutTex || (cutTex = canvasTexture('cut', 320, 448, function (c, W, H) {
+      c.fillStyle = '#a5252e';
+      c.fillRect(0, 0, W, H);
+      c.strokeStyle = 'rgba(216,181,106,0.9)';
+      c.lineWidth = 6;
+      c.strokeRect(14, 14, W - 28, H - 28);
+      c.strokeStyle = 'rgba(216,181,106,0.4)';
+      c.lineWidth = 3;
+      c.strokeRect(32, 32, W - 64, H - 64);
+      c.fillStyle = 'rgba(216,181,106,0.85)';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = '800 88px Georgia, serif';
+      c.fillText('999', W / 2, H / 2);
+    }));
+  }
+
   /* ---- the "next to play" ring + chips -------------------- */
   var ringTex = canvasTexture('ring', 256, 256, function (c, W, H) {
     var g = c.createRadialGradient(W / 2, H / 2, W * 0.16, W / 2, H / 2, W * 0.5);
@@ -1162,6 +1182,10 @@
   }
   function makeCard(isDealer, box, idx) {
     shoeDealt++;             /* every card leaving the shoe counts toward the cut */
+    if (!cutT0 && shoeDealt >= shoeCut - CUT_NEAR) {
+      cutT0 = performance.now();   /* the cut card surfaces — the shuffle is near */
+      cutCue();
+    }
     return {
       rank: dealRank(), suit: Math.floor(Math.random() * 4),
       dealer: isDealer, box: box, idx: idx,
@@ -1196,9 +1220,15 @@
      with the riffle ceremony — the floor's own rhythm.         */
   var SHOE_DECKS = 4, SHOE_CARDS = SHOE_DECKS * 52, SHUFFLE_MS = 2400;
   var shoeDealt = 0, shoeCut = 0;
+  /* The cut card is VISIBLE at the shoe: it surfaces when the
+     shuffle is near — CUT_NEAR cards before the cut — rises out
+     of the stack with a whisper, and stands at the shoe through
+     the shoe's last round until the riffle takes the shoe back. */
+  var CUT_NEAR = 20, cutT0 = 0;
   function newShoe() {
     shoeDealt = 0;
     shoeCut = Math.round(SHOE_CARDS * (0.75 + Math.random() * 0.10));
+    cutT0 = 0;               /* a new shoe takes its cut card back */
   }
   newShoe();
   function startRound() {
@@ -1819,6 +1849,14 @@
     tone(c, 783.99, t, 0.34, 'triangle', 0.05, 659.25);
     tone(c, 1046.5, t + 0.12, 0.3, 'triangle', 0.03);
   }
+  function cutCue() {
+    /* the cut card surfaces at the shoe: one soft paper whisper
+       and a low tick — quiet enough to sit under the round     */
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + 0.02;
+    burst(c, t, 0.32, 'bandpass', 900, 0.8, 0.05);
+    tone(c, 233.08, t + 0.14, 0.12, 'triangle', 0.055, 155);
+  }
   function stinger(result) {
     /* one stinger per round is ceremony; six would be noise —
        it only ever marks YOUR verdict                       */
@@ -1869,6 +1907,17 @@
     }
   }
 
+  /* The cut card SURFACES when the shuffle is near: it rises
+     out of the shoe's stack, settles at an angle at the shoe's
+     back, and stands through the shoe's last round — then the
+     riffle takes the shoe back and the card is gone with it.  */
+  function drawCutCard(ts) {
+    if (!cutT0 || game.phase === 'shuffle') return;
+    var p = clamp((ts - cutT0) / 900, 0, 1), e = 1 - Math.pow(1 - p, 2.4);
+    var y = lerp(0.36, 0.52, e) + Math.sin(ts / 950) * 0.012 * e;
+    drawQuad(getCutTex(), 1, [1, 1, 1, 0.2 + 0.8 * e], SHOE[0] - 0.02, y, SHOE[2] - 0.14, -0.22, CARD_W, CARD_L, false);
+  }
+
   /* ================= render loop =========================== */
   var proj = mPersp(CAM_FOV * Math.PI / 180, 1, 0.1, 60);
   var lastTs = 0, animOn = false, rafId = 0;
@@ -1906,6 +1955,7 @@
     /* the shoe ceremony (spec 4.5): the deck riffles where the
        shoe sits — split, interleave, square up */
     drawShuffle(ts);
+    drawCutCard(ts);       /* once it surfaces, the cut card stands at the shoe */
 
     /* the betting interlude: the circle breathes at your box and
        the felt previews the stake you picked — chips, not text  */
