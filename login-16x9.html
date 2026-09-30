@@ -593,8 +593,17 @@
   /* one light pool, drifting slowly — paused when hidden */
   var animOn = false, rafId = 0, lastTs = 0;
   function frame(ts) {
-    if (ts - lastTs < 33) { if (animOn) rafId = requestAnimationFrame(frame); return; } /* ~30fps */
+    /* ~30fps while the loop runs — but an explicit frame(0) (the
+       paint fit/applyCloth ask for, and the ONLY paint under
+       prefers-reduced-motion) must always draw.               */
+    if (animOn && ts - lastTs < 33) { rafId = requestAnimationFrame(frame); return; }
     lastTs = ts;
+    /* boot runs applyCloth before fitCanvas, so the offscreen can
+       still be 0×0 here — drawImage throws on a zero-size source.  */
+    if (!off.width || !off.height) {
+      if (animOn) rafId = requestAnimationFrame(frame);
+      return;
+    }
     ctx.drawImage(off, 0, 0, W, H);
     var t = ts / 1000;
     var cx = W * (0.5 + Math.sin(t * 0.12) * 0.02);
@@ -785,7 +794,11 @@
       if (r.ok) {
         setHub('live', 'HUB LIVE — ' + BASE);
         persistIdentity(r.body.sub, r.body.token, r.body.name);
-        var lobbyHref = BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(r.body.name);
+        /* the floor of THIS build is the table. The bridge's
+           contract — ?as=<name> into the live app's lobby — targets
+           a page these pages do not host: under the same-origin
+           proxy it looped straight back to this sign-in.           */
+        var lobbyHref = 'table-16x9.html';
         showDone({
           title: 'Welcome, ' + r.body.name,
           sub: 'The hub minted your session and opened your wallet — shared with the blackjack floor.',
@@ -810,6 +823,13 @@
         return;
       }
 
+      if (r.status) {
+        /* the hub answered with its own refusal (5xx, odd codes) —
+           surface it as live-but-unhappy, never as "unreachable"  */
+        err.textContent = r.error || ('HTTP ' + r.status);
+        setHub('live', 'HUB LIVE — ' + BASE);
+        return;
+      }
       /* hub unreachable from this preview: degrade visibly, stay usable */
       setHub('dead', 'HUB UNREACHABLE — ' + BASE);
       showDone({
@@ -819,7 +839,7 @@
              'The full flow runs the moment the hub is reachable.',
         subChip: 'u-' + slug(name),
         wallet: '',
-        lobbyHref: BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(name),
+        lobbyHref: 'table-16x9.html',
         note: 'Hub not reachable — nothing was minted. The dev hub on localhost:8899 answers ' +
           'this flow when it is running. Override the hub address with ?hub=<url>.',
       });
@@ -903,7 +923,7 @@
           sub: 'Your session is still warm — the wallet follows you across the floor.',
           subChip: r.body.sub,
           wallet: 'chips —',
-          lobbyHref: BASE.replace(/\/hub\/?$/, '') + '/?as=' + encodeURIComponent(r.body.name),
+          lobbyHref: 'table-16x9.html',
           locked: r.body.locked
         });
         hub.wallet(r.body.sub).then(function (w) {

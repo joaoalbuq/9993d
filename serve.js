@@ -21,6 +21,7 @@ const UPSTREAM = new URL(process.env.HUB_UPSTREAM || 'http://localhost:8899/hub'
 /* the pages, and only the pages — an allowlist, so no path ever escapes */
 const PAGES = {
   '/': 'login-16x9.html',
+  '/index.html': 'index.html',
   '/login-16x9.html': 'login-16x9.html',
   '/table-16x9.html': 'table-16x9.html'
 };
@@ -55,6 +56,8 @@ function proxyHub(req, res) {
       out[k] = v;
     }
     res.writeHead(r.statusCode, out);
+    /* a dropped upstream stream must not stall the client */
+    r.on('error', () => res.end());
     r.pipe(res);
   });
   up.on('error', () => {
