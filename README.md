@@ -139,12 +139,17 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   shell cache that never touches `/hub/`: the ledger always goes to the
   network. Connectivity probes (`cache: 'no-store'`) are never cached and
   never rescued from cache, so the offline page can tell the line is down.
-- **A branded offline state, never a dead screen** — a navigation that
-  can't reach the network lands on `offline.html`: the house chip (inline
-  SVG, so the brand can't 404 offline), "the floor is offline", and the
-  page the player was bound for carried in `?from=`. It probes the line
-  from the page, flips to **"Back online"** the moment the origin answers,
-  and deals the player back into exactly the page they wanted.
+- **The offline state is a table, never a waiting room** — a navigation
+  that can't reach the network lands on `offline.html`: a playable
+  **practice shoe** (two decks, a cut card at 75% penetration, the riffle
+  ceremony between shoes) with cosmetic chips and **no ledger** — bet, hit,
+  stand, double, and the floor's own settlement (blackjack 3:2, win 1:1,
+  push returns the stake). The house chip (inline SVG, so the brand can't
+  404 offline) brands it, the card snaps and riffle sound through the app's
+  own 🔊 toggle, and the page the player was bound for rides along in
+  `?from=`. The moment the origin answers the pill offers the door straight
+  back to exactly that page — immediately when only the shoe is running,
+  never yanked out of a live hand.
 
 ## Play it
 
@@ -208,6 +213,16 @@ answers with CORS headers.
   +550…1356ms (a body tone every third), two square-up taps at +1580 and
   +1800ms — 65 synthesis nodes per ceremony, and **zero** under the 🔊
   mute while the animation still plays.
+- **The practice shoe under the floor** — 45 hands driven live against the
+  offline page: every settlement exact against the rules recomputed from
+  the rendered cards (blackjack 3:2 — `+37.5` sampled on a 25 stake, win
+  1:1, push returns, a double takes its second stake), the riffle ceremony
+  riffling between shoes at the cut card, and a whoosh+snap pair on every
+  flight (1:1 live-sampled) with the 🔊 mute silencing the table mid-round.
+  The return door: a failed navigation lands carrying the exact URL in
+  `?from=`, an idle table returns to it automatically, a hand in play is
+  **never** yanked (the pill waits with "Return to the floor"), and the door
+  lands on exactly the page — queries included — that was left.
 - **Sign-in outside localhost** — the live Pages build drives the public hub
   end to end, cross-origin: guest mint → verify → wallet (opening + starter
   grant) → a live round's `bj_bet` debit landing in the hub's own ledger
@@ -230,7 +245,7 @@ answers with CORS headers.
 | `index.html` | The portal entry |
 | `login-16x9.html` | The fullscreen 16:9 sign-in (2D canvas felt engine) |
 | `table-16x9.html` | The fullscreen 16:9 table (raw WebGL 3D engine) |
-| `offline.html` | The branded offline state — "back online" returns you to the page you wanted |
+| `offline.html` | The offline state IS a table — a playable practice shoe (cosmetic chips, no ledger), with the door back to the page you wanted |
 | `manifest.webmanifest` | The PWA manifest — landscape fullscreen, home-screen install |
 | `sw.js` | Installability service worker (network-first, `/hub/` untouched) |
 | `make-icons.js` | Draws the PWA icons procedurally → `media/icon-*.png` |

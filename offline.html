@@ -6,14 +6,15 @@
 <meta name="theme-color" content="#0b2b1d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>999 Casino — Blackjack</title>
+<title>999 Casino — Practice shoe</title>
 <link rel="icon" href="media/icon-192.png">
 <link rel="apple-touch-icon" href="media/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <style>
-  /* the floor's own tokens (see login-16x9.html) — this page is
-     the branded state the installed app lands on when the line
-     drops: never a browser error screen                    */
+  /* the floor's own tokens (see login-16x9.html) — the offline
+     state is not a waiting room: it IS a table. A practice shoe,
+     cosmetic chips, no ledger — the felt keeps you in the game
+     until the line returns.                                  */
   :root {
     --felt:  #1f6b45;
     --deep:  #0b2b1d;
@@ -25,134 +26,801 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    margin: 0;
-    display: flex; align-items: center; justify-content: center;
-    text-align: center;
-    padding: calc(2em + env(safe-area-inset-top)) calc(1.5em + env(safe-area-inset-right))
-             calc(2em + env(safe-area-inset-bottom)) calc(1.5em + env(safe-area-inset-left));
-    background:
-      radial-gradient(120% 90% at 50% 18%, rgba(31, 107, 69, 0.5), transparent 62%),
-      var(--deep);
-    color: var(--ink);
-    font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, Inter, system-ui, sans-serif;
-  }
-  .card { max-width: 24em; }
-
-  /* the chip mark — inline SVG so the brand cannot 404 offline */
-  .chip {
-    width: 7.4em; height: 7.4em; margin: 0 auto 1.5em;
-    transition: filter 0.6s ease, transform 0.6s ease;
-  }
-  body.back .chip {
-    transform: scale(1.05);
-    filter: drop-shadow(0 0 0.9em rgba(216, 181, 106, 0.55));
+    margin: 0; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--deep); color: var(--ink); user-select: none;
+    font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, system-ui, sans-serif;
   }
 
-  .kicker {
-    margin: 0; font-size: 0.72em; letter-spacing: 0.38em; text-transform: uppercase;
-    color: color-mix(in srgb, var(--ink) 60%, transparent);
+  /* ---- top bar: brand, the line, the tray ---------------- */
+  .top {
+    display: flex; align-items: center; gap: 0.8em; flex-wrap: wrap;
+    padding: 0.5em 0.9em; padding-top: calc(0.5em + env(safe-area-inset-top));
+    background: rgba(5, 14, 10, 0.55);
   }
-  h1 { margin: 0.55em 0 0; font-size: 1.9em; line-height: 1.15; color: var(--print); }
-  .sub {
-    margin: 0.7em auto 0; max-width: 26em; font-size: 0.95em; line-height: 1.55;
-    color: color-mix(in srgb, var(--ink) 72%, transparent);
+  .brand { display: flex; align-items: center; gap: 0.55em; }
+  .brand svg { width: 2em; height: 2em; flex: none; }
+  .brand b { font-family: Georgia, "Times New Roman", serif; letter-spacing: 0.06em; color: var(--print); }
+  .brand span { font-size: 0.7em; letter-spacing: 0.26em; text-transform: uppercase; opacity: 0.62; }
+  .bank {
+    display: flex; align-items: center; gap: 0.45em;
+    font-variant-numeric: tabular-nums; font-weight: 600;
   }
-
+  .bank i {
+    width: 1.05em; height: 1.05em; border-radius: 50%; flex: none;
+    background: var(--accent); border: 2px dashed var(--deep);
+  }
   .pill {
-    display: inline-flex; align-items: center; gap: 0.65em;
-    margin-top: 1.5em; padding: 0.55em 1.1em;
+    display: inline-flex; align-items: center; gap: 0.6em;
+    padding: 0.32em 0.5em 0.32em 0.85em;
     border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
-    border-radius: 999px;
-    font-size: 0.85em; letter-spacing: 0.06em;
-    color: color-mix(in srgb, var(--ink) 78%, transparent);
+    border-radius: 999px; font-size: 0.78em; letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--ink) 80%, transparent);
   }
   .dot {
-    width: 0.62em; height: 0.62em; border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 1.6s ease-in-out infinite;
+    width: 0.6em; height: 0.6em; border-radius: 50%; flex: none;
+    background: var(--accent); animation: pulse 1.6s ease-in-out infinite;
   }
   body.back .dot { background: #79d9a4; animation: none; }
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.35; transform: scale(0.8); }
   }
+  .link {
+    border: 0; background: none; padding: 0.2em 0.5em; border-radius: 0.5em;
+    font: inherit; font-weight: 600; cursor: pointer;
+    color: var(--accent);
+  }
+  .link:hover, .link:focus-visible { background: rgba(216, 181, 106, 0.14); }
+  .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  .act {
-    margin-top: 1.6em; padding: 0.82em 1.7em;
-    border: 0; border-radius: 0.85em; font: inherit; font-weight: 600;
-    letter-spacing: 0.05em; cursor: pointer;
+  /* ---- the felt ------------------------------------------ */
+  .felt {
+    position: relative; flex: 1; min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 0.8em 1em;
+    background: radial-gradient(115% 105% at 50% 42%, var(--felt), var(--deep) 93%);
+  }
+  .print {
+    position: absolute; inset: 0; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5em;
+  }
+  .print h2 {
+    margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 800;
+    letter-spacing: 0.32em; text-indent: 0.32em; color: rgba(247, 241, 226, 0.10);
+    font-size: clamp(1.1em, 4.4vw, 2.3em);
+  }
+  .print p {
+    margin: 0; font-size: clamp(0.52em, 1.5vw, 0.76em);
+    letter-spacing: 0.28em; text-indent: 0.28em; color: rgba(247, 241, 226, 0.09);
+  }
+  .row { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.4em; }
+  .who { font-size: 0.68em; letter-spacing: 0.26em; text-transform: uppercase; opacity: 0.65; }
+  .hand {
+    display: flex; gap: 0.35em; min-height: calc(clamp(46px, 8.5vw, 74px) * 1.4);
+    align-items: flex-end;
+  }
+  .total {
+    min-width: 2.4em; padding: 0.12em 0.6em; border-radius: 999px;
+    background: rgba(5, 14, 10, 0.55); border: 1px solid rgba(216, 181, 106, 0.25);
+    font-size: 0.82em; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .total.bust { color: #e0705f; border-color: rgba(224, 112, 95, 0.5); }
+  .total.win  { color: #79d9a4; border-color: rgba(121, 217, 164, 0.5); }
+
+  /* cards — the readable-table rule in 2D: rank prints in the
+     corner strip, ten prints "10", red stays red             */
+  .card {
+    position: relative; width: clamp(46px, 8.5vw, 74px); aspect-ratio: 320 / 448;
+    border-radius: 6px; background: #f7f2e6; color: #191410;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+    font-family: Georgia, "Times New Roman", serif; font-weight: 700;
+    animation: deal 0.45s ease-out both;
+  }
+  .card.red { color: #b3242c; }
+  .card .r  { position: absolute; top: 3%; left: 8%; font-size: 0.8em; line-height: 1.05; }
+  .card .rs { position: absolute; top: 20%; left: 8%; font-size: 0.55em; line-height: 1; }
+  .card .pip {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 1.45em;
+  }
+  .card .r2 {
+    position: absolute; bottom: 3%; right: 8%; font-size: 0.8em; line-height: 1.05;
+    transform: rotate(180deg);
+  }
+  .card.back {
+    background:
+      repeating-linear-gradient(45deg,
+        rgba(216, 181, 106, 0.14) 0 3px, transparent 3px 8px),
+      repeating-linear-gradient(-45deg,
+        rgba(216, 181, 106, 0.14) 0 3px, transparent 3px 8px),
+      var(--deep);
+    border: 2px solid rgba(216, 181, 106, 0.55);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card.back span { font-size: 0.85em; letter-spacing: 0.05em; }
+  @keyframes deal {
+    from { transform: translate(34vw, -24vh) rotate(9deg) scale(0.92); opacity: 0; }
+  }
+
+  /* mid: the status, the shoe and its meter ---------------- */
+  .mid { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; }
+  .status {
+    display: inline-flex; align-items: center; gap: 0.65em; margin: 0;
+    padding: 0.42em 1em; border-radius: 999px; max-width: 78%;
+    background: rgba(5, 14, 10, 0.5); border: 1px solid rgba(216, 181, 106, 0.18);
+    font-size: 0.86em; letter-spacing: 0.04em; text-align: center;
+  }
+  .status .dot { animation: none; background: var(--accent); }
+  .shoe {
+    position: absolute; right: 0.2em; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 0.4em;
+  }
+  .shoebox {
+    position: relative; width: clamp(54px, 9vw, 86px); height: clamp(38px, 6.4vw, 60px);
+    border-radius: 6px; background: rgba(5, 14, 10, 0.6);
+    border: 1px solid rgba(216, 181, 106, 0.3);
+  }
+  .half {
+    position: absolute; top: 14%; width: 38%; height: 72%; border-radius: 3px;
+    background: var(--deep); border: 1.5px solid rgba(216, 181, 106, 0.55);
+    transition: transform 0.55s ease;
+  }
+  .half.a { left: 8%; }
+  .half.b { right: 8%; }
+  .shoebox.riffle .half.a { transform: translateX(28%) rotate(-6deg); animation: riffleA 1.8s ease-in-out; }
+  .shoebox.riffle .half.b { transform: translateX(-28%) rotate(6deg); animation: riffleB 1.8s ease-in-out; }
+  @keyframes riffleA {
+    0%   { transform: translateX(0) rotate(0); }
+    22%  { transform: translateX(30%) rotate(-7deg); }
+    75%  { transform: translateX(26%) rotate(-2deg); }
+    100% { transform: translateX(20%) rotate(0); }
+  }
+  @keyframes riffleB {
+    0%   { transform: translateX(0) rotate(0); }
+    22%  { transform: translateX(-30%) rotate(7deg); }
+    75%  { transform: translateX(-26%) rotate(2deg); }
+    100% { transform: translateX(-20%) rotate(0); }
+  }
+  .meter {
+    width: clamp(54px, 9vw, 86px); height: 4px; border-radius: 2px;
+    background: rgba(5, 14, 10, 0.6); overflow: hidden;
+  }
+  .meter i { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
+  .meterlabel { font-size: 0.62em; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.55; }
+
+  /* the bet spot + cosmetic chips -------------------------- */
+  .spot {
+    position: relative; margin-top: 0.2em;
+    min-width: 7.5em; min-height: 2.2em;
+    border: 1px dashed rgba(247, 241, 226, 0.22); border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stack { position: absolute; bottom: 0.25em; left: 0.6em; height: 2.6em; }
+  .chev {
+    position: absolute; width: 1.55em; height: 1.55em; border-radius: 50%;
+    border: 3px dashed rgba(5, 14, 10, 0.75);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+    animation: drop 0.32s ease-out both;
+  }
+  @keyframes drop {
+    from { transform: translateY(-1.4em) scale(0.85); opacity: 0; }
+  }
+  .betamt { font-size: 0.88em; font-weight: 700; font-variant-numeric: tabular-nums; padding: 0 0.4em; }
+
+  .pay {
+    position: absolute; left: 50%; top: -1.7em; transform: translateX(-50%);
+    font-weight: 800; font-size: 1.05em; pointer-events: none;
+    color: #79d9a4; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+    animation: payrise 1.7s ease-out both;
+  }
+  .pay.lose { color: #e0705f; }
+  @keyframes payrise {
+    0%   { opacity: 0; transform: translate(-50%, 0.6em); }
+    14%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -1.3em); }
+  }
+
+  /* ---- action bar ---------------------------------------- */
+  .bar {
+    display: flex; align-items: center; justify-content: center; gap: 0.55em; flex-wrap: wrap;
+    padding: 0.6em 0.9em; padding-bottom: calc(0.6em + env(safe-area-inset-bottom));
+    background: rgba(5, 14, 10, 0.55);
+  }
+  .chipbtn {
+    width: 2.9em; height: 2.9em; border-radius: 50%; cursor: pointer;
+    border: 4px dashed rgba(5, 14, 10, 0.75);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+    font: inherit; font-weight: 800; font-size: 0.8em; color: var(--ink);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+  .chipbtn:active { transform: translateY(1px); }
+  .chipbtn:disabled { opacity: 0.35; cursor: default; }
+  .chipbtn.c25  { background: #2f9e63; }
+  .chipbtn.c100 { background: #241a12; color: var(--accent); }
+  .chipbtn.c500 { background: #c84444; }
+  .btn {
+    padding: 0.72em 1.35em; border: 0; border-radius: 0.8em;
+    font: inherit; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;
     color: var(--rail);
     background: linear-gradient(180deg,
       color-mix(in srgb, var(--accent) 88%, white),
       color-mix(in srgb, var(--accent) 78%, black));
   }
-  .act:active { transform: translateY(1px); }
-  .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-  .foot {
-    margin: 2.2em 0 0; font-size: 0.72em; letter-spacing: 0.32em; text-transform: uppercase;
-    color: color-mix(in srgb, var(--ink) 42%, transparent);
+  .btn.ghost {
+    color: var(--ink); background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
   }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+  .btn:focus-visible, .chipbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   @media (prefers-reduced-motion: reduce) {
-    .dot { animation: none; }
-    .chip { transition: none; }
-    body.back .chip { transform: none; }
+    .card, .chev, .pay, .dot { animation: none; }
+    .half, .meter i { transition: none; }
   }
 </style>
 </head>
 <body>
 
-<div class="card">
+<header class="top">
   <!-- the house chip: gold ring, eight notches, 999 at the center —
        the same mark make-icons.js stamps into the PWA icons -->
-  <svg class="chip" viewBox="0 0 100 100" aria-hidden="true">
-    <circle cx="50" cy="50" r="46" fill="none" stroke="#d8b56a" stroke-width="7"/>
-    <g stroke="#0b2b1d" stroke-width="6">
-      <line x1="50" y1="1" x2="50" y2="11"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(45 50 50)"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(90 50 50)"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(135 50 50)"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(180 50 50)"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(225 50 50)"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(270 50 50)"/>
-      <line x1="50" y1="1" x2="50" y2="11" transform="rotate(315 50 50)"/>
-    </g>
-    <circle cx="50" cy="50" r="33" fill="#1f6b45"/>
-    <circle cx="50" cy="50" r="33" fill="none" stroke="#d8b56a" stroke-width="2.5"/>
-    <text x="50" y="61" text-anchor="middle" font-size="29" font-weight="700"
-          letter-spacing="1" fill="#d8b56a"
-          font-family="-apple-system, 'Segoe UI', Roboto, system-ui, sans-serif">999</text>
-  </svg>
+  <div class="brand">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#d8b56a" stroke-width="7"/>
+      <g stroke="#0b2b1d" stroke-width="6">
+        <line x1="50" y1="1" x2="50" y2="11"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(45 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(90 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(135 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(180 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(225 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(270 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="11" transform="rotate(315 50 50)"/>
+      </g>
+      <circle cx="50" cy="50" r="33" fill="#1f6b45"/>
+      <circle cx="50" cy="50" r="33" fill="none" stroke="#d8b56a" stroke-width="2.5"/>
+      <text x="50" y="61" text-anchor="middle" font-size="29" font-weight="700"
+            letter-spacing="1" fill="#d8b56a"
+            font-family="-apple-system, 'Segoe UI', Roboto, system-ui, sans-serif">999</text>
+    </svg>
+    <b>999</b><span>Practice shoe</span>
+  </div>
+  <div class="bank" title="Cosmetic chips — no ledger out here"><i></i><span id="bankTxt">1,000</span></div>
+  <p class="pill" id="pill"><span class="dot"></span><span id="pillTxt">Waiting for the line…</span><button class="link" id="pillBtn" type="button" hidden></button></p>
+</header>
 
-  <p class="kicker">999 Casino · Blackjack</p>
-  <h1 id="title">The floor is offline</h1>
-  <p class="sub" id="sub">The connection dropped mid-shoe. The table, the shoe
-    and your chips are safe — we deal you back in the moment the line returns.</p>
-  <p class="pill"><span class="dot"></span><span id="pillTxt">Waiting for the line…</span></p>
-  <button class="act" id="act" type="button">Try now</button>
-  <p class="foot">The felt keeps the ledger</p>
-</div>
+<main class="felt">
+  <div class="print">
+    <h2>BLACKJACK</h2>
+    <p>BLACKJACK PAYS 3 TO 2 · DEALER MUST DRAW ALL 17</p>
+  </div>
+
+  <section class="row">
+    <div class="hand" id="dealerCards"></div>
+    <div class="who">Dealer</div>
+    <div class="total" id="dealerTotal">—</div>
+  </section>
+
+  <div class="mid">
+    <p class="status"><span class="dot"></span><span id="statusTxt">Place your bet</span></p>
+    <div class="shoe">
+      <div class="shoebox" id="shoeBox"><div class="half a"></div><div class="half b"></div></div>
+      <div class="meter"><i id="meterFill" style="width: 100%"></i></div>
+      <div class="meterlabel" id="shoeLabel">Shoe</div>
+    </div>
+  </div>
+
+  <section class="row">
+    <div class="spot">
+      <div class="stack" id="betStack"></div>
+      <span class="betamt" id="betAmt">Bet 0</span>
+    </div>
+    <div class="who">You</div>
+    <div class="hand" id="youCards"></div>
+    <div class="total" id="youTotal">—</div>
+  </section>
+</main>
+
+<footer class="bar">
+  <button class="chipbtn c25"  id="chip25"  type="button" aria-label="Bet 25">25</button>
+  <button class="chipbtn c100" id="chip100" type="button" aria-label="Bet 100">100</button>
+  <button class="chipbtn c500" id="chip500" type="button" aria-label="Bet 500">500</button>
+  <button class="btn ghost" id="btnClear" type="button">Clear</button>
+  <button class="btn" id="btnDeal" type="button">Deal</button>
+  <button class="btn ghost" id="btnHit" type="button">Hit</button>
+  <button class="btn ghost" id="btnStand" type="button">Stand</button>
+  <button class="btn ghost" id="btnDouble" type="button">Double</button>
+  <button class="btn ghost" id="btnMute" type="button">🔊 Sound</button>
+</footer>
 
 <script>
 (function () {
   'use strict';
 
   /* ============================================================
-     The offline state, and its 'back online' counterpart.
+     The practice shoe (no ledger, cosmetic chips).
+
+     This page IS the offline state: not a waiting room but a
+     single-player table. Two decks at the shoe, a cut card at
+     75% penetration, the riffle ceremony between shoes, and the
+     same audio vocabulary as the live table — all synthesis,
+     gated by the app's own 🔊 toggle (999.table.audio).
+
+     Settlement lives in ONE place (settle): blackjack pays 3:2,
+     a win 1:1, a push returns the stake — the felt never
+     re-derives the money. Chips are cosmetic; the real ledger
+     belongs to the floor and the hub behind it.
 
      The worker lands the player here carrying the page they were
      bound for (offline.html?from=<url>); when the line returns
-     this state flips to "Back online" and hands them straight
-     back to exactly that page. Connectivity is probed against
-     our OWN origin with a no-store touch the worker passes
-     through and never caches — an answer here really means the
-     line is back. No external hosts, ever.                    */
-  var title = document.getElementById('title');
-  var sub = document.getElementById('sub');
-  var pillTxt = document.getElementById('pillTxt');
-  var act = document.getElementById('act');
+     the pill offers the door straight back to exactly that page —
+     immediately when only the shoe is running, never yanked out
+     of a hand in play. Connectivity is probed against our OWN
+     origin with a no-store touch the worker passes through and
+     never caches. No external hosts, ever.                    */
 
+  /* ---- the practice state ------------------------------- */
+  var DECKS = 2, CUT = 26;          /* a double-deck shoe, cut at ~75% */
+  var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  var SUIT = ['\u2660', '\u2665', '\u2666', '\u2663'];   /* spade heart diamond club */
+  var RED = [false, true, true, false];
+
+  var phase = 'betting';            /* betting | shuffling | dealing | acting | dealer | settle */
+  var bank = 1000, bet = 0, doubled = false;
+  var you = [], dealerArr = [], shoeArr = [];
+
+  try {
+    var saved = parseInt(localStorage.getItem('999.practice.stack'), 10);
+    if (isFinite(saved) && saved >= 0) bank = saved;
+  } catch (e) { }
+  function saveBank() {
+    try { localStorage.setItem('999.practice.stack', String(bank)); } catch (e) { }
+  }
+  function fmt(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }
+
+  function total(hand) {
+    var t = 0, aces = 0;
+    for (var i = 0; i < hand.length; i++) {
+      var r = hand[i].r;
+      if (r === 'A') { aces++; t += 11; }
+      else if (r === 'J' || r === 'Q' || r === 'K') t += 10;
+      else t += parseInt(r, 10);
+    }
+    while (t > 21 && aces) { t -= 10; aces--; }
+    return t;
+  }
+
+  /* ---- the shoe + its ceremony -------------------------- */
+  function buildShoe() {
+    shoeArr = [];
+    for (var d = 0; d < DECKS; d++) {
+      for (var s = 0; s < 4; s++) {
+        for (var r = 0; r < RANKS.length; r++) shoeArr.push({ r: RANKS[r], s: s });
+      }
+    }
+    for (var i = shoeArr.length - 1; i > 0; i--) {       /* Fisher-Yates */
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = shoeArr[i]; shoeArr[i] = shoeArr[j]; shoeArr[j] = tmp;
+    }
+  }
+  function draw() {
+    if (!shoeArr.length) buildShoe();
+    return shoeArr.pop();
+  }
+  function shoePct() { return Math.round(shoeArr.length / (DECKS * 52) * 100); }
+
+  function shuffleCeremony(then) {
+    phase = 'shuffling';
+    syncUI();
+    setStatus('Shuffling the shoe…');
+    var box = document.getElementById('shoeBox');
+    box.classList.add('riffle');
+    riffleSound();
+    later(1800, function () {
+      box.classList.remove('riffle');
+      buildShoe();
+      renderShoe();
+      then();
+    });
+  }
+
+  /* ---- timing: one token cancels the round's whole script - */
+  var token = 0;
+  function later(ms, fn) {
+    var t = token;
+    setTimeout(function () { if (t === token) fn(); }, ms);
+  }
+
+  /* ---- audio ceremony (spec 4.5 vocabulary, all synthesis) -
+     Quieter and smaller than the live table's, but the same
+     voices: whooshes ride flights, snaps land cards, clacks land
+     chips, the riffle squares the shoe, one stinger per hand.  */
+  var audioOn = true;
+  try { audioOn = localStorage.getItem('999.table.audio') !== 'off'; } catch (e) { }
+  var actx = null, master = null, noiseBuf = null;
+  function ready() {
+    if (!audioOn) return null;
+    if (document.hidden) return null;
+    try {
+      if (!actx) {
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
+        actx = new Ctor();
+        master = actx.createGain();
+        master.connect(actx.destination);
+      }
+      if (actx.state !== 'running') {
+        var r = actx.resume();
+        if (r && r.catch) r.catch(function () { });
+        return null;
+      }
+      return actx;
+    } catch (e) { return null; }
+  }
+  function wakeAudio() { ready(); }
+  document.addEventListener('pointerdown', wakeAudio);
+  document.addEventListener('keydown', wakeAudio);
+
+  function noise(c) {
+    if (!noiseBuf) {
+      noiseBuf = c.createBuffer(1, Math.floor(c.sampleRate * 0.5), c.sampleRate);
+      var d = noiseBuf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return noiseBuf;
+  }
+  function tone(c, freq, t, dur, type, gain, slideTo) {
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function burst(c, t, dur, type, freq, q, gain) {
+    var s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = noise(c);
+    f.type = type; f.frequency.value = freq;
+    if (q) f.Q.value = q;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(t); s.stop(t + dur + 0.03);
+  }
+  function cardWhoosh(delay) {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + (delay || 0), D = 0.4;
+    var s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = noise(c);
+    f.type = 'bandpass'; f.Q.value = 0.8;
+    f.frequency.setValueAtTime(720 + Math.random() * 260, t);
+    f.frequency.exponentialRampToValueAtTime(2100, t + D * 0.7);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.05, t + D * 0.45);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + D);
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(t); s.stop(t + D + 0.03);
+  }
+  function cardSnap(delay) {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + (delay || 0);
+    burst(c, t, 0.045, 'bandpass', 3000, 0.9, 0.2);
+    burst(c, t, 0.02, 'highpass', 5200, 0, 0.09);
+  }
+  function chipClack(delay) {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + (delay || 0);
+    burst(c, t, 0.05, 'bandpass', 2600, 1.6, 0.28);
+    tone(c, 300, t, 0.075, 'triangle', 0.18, 170);
+  }
+  function riffleSound() {
+    /* the halves lift, the riffle runs, the deck squares up */
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + 0.02;
+    burst(c, t + 0.04, 0.3, 'bandpass', 850, 0.7, 0.08);
+    for (var k = 0; k < 14; k++) {
+      var at = t + 0.4 + k * 0.05;
+      burst(c, at, 0.05, 'bandpass', 1500 + Math.random() * 1400, 2.6, 0.1);
+      if (k % 3 === 0) tone(c, 240 + Math.random() * 60, at, 0.05, 'triangle', 0.03, 170);
+    }
+    burst(c, t + 1.25, 0.05, 'bandpass', 1900, 1.2, 0.11);
+    tone(c, 190, t + 1.25, 0.09, 'triangle', 0.13, 120);
+    burst(c, t + 1.45, 0.05, 'bandpass', 1500, 1.2, 0.1);
+    tone(c, 165, t + 1.45, 0.11, 'triangle', 0.12, 105);
+  }
+  function stinger(kind) {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + 0.02;
+    if (kind === 'win') {
+      tone(c, 523.25, t, 0.32, 'triangle', 0.17);
+      tone(c, 659.25, t + 0.09, 0.32, 'triangle', 0.17);
+      tone(c, 783.99, t + 0.18, 0.55, 'triangle', 0.19);
+      tone(c, 1567.98, t + 0.18, 0.5, 'sine', 0.06);
+    } else {
+      tone(c, 392, t, 0.22, 'triangle', 0.14, 262);
+      tone(c, 196, t + 0.13, 0.42, 'sine', 0.12, 147);
+    }
+  }
+
+  /* ---- rendering ---------------------------------------- */
+  var elBank = document.getElementById('bankTxt');
+  var elBet = document.getElementById('betAmt');
+  var elStack = document.getElementById('betStack');
+  var elYou = document.getElementById('youCards');
+  var elDealer = document.getElementById('dealerCards');
+  var elYouTotal = document.getElementById('youTotal');
+  var elDealerTotal = document.getElementById('dealerTotal');
+  var statusTxt = document.getElementById('statusTxt');
+  function setStatus(s) { statusTxt.textContent = s; }
+
+  var CHIP_VIEWS = [{ v: 25, c: '#2f9e63' }, { v: 100, c: '#241a12' }, { v: 500, c: '#c84444' }];
+
+  function cardEl(card, faceDown) {
+    var el = document.createElement('div');
+    el.className = 'card' + (faceDown ? ' back' : (RED[card.s] ? ' red' : ''));
+    if (faceDown) {
+      el.innerHTML = '<span>999</span>';
+    } else {
+      el.innerHTML = '<span class="r">' + card.r + '</span>' +
+        '<span class="rs">' + SUIT[card.s] + '</span>' +
+        '<span class="pip">' + SUIT[card.s] + '</span>' +
+        '<span class="r2">' + card.r + '</span>';
+    }
+    return el;
+  }
+  function renderHand(el, hand) {
+    el.innerHTML = '';
+    for (var i = 0; i < hand.length; i++) el.appendChild(cardEl(hand[i]));
+  }
+  function landCard(el, card) {
+    /* the card lands where it flew — append, never redraw, so
+       the cards already on the cloth stay put                */
+    el.appendChild(cardEl(card));
+  }
+  function renderTotals() {
+    elYouTotal.className = 'total';
+    elDealerTotal.className = 'total';
+    if (you.length) {
+      var y = total(you);
+      elYouTotal.textContent = y > 21 ? 'BUST' : String(y);
+      if (y > 21) elYouTotal.className = 'total bust';
+    } else elYouTotal.textContent = '—';
+    if (dealerArr.length) {
+      var d = total(dealerArr);
+      elDealerTotal.textContent = d > 21 ? 'BUST' : String(d);
+      if (d > 21) elDealerTotal.className = 'total bust';
+    } else elDealerTotal.textContent = '—';
+  }
+  function renderBet() {
+    elBet.textContent = 'Bet ' + fmt(bet);
+    elStack.innerHTML = '';
+    /* the felt keeps the chips: one chevron per denomination     */
+    var left = bet, slot = 0;
+    for (var i = CHIP_VIEWS.length - 1; i >= 0; i--) {
+      while (left >= CHIP_VIEWS[i].v) {
+        var ch = document.createElement('span');
+        ch.className = 'chev';
+        ch.style.background = CHIP_VIEWS[i].c;
+        ch.style.bottom = (slot % 6) * 0.22 + 'em';
+        ch.style.left = Math.floor(slot / 6) * 0.34 + 'em';
+        elStack.appendChild(ch);
+        left -= CHIP_VIEWS[i].v;
+        slot++;
+      }
+    }
+  }
+  function renderShoe() {
+    document.getElementById('meterFill').style.width = shoePct() + '%';
+    document.getElementById('shoeLabel').textContent = 'Shoe ' + shoePct() + '%';
+  }
+  function renderBank() { elBank.textContent = fmt(bank); }
+
+  function syncUI() {
+    var betting = phase === 'betting', acting = phase === 'acting';
+    document.getElementById('chip25').disabled = !betting || bank < 25;
+    document.getElementById('chip100').disabled = !betting || bank < 100;
+    document.getElementById('chip500').disabled = !betting || bank < 500;
+    document.getElementById('btnClear').disabled = !betting || !bet;
+    document.getElementById('btnDeal').disabled = !betting || !bet;
+    document.getElementById('btnHit').disabled = !acting;
+    document.getElementById('btnStand').disabled = !acting;
+    document.getElementById('btnDouble').disabled = !acting || you.length !== 2 || bank < bet;
+    syncMuteBtn();
+  }
+
+  /* cosmetic chips: bank -> felt the moment the chip lands,
+     back -> bank on Clear. The bank is memory only — no ledger. */
+  function placeChip(v) {
+    if (phase !== 'betting' || bank < v) return;
+    bank -= v; bet += v;
+    chipClack(0.03);
+    renderBank(); renderBet(); syncUI();
+  }
+  function clearBet() {
+    if (phase !== 'betting' || !bet) return;
+    bank += bet; bet = 0;
+    chipClack(0.03);
+    renderBank(); renderBet(); syncUI();
+  }
+
+  /* ---- the round machine -------------------------------- */
+  /* Deal order (spec 4.5, European, one box): one to the box,
+     one to the dealer, a second to the box — ~0.62s apart, each
+     card a whoosh in the air and a snap on the cloth.          */
+  var DEAL_BEAT = 620;
+
+  function dealCard(to) {
+    var hand = to === 'you' ? you : dealerArr;
+    /* the card is captured at the shoe: a landing that runs
+       late must land THIS card, never the next one          */
+    var card = draw();
+    hand.push(card);
+    cardWhoosh(0);
+    cardSnap(0.42);
+    later(430, function () {
+      landCard(to === 'you' ? elYou : elDealer, card);
+      renderTotals();
+      renderShoe();
+    });
+  }
+
+  function deal() {
+    if (phase !== 'betting' || !bet) return;
+    token++;
+    doubled = false;
+    you = []; dealerArr = [];
+    renderHand(elYou, you); renderHand(elDealer, dealerArr); renderTotals();
+    phase = 'dealing';
+    syncUI();
+    setStatus('Dealing — one to the box, one to the dealer');
+    later(250, function () { dealCard('you'); });
+    later(250 + DEAL_BEAT, function () { dealCard('dealer'); });
+    later(250 + DEAL_BEAT * 2, function () { dealCard('you'); });
+    later(250 + DEAL_BEAT * 3 + 300, beginTurn);
+  }
+
+  function beginTurn() {
+    if (total(you) >= 21) { later(650, dealerTurn); return; }   /* 21 or bust stands */
+    phase = 'acting';
+    syncUI();
+    setStatus('Your move — hit, stand or double');
+  }
+  function hit() {
+    if (phase !== 'acting') return;
+    phase = 'dealing';
+    syncUI();
+    dealCard('you');
+    later(650, beginTurn);
+  }
+  function stand() {
+    if (phase !== 'acting') return;
+    dealerTurn();
+  }
+  function doubleDown() {
+    if (phase !== 'acting' || you.length !== 2 || bank < bet) return;
+    bank -= bet; bet *= 2;
+    renderBank(); renderBet();
+    chipClack(0.03);
+    phase = 'dealing';
+    syncUI();
+    dealCard('you');
+    later(650, dealerTurn);          /* one card, then it stands — the double's price */
+  }
+
+  /* the dealer ALWAYS draws to 17 (S17) — even against a bust */
+  function dealerTurn() {
+    phase = 'dealer';
+    syncUI();
+    setStatus('Dealer draws to 17');
+    function step() {
+      if (total(dealerArr) < 17 && dealerArr.length < 6) {
+        dealCard('dealer');
+        later(DEAL_BEAT + 150, step);
+      } else {
+        later(550, settle);
+      }
+    }
+    later(500, step);
+  }
+
+  /* settlement (spec 5) — computed HERE and nowhere else:
+     blackjack 3:2, win 1:1, push returns the stake.           */
+  function settle() {
+    phase = 'settle';
+    var p = total(you), d = total(dealerArr);
+    var nat = you.length === 2 && p === 21;
+    var kind, delta;
+    if (p > 21) { kind = 'Bust — the house takes it'; delta = 0; }
+    else if (nat) { kind = 'Blackjack! Pays 3 to 2'; delta = bet * 2.5; }
+    else if (d > 21 || p > d) { kind = 'You win'; delta = bet * 2; }
+    else if (p === d) { kind = 'Push — the stake comes back'; delta = bet; }
+    else { kind = 'Dealer takes it'; delta = 0; }
+    bank += delta;
+    saveBank();
+    renderBank();
+    var net = delta - bet;
+    if (net > 0) elYouTotal.className = 'total win';
+    setStatus(kind);
+    /* the +delta floats at the total — the settlement's own number */
+    if (net !== 0) {
+      var pay = document.createElement('div');
+      pay.className = 'pay' + (net < 0 ? ' lose' : '');
+      pay.textContent = (net > 0 ? '+' : '\u2212') + fmt(Math.abs(net));
+      pay.style.left = 'auto'; pay.style.right = '0.2em'; pay.style.top = '-1.2em'; pay.style.transform = 'none';
+      document.getElementById('youCards').appendChild(pay);
+      later(1800, function () { if (pay.parentNode) pay.parentNode.removeChild(pay); });
+    }
+    if (nat || net > 0) stinger('win');
+    else if (net < 0) stinger('lose');
+    /* a push is silent apart from its returning chips */
+    if (delta) chipClack(0.15);
+    syncUI();
+    later(2300, newRound);
+  }
+
+  function newRound() {
+    token++;
+    bet = 0;
+    you = []; dealerArr = [];
+    renderHand(elYou, you); renderHand(elDealer, dealerArr); renderTotals();
+    renderBet();
+    if (bank <= 0) {
+      bank = 1000;
+      saveBank();
+      renderBank();
+      setStatus('The tray refills — 1,000 practice chips');
+    }
+    var open = function () {
+      phase = 'betting';
+      syncUI();
+      setStatus('Place your bet');
+    };
+    if (shoeArr.length <= CUT) shuffleCeremony(open);
+    else open();
+  }
+
+  /* ---- buttons + keyboard parity ------------------------ */
+  document.getElementById('chip25').addEventListener('click', function () { placeChip(25); });
+  document.getElementById('chip100').addEventListener('click', function () { placeChip(100); });
+  document.getElementById('chip500').addEventListener('click', function () { placeChip(500); });
+  document.getElementById('btnClear').addEventListener('click', clearBet);
+  document.getElementById('btnDeal').addEventListener('click', deal);
+  document.getElementById('btnHit').addEventListener('click', hit);
+  document.getElementById('btnStand').addEventListener('click', stand);
+  document.getElementById('btnDouble').addEventListener('click', doubleDown);
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'h' || e.key === 'H') hit();
+    else if (e.key === 's' || e.key === 'S') stand();
+    else if (e.key === 'd' || e.key === 'D') doubleDown();
+  });
+
+  /* the audio toggle — the app's own switch (999.table.audio):
+     the practice shoe sounds through it like the live table    */
+  var muteBtn = document.getElementById('btnMute');
+  function syncMuteBtn() {
+    muteBtn.textContent = audioOn ? '\uD83D\uDD0A Sound' : '\uD83D\uDD07 Muted';
+  }
+  muteBtn.addEventListener('click', function () {
+    audioOn = !audioOn;
+    try { localStorage.setItem('999.table.audio', audioOn ? 'on' : 'off'); } catch (e) { }
+    if (master) master.gain.value = audioOn ? 1 : 0;
+    syncMuteBtn();
+    wakeAudio();
+  });
+
+  /* ============================================================
+     The line: probe our own origin; when it returns, offer the
+     door back to the page the player was bound for — instantly
+     when only the shoe is running, never out of a live hand.   */
+  var pillTxt = document.getElementById('pillTxt');
+  var pillBtn = document.getElementById('pillBtn');
   var dest = './table-16x9.html';
   try {
     var from = new URL(location.href).searchParams.get('from');
@@ -163,42 +831,73 @@
     }
   } catch (e) { }
 
-  var back = false, retryTimer = 0, goTimer = 0;
+  var back = false, retryTimer = 0, goTimer = 0, stayed = false;
   function go() { location.replace(dest); }
+  function inHand() {
+    return bet > 0 || phase === 'dealing' || phase === 'acting' || phase === 'dealer' || phase === 'settle';
+  }
 
-  function setState(ok) {
+  function setLine(ok) {
     if (ok === back) return;
     back = ok;
     document.body.classList.toggle('back', ok);
-    title.textContent = 'Back online';
-    sub.textContent = 'The line is up again — dealing you back into the floor.';
-    pillTxt.textContent = 'Returning to the floor…';
-    act.textContent = 'Back to the floor';
     clearTimeout(retryTimer);
-    goTimer = setTimeout(go, 1400);          /* a beat to read it, then the floor */
+    clearTimeout(goTimer);
+    if (!ok) {
+      pillTxt.textContent = 'The line is down — practice mode';
+      pillBtn.hidden = false;
+      pillBtn.textContent = 'Retry';
+      return;
+    }
+    pillBtn.hidden = false;
+    if (!inHand() && !stayed) {
+      pillTxt.textContent = 'Returning to the floor…';
+      pillBtn.textContent = 'Stay & practice';
+      goTimer = setTimeout(go, 2500);      /* a beat to read it, then the floor */
+    } else {
+      pillTxt.textContent = 'The floor is back';
+      pillBtn.textContent = 'Return to the floor';
+    }
   }
 
   function probe() {
     if (back) return;
     fetch('./manifest.webmanifest?probe=' + Date.now(), { cache: 'no-store' })
-      .then(function () { setState(true); })
+      .then(function () { setLine(true); })
       .catch(function () {
-        pillTxt.textContent = 'Waiting for the line…';
+        pillTxt.textContent = 'The line is down — practice mode';
+        pillBtn.hidden = false;
+        pillBtn.textContent = 'Retry';
         clearTimeout(retryTimer);
         retryTimer = setTimeout(probe, 4000); /* the line comes back quietly */
       });
   }
 
-  act.addEventListener('click', function () {
-    if (back) { clearTimeout(goTimer); go(); return; }
-    pillTxt.textContent = 'Checking the line…';
-    probe();
+  pillBtn.addEventListener('click', function () {
+    if (!back) { pillTxt.textContent = 'Checking the line…'; probe(); return; }
+    clearTimeout(goTimer);
+    if (pillBtn.textContent === 'Stay & practice') {
+      stayed = true;
+      pillTxt.textContent = 'The floor is back';
+      pillBtn.textContent = 'Return to the floor';
+      return;
+    }
+    go();
   });
   window.addEventListener('online', probe);
   window.addEventListener('pageshow', probe);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) probe();
   });
+
+  /* ---- boot --------------------------------------------- */
+  buildShoe();
+  renderShoe();
+  renderBank();
+  renderBet();
+  renderTotals();
+  syncUI();
+  setStatus('Place your bet');
   probe();
 })();
 </script>

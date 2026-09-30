@@ -16,7 +16,7 @@
    tell that the line is still down.                            */
 /* ============================================================ */
 
-const CACHE = '999-floor-v3';
+const CACHE = '999-floor-v4';   /* v4: the offline state became a practice shoe */
 const SHELL = [
   './',
   './index.html',
