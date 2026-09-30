@@ -98,7 +98,9 @@ are additive screens kept beside it for side-by-side comparison.
   snaps, the shoe's riffle and win/lose stingers, every sound Web Audio
   **synthesis** (no CDN, no bundled sample, no runtime download). Impact
   then sound: a chip clacks when it lands, a whoosh rides each card's
-  flight and its snap lands it, and one stinger per round marks **your**
+  flight — carrying its DISTANCE, so a card to the dealer's fan is close
+  and bright while one to the far box is deeper and quieter — and its snap
+  lands it, and one stinger per round marks **your**
   verdict only. Gated by the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
 - **The shoe ceremony (spec 4.5)** — a four-deck shoe with a **cut card at
@@ -215,6 +217,11 @@ answers with CORS headers.
   exactly one snap), chip clacks landing with the bet debits and each
   payout-walk flight, a rising triad at a won hand and a falling sigh at a
   lost one; the 🔊 toggle silences and restores it all mid-round.
+- **Distance-aware flight whooshes** — 1,347 flights sampled: the deal's
+  13-card sequence sweeps monotonically from the far box (1299Hz) to the
+  near (2009Hz) with the dealer's card brightest at 2100Hz, second-card
+  landings shifting +15–32Hz as the stack climbs toward the shoe, and the
+  swell falling from 0.055 to 0.036 across the table.
 - **The shoe ceremony** — live-sampled across 40+ ceremonies on the running
   page: the cut card surfacing mid-final-round and the round playing out
   (cards-before-final-round < cut ≤ cards-dealt verified on every measured
