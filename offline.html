@@ -313,6 +313,17 @@
   .dverdict { margin: 0.6em 0 0; min-height: 1em; font-size: 0.78em; letter-spacing: 0.08em; text-transform: uppercase; }
   .dverdict.ok { color: #43c98a; }
   .dverdict.miss { color: #e2705f; }
+  .leaks {
+    margin: 0.7em auto 0; max-width: 30em; text-align: left;
+    background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 0.6em 0.9em; font-size: 0.78em;
+  }
+  .leaks h3 { margin: 0 0 0.4em; font-size: 0.8em; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+  .leaks ol { margin: 0; padding-left: 1.2em; }
+  .leaks li { margin: 0.15em 0; color: rgba(255,255,255,0.85); }
+  .leaks b { color: #e2705f; }
+  .leaks .drillnow { margin-top: 0.55em; }
+  #btnLeaks.on { color: #d8b56a; border-color: rgba(216,181,106,0.5); }
 </style>
 </head>
 <body>
@@ -362,6 +373,7 @@
   <div class="mid">
     <p class="status"><span class="dot"></span><span id="statusTxt">Place your bet</span></p>
     <p class="coachhint" id="coachHint" hidden></p>
+    <div class="leaks" id="leakBox" hidden></div>
     <div class="shoe">
       <div class="shoebox" id="shoeBox"><div class="half a"></div><div class="half b"></div></div>
       <div class="meter"><i id="meterFill" style="width: 100%"></i></div>
@@ -402,6 +414,7 @@
   <button class="btn ghost" id="btnHit" type="button">Hit</button>
   <button class="btn ghost" id="btnStand" type="button">Stand</button>
   <button class="btn ghost" id="btnDouble" type="button">Double</button>
+  <button class="btn ghost" id="btnLeaks" type="button" hidden>🩹 Leaks</button>
   <button class="btn ghost" id="btnMute" type="button">🔊 Sound</button>
 </footer>
 
@@ -555,6 +568,23 @@
      floor's whole advantage over the live table.            */
   var coachOn = true;
   var coachStats = { decisions: 0, book: 0, streak: 0, best: 0, loss: 0, lossBase: 0 };
+  /* the leak ledger: every miss lands on its book cell —
+     "hard 16 v 10" — with the chips it cost, so the coach
+     knows where the money leaks and can drill it later      */
+  var leaks = {};
+  try {
+    var lk = JSON.parse(localStorage.getItem('999.practice.leaks') || 'null');
+    if (lk && typeof lk === 'object') leaks = lk;
+  } catch (e) { }
+  function leakKey(soft, t, up) {
+    return (soft ? 'soft ' : 'hard ') + t + ' v ' + up;
+  }
+  function weakestCells() {
+    var arr = [];
+    for (var k in leaks) if (leaks[k] && leaks[k].n) arr.push({ cell: k, n: leaks[k].n, cost: leaks[k].cost });
+    arr.sort(function (a, b) { return b.cost - a.cost; });
+    return arr;
+  }
   try {
     coachOn = localStorage.getItem('999.practice.coach') !== 'off';
     var cs = JSON.parse(localStorage.getItem('999.practice.coachstats') || 'null');
@@ -616,6 +646,7 @@
   var coachHint = document.getElementById('coachHint');
   var lastBook = null;
   var lastPrices = null;                 /* what each play costs, from the mark */
+  var lastCell = null;                   /* the book cell this decision belongs to */
   function capWord(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function coachBtnFor(p) {
     return document.getElementById(p === 'hit' ? 'btnHit' : p === 'stand' ? 'btnStand' : 'btnDouble');
@@ -630,16 +661,20 @@
     clearCoachMarks();
     lastBook = null;
     lastPrices = null;
+    lastCell = null;
     if (coachHint) coachHint.hidden = true;
   }
   function coachMark() {
     clearCoachMarks();
     lastBook = null;
     lastPrices = null;
+    lastCell = null;
     if (!coachOn || !dealerArr.length) { if (coachHint) coachHint.hidden = true; return; }
+    var upR = dealerArr[0] ? dealerArr[0].rank : '10';
     lastBook = bookPlay();
-    lastPrices = EV999.prices(total(you), isSoft(you), dealerArr[0] ? dealerArr[0].rank : '10',
+    lastPrices = EV999.prices(total(you), isSoft(you), upR,
       you.length === 2 && bank >= bet);   /* priced where the badge is shown */
+    lastCell = leakKey(isSoft(you), total(you), upR);
     var b = coachBtnFor(lastBook);
     if (b) b.classList.add('book');
     coachHint.hidden = false;
@@ -662,6 +697,14 @@
     } else {
       coachStats.streak = 0;
       coachStats.loss += cost;
+      if (lastCell) {                    /* the leak ledger takes the miss */
+        if (!leaks[lastCell]) leaks[lastCell] = { n: 0, cost: 0 };
+        leaks[lastCell].n++;
+        leaks[lastCell].cost += cost;
+        try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
+        var lb = document.getElementById('btnLeaks');
+        if (lb) lb.hidden = false;
+      }
     }
     saveCoach();
     renderCoach();
@@ -674,6 +717,7 @@
     coachCue(ok);
     lastBook = null;
     lastPrices = null;
+    lastCell = null;
     /* clear only the VERDICT's own flash — a newer decision may
        have already re-marked the book, and its badge is not ours
        to take (the hint goes only if nothing replaced it)        */
@@ -694,9 +738,97 @@
       ? (pct == null ? 'Coach' : 'Coach ' + pct + '% \u00b7 ' + coachStats.book + '/' + coachStats.decisions + (perDev ? ' ' + perDev : ''))
       : 'Coach off';
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
+    var lb = document.getElementById('btnLeaks');
+    if (lb) {
+      lb.hidden = coachOn && !weakestCells().length;
+      lb.textContent = leakMode ? 'back to the shoe' : '\uD83E\uDE79 Leaks';
+      lb.classList.toggle('on', leakMode);
+    }
   }
 
-  /* ---- Hi-Lo counting drills ------------------------------ */
+  /* ---- drilling the leaks: forced hands from your worst cells
+     Each miss the player makes lands in the leak ledger with
+     the chips it cost. Leaks mode deals those cells back at
+     the player: the shoe is STACKED at deal time — cards are
+     popped until the first two make the target hand against
+     the target upcard — so the exact decision returns, not
+     one like it.                                         */
+  var leakMode = false, leakQueue = [], leakCell = null;
+  function renderLeaks() {
+    var box = document.getElementById('leakBox');
+    if (!box) return;
+    var cells = weakestCells();
+    if (!leakMode || !cells.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var rows = cells.slice(0, 5).map(function (c) {
+      return '<li>' + c.cell + ' \u00d7' + c.n + ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b></li>';
+    }).join('');
+    var top = cells[0];
+    box.innerHTML = '<h3>Where the chips leak</h3><ol>' + rows + '</ol>' +
+      '<p class="drillnow">Next hand: ' + top.cell + ' \u2014 the shoe deals it to you.</p>';
+    box.hidden = false;
+  }
+  function toggleLeaks() {
+    leakMode = !leakMode;
+    renderCoach();
+    renderLeaks();
+    if (leakMode) {
+      setStatus('Leak drilling \u2014 your worst cells, dealt on purpose');
+      if (phase === 'betting' && !bet) leakCell = leakQueue.shift() || null;
+    } else {
+      leakCell = null;
+      if (phase === 'betting') setStatus('Place your bet');
+    }
+  }
+  function leakDeal() {
+    if (!leakMode) return;
+    if (!leakCell) leakCell = leakQueue.shift() || null;
+    if (!leakCell) {                              /* the ledger is empty: teach the classic */
+      leakCell = 'hard 16 v 10';
+      leakQueue.push(leakCell);                   /* and again after */
+    }
+    var m = leakCell.match(/^(soft|hard) (\d+) v (\w+)$/);
+    if (!m) { leakCell = null; return; }
+    var soft = m[1] === 'soft', t = parseInt(m[2], 10), up = m[3];
+    /* any two-card class has a clean pair: soft t = A + (t−11);
+       hard 12–20 = (t−10) + 10; hard ≤11 = two smalls — and a
+       hard 11 is 5+6, never A+10 (that's a natural, not a cell) */
+    var first2, second;
+    if (t === 12 && soft) { leakCell = null; return; }   /* soft 12 = A+A, a pair:
+                                                              no clean two-card build */
+    if (soft) { first2 = 'A'; second = String(Math.max(2, Math.min(9, t - 11))); }
+    else if (t >= 12) { first2 = String(t - 10); second = '10'; }
+    else {
+      var a2 = 0, b2 = 0, r;
+      for (r = 2; r <= t - 2; r++) if (t - r !== r && t - r <= 9) { a2 = r; b2 = t - r; }
+      if (!a2) { a2 = 2; b2 = t - 2; }            /* hard 4: only a pair can make it */
+      first2 = String(a2); second = String(b2);
+    }
+    /* the shoe is STACKED IN PLACE: find the three cards it owes
+       — hand, hand, upcard — lift them out, and set the top so
+       deal() pops first, up, second. No draws are churned. A
+       shoe that has already spent those ranks earns a fresh
+       shuffle, which always serves.                          */
+    function findAndStack() {
+      var need = [first2, second, up], at = [-1, -1, -1], i, k, j;
+      for (i = shoeArr.length - 1; i >= 0; i--) {
+        var rk = shoeArr[i].rank;
+        for (k = 0; k < 3; k++) {
+          if (at[k] < 0 && rk === need[k]) {
+            var taken = false;
+            for (j = 0; j < 3; j++) if (j !== k && at[j] === i) taken = true;
+            if (!taken) { at[k] = i; break; }
+          }
+        }
+      }
+      if (at[0] < 0 || at[1] < 0 || at[2] < 0) return false;
+      var c1 = shoeArr[at[0]], c2 = shoeArr[at[1]], cu = shoeArr[at[2]];
+      var rm = [at[0], at[1], at[2]].sort(function (x, y) { return y - x; });
+      for (i = 0; i < 3; i++) shoeArr.splice(rm[i], 1);
+      shoeArr.push(c2, cu, c1);     /* deal() pops: first, up, second */
+      return true;
+    }
+    if (!findAndStack()) { buildShoe(); findAndStack(); }
+  }
   /* The meter tells the truth a card counter watches: the
      RUNNING count (2-6 = +1, 7-9 = 0, 10-A = -1), reset with
      every shuffle. Between rounds the drill holds the deal
@@ -1137,6 +1269,7 @@
     token++;
     doubled = false;
     you = []; dealerArr = [];
+    leakDeal();                                   /* leaks mode stacks the shoe here */
     renderHand(elYou, you); renderHand(elDealer, dealerArr); renderTotals();
     phase = 'dealing';
     syncUI();
@@ -1248,6 +1381,7 @@
     };
     if (shoeArr.length <= CUT) shuffleCeremony(open);
     else { open(); openDrill(); }   /* between rounds: the count drill */
+    renderLeaks();                  /* the panel follows the ledger */
   }
 
   /* ---- buttons + keyboard parity ------------------------ */
@@ -1287,6 +1421,9 @@
     if (!coachOn) coachHide();
     else if (phase === 'acting') coachMark();
   });
+
+  /* the leaks: the ledger, the panel, the targeted rounds   */
+  document.getElementById('btnLeaks').addEventListener('click', toggleLeaks);
 
   /* Hi-Lo: the meter's count and the guess-the-count drill    */
   document.getElementById('countPill').addEventListener('click', function () {

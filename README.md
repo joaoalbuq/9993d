@@ -189,7 +189,14 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   judged — "✓ Book play" or "Book says Stand", with a soft cue — and the
   running score persists with the tray. The book is the shoe's own (two
   decks, S17, no split, doubles degrading gracefully when they aren't
-  legal), and the 🎓 pill turns the whole mentor off. The shoe's meter
+  legal), and the 🎓 pill turns the whole mentor off. The **🩹 Leaks**
+  mode is where misses go to die: every priced miss lands in a persisted
+  leak ledger (book cell → count + chips thrown away), a panel ranks your
+  worst cells by cost, and toggling it deals those EXACT hands — the shoe
+  is stacked at deal time (three cards lifted from the shoe: hand, hand,
+  upcard; a spent shoe earns a fresh shuffle) so "hard 16 v 10" returns
+  whole, not something like it. With an empty ledger it teaches the
+  classic — hard 16 v 10, the costliest stand in the book. The shoe's meter
   keeps **Hi-Lo** too — 2-6 +1, 7-9 0, 10-A −1, the running count under
   the shoe bar (green plus, red minus) reset with every riffle. Between
   rounds a **count drill** holds the deal until the player steps the count
@@ -357,8 +364,21 @@ answers with CORS headers.
   all settlement kinds, 62.5 → 63 at the money edge, 5,000 cut draws in
   bounds. Re-unifying surfaced a real divergence: the live table had been
   paying naturals 1:1 — the canon pays **3:2 everywhere** (the table
-  quantizes to whole chips at its money edge, 25 → 63, verified live
+  quantizes to whole chips at its money edge,  25 → 63, verified live
   through the hub's ledger; the practice bank keeps exact halves).
+- **The leak drill** — the stacked shoe verified cell by cell: the
+  shipped `leakDeal` extracted and driven through deal()'s real pop
+  order for 17 cells (hard 4–20, the no-peek 11s, softs 13–19), every
+  forced deal landing in its target class against its target upcard,
+  soft 12 (A+A, a pair) correctly refused, and a first draft's retry
+  loop — which restored the same two cards forever and could never hit
+  its guard — caught by the harness and replaced with lift-and-stack
+  (no draws churned). Live end to end: the forced hand landed 6,10 v 10
+  exactly, a deliberate stand-on-15-v-7 miss persisted as `hard 15 v 7 ·
+  n=1 · cost 2.64` (the hint said −2.6; the engine's own price), and the
+  panel re-ranked with the fresh miss on top of 28 legacy 16-v-10 misses
+  costing 0.4 apiece — the coach now aims the shoe at whatever leaks
+  most.
 
 ## Layout
 
@@ -376,6 +396,7 @@ answers with CORS headers.
 | `test/shoe999.test.js` | Drift guard (byte-equality against both pages) + settlement/shoe math |
 | `test/ev999.mc.js` | Monte-Carlo + exact-recursion ground truth for the EV999 pricing engine |
 | `test/ev999.crosscheck.js` | Book-vs-engine agreement sweep over every hand × upcard × double state |
+| `test/leakdrill.test.js` | The stacked-shoe drill: every forced deal must land in its target cell |
 | `README.md` | This page |
 
 Cloth palettes, the hub client and identity handling are vendored from
