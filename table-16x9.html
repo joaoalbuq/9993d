@@ -189,6 +189,10 @@
   .act:hover:not([disabled]) { filter: brightness(1.06); }
   .act:active:not([disabled]) { transform: translateY(1px) scale(0.985); }
   .act[disabled] { opacity: 0.38; cursor: default; }
+  .act.chip.on {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
+  }
 
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 
@@ -314,11 +318,17 @@
 
   <footer class="bar">
     <p class="status" id="status"><span class="dot"></span><span id="statusTxt">Dealing…</span></p>
-    <div class="acts" role="group" aria-label="Table actions">
+    <div class="acts" id="actBar" role="group" aria-label="Table actions">
       <button class="act primary" id="btnHit" type="button" disabled>Hit</button>
       <button class="act" id="btnStand" type="button" disabled>Stand</button>
       <button class="act" id="btnDouble" type="button" disabled>Double</button>
       <button class="act" id="btnSplit" type="button" disabled>Split</button>
+    </div>
+    <div class="acts" id="betBar" hidden role="group" aria-label="Place your bet">
+      <button class="act chip" data-bet="25" type="button">Bet 25</button>
+      <button class="act chip" data-bet="100" type="button">Bet 100</button>
+      <button class="act chip" data-bet="500" type="button">Bet 500</button>
+      <button class="act primary" id="btnDealNow" type="button">Deal</button>
     </div>
   </footer>
 </div>
@@ -1177,11 +1187,51 @@
     setStatus('Shuffling the shoe…');
     riffleShuffle(0);               /* impact first, sound with it (spec 4.5) */
     later(SHUFFLE_MS, function () {
-      game.phase = 'dealing';
       roundsInShoe = 1;       /* the deal that follows is round 1 of the new shoe */
-      dealRound();
+      beginBets();            /* ...but the floor opens for bets on the new shoe first */
     });
   }
+  /* The new-shoe interlude: the deck squares up and the floor
+     pauses for the oldest ritual there is — "new shoe, place
+     your bets". The bar swaps its actions for the chip picker,
+     the betting circle breathes at your box with the picked
+     stake previewed in felt, and the deal follows the window
+     (or the Deal tap). The stake rides the next placeBet —
+     and its double — until the picker says otherwise.        */
+  var BETS_MS = 3800;
+  function beginBets() {
+    game.phase = 'bets';
+    game.betsT0 = performance.now();
+    setStatus('New shoe — place your bets');
+    betsOpen(0);                  /* the window opens with a soft chime */
+    showBetBar(true);
+    later(BETS_MS, endBets);
+  }
+  function endBets() {
+    if (game.phase !== 'bets') return;
+    showBetBar(false);
+    game.phase = 'dealing';
+    dealRound();
+  }
+  function showBetBar(on) {
+    var ab = document.getElementById('actBar'), bb = document.getElementById('betBar');
+    if (ab) ab.hidden = !!on;
+    if (bb) bb.hidden = !on;
+    syncChips();
+  }
+  function setStake(n) {
+    if (game.phase !== 'bets' || n === UNIT_BET) return;
+    UNIT_BET = n;
+    syncChips();
+    chipClack(0.02, 0.8);   /* impact first: the selection moves, the chip clacks */
+  }
+  function syncChips() {
+    var chips = document.querySelectorAll('#betBar [data-bet]');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('on', Number(chips[i].getAttribute('data-bet')) === UNIT_BET);
+    }
+  }
+
   function dealRound() {
     setStatus('Dealing — one to each box, then the dealer');
     /* the bots' nominal chips land with the deal; the player's
@@ -1379,6 +1429,14 @@
       var sp = pose([SHOE[0] - 0.35, 0.38, SHOE[2] + 0.45], 3.2, -0.25, 1.4);
       sp.name = 'The shoe';
       return sp;
+    }
+    if (game.phase === 'bets') {
+      /* the window's subject is the bet itself: your box and the
+         breathing betting circle in front of it                 */
+      var yx = boxX(YOUR);
+      var bp = pose([yx * 0.62, 0.05, BOX_Z + 0.35], 3.15, -yx * 0.13, Math.abs(yx) * 0.38 + 0.95);
+      bp.name = 'Place your bets';
+      return bp;
     }
     if (game.phase === 'settle' && game.payoutBox >= 0) {
       /* the payout walk holds the box it is paying — the same
@@ -1716,6 +1774,14 @@
     burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11);
     tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105);
   }
+  /* the new-shoe chime: two soft notes over "place your bets",
+     quiet enough to sit under the room (spec 4.5 vocabulary)  */
+  function betsOpen(delay) {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + (delay || 0);
+    tone(c, 783.99, t, 0.34, 'triangle', 0.05, 659.25);
+    tone(c, 1046.5, t + 0.12, 0.3, 'triangle', 0.03);
+  }
   function stinger(result) {
     /* one stinger per round is ceremony; six would be noise —
        it only ever marks YOUR verdict                       */
@@ -1803,6 +1869,22 @@
     /* the shoe ceremony (spec 4.5): the deck riffles where the
        shoe sits — split, interleave, square up */
     drawShuffle(ts);
+
+    /* the betting interlude: the circle breathes at your box and
+       the felt previews the stake you picked — chips, not text  */
+    if (game.phase === 'bets') {
+      var bspot = chipSpot(YOUR, 0), bpulse = 0.5 + 0.28 * Math.sin(ts / 320);
+      gl.depthMask(false);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      drawQuad(ringTex, 1, hexTint(current.accent, bpulse), bspot[0], 0.008, bspot[1], 0, 1.7, 1.45, true);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(true);
+      var prev = Math.min(5, Math.round(UNIT_BET / 25));
+      for (var pv = 0; pv < prev; pv++) {
+        drawQuad(chipTex, 1, hexTint(CHIP_TINTS[YOUR % CHIP_TINTS.length], 0.9),
+          bspot[0], 0.012 + pv * CHIP_H, bspot[1], 0, CHIP_D, CHIP_D, false);
+      }
+    }
 
     /* each box's bet stack — the felt's chips tell the truth:
        a stack appears where a stake landed, grows with a
@@ -1893,6 +1975,14 @@
   btnHit.addEventListener('click', playerHit);
   btnStand.addEventListener('click', playerStand);
   btnDouble.addEventListener('click', playerDouble);
+  var betChips = document.querySelectorAll('#betBar [data-bet]');
+  for (var bi = 0; bi < betChips.length; bi++) {
+    (function (btn) {
+      btn.addEventListener('click', function () { setStake(Number(btn.getAttribute('data-bet'))); });
+    })(betChips[bi]);
+  }
+  var btnDealNow = document.getElementById('btnDealNow');
+  if (btnDealNow) btnDealNow.addEventListener('click', endBets);
 
   /* keyboard parity for the desktop preview */
   window.addEventListener('keydown', function (e) {
