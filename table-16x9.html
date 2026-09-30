@@ -1138,6 +1138,7 @@
   }
 
   function makeCard(isDealer, box, idx) {
+    shoeDealt++;             /* every card leaving the shoe counts toward the cut */
     return {
       rank: dealRank(), suit: Math.floor(Math.random() * 4),
       dealer: isDealer, box: box, idx: idx,
@@ -1159,13 +1160,19 @@
   }
 
   /* ================= the round machine ===================== */
-  /* the shoe ceremony (spec 4.5): a shoe plays SHOE_ROUNDS
-     rounds, then the deck is riffled back together before the
-     next deal — the shoe splits in two, the halves interleave
-     and the deck squares up at the shoe. The ceremony pauses
-     the deal and the riffle sounds with the cards.            */
-  var SHOE_ROUNDS = 8, SHUFFLE_MS = 2400;
-  var roundsInShoe = 0;
+  /* The shoe is a CUT CARD, not a metronome (spec 4.5): four
+     decks in the shoe and the cut card lands between 75% and
+     85% penetration — drawn fresh for every shoe. Cards are
+     counted as they leave; when the cut card surfaces mid-round
+     the round plays out to its end, and the NEXT round opens
+     with the riffle ceremony — the floor's own rhythm.         */
+  var SHOE_DECKS = 4, SHOE_CARDS = SHOE_DECKS * 52, SHUFFLE_MS = 2400;
+  var shoeDealt = 0, shoeCut = 0;
+  function newShoe() {
+    shoeDealt = 0;
+    shoeCut = Math.round(SHOE_CARDS * (0.75 + Math.random() * 0.10));
+  }
+  newShoe();
   function startRound() {
     game.token++;
     game.phase = 'dealing';
@@ -1173,12 +1180,10 @@
     game.hands = [];
     for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null, chipT0: [] });
     game.dealer = { cards: [] };
-    if (roundsInShoe >= SHOE_ROUNDS) {
-      roundsInShoe = 0;
-      shuffleShoe();
+    if (shoeDealt >= shoeCut) {
+      shuffleShoe();        /* the cut card came out — the shoe has earned its ceremony */
       return;
     }
-    roundsInShoe++;
     dealRound();
   }
   function shuffleShoe() {
@@ -1187,8 +1192,8 @@
     setStatus('Shuffling the shoe…');
     riffleShuffle(0);               /* impact first, sound with it (spec 4.5) */
     later(SHUFFLE_MS, function () {
-      roundsInShoe = 1;       /* the deal that follows is round 1 of the new shoe */
-      beginBets();            /* ...but the floor opens for bets on the new shoe first */
+      newShoe();              /* the cut card is drawn again for the new shoe */
+      beginBets();            /* ...and the floor opens for bets before its first deal */
     });
   }
   /* The new-shoe interlude: the deck squares up and the floor

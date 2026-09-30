@@ -101,8 +101,11 @@ are additive screens kept beside it for side-by-side comparison.
   flight and its snap lands it, and one stinger per round marks **your**
   verdict only. Gated by the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
-- **The shoe ceremony (spec 4.5)** — the shoe plays **8 rounds**, then the
-  deal pauses: the deck splits in two at the shoe, the halves riffle back
+- **The shoe ceremony (spec 4.5)** — a four-deck shoe with a **cut card at
+  75–85% penetration**, drawn fresh every shoe: cards are counted as they
+  leave, and when the cut card surfaces mid-round the round plays out to
+  its end and the next one opens the ceremony — no metronome, the shoe's
+  own rhythm. The deck splits in two at the shoe, the halves riffle back
   together and the stack squares up while the camera holds "The shoe" —
   twelve card backs and nothing else moving, a paper slide and fourteen
   card snaps sounding with the riffle and two taps as the deck squares.
@@ -213,8 +216,11 @@ answers with CORS headers.
   payout-walk flight, a rising triad at a won hand and a falling sigh at a
   lost one; the 🔊 toggle silences and restores it all mid-round.
 - **The shoe ceremony** — live-sampled across 40+ ceremonies on the running
-  page: a riffle every **8 rounds** dealt, the status line on "Shuffling the
-  shoe…", the camera holding "The shoe", twelve card backs splitting
+  page: the cut card surfacing mid-final-round and the round playing out
+  (cards-before-final-round < cut ≤ cards-dealt verified on every measured
+  shoe; forced boundary cuts of 156 and 177 of the 208-card shoe landed to
+  the card, natural draws spanned 159–174), the status line on "Shuffling
+  the shoe…", the camera holding "The shoe", twelve card backs splitting
   (x-spread 0.28 world) and squaring up (0.006) over exactly 2400ms. The
   riffle sounds with the cards — a paper slide at +60ms, fourteen snaps at
   +550…1356ms (a body tone every third), two square-up taps at +1580 and
