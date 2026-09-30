@@ -326,6 +326,7 @@
       <button class="act" id="btnSplit" type="button" disabled>Split</button>
     </div>
     <div class="acts" id="betBar" hidden role="group" aria-label="Place your bet">
+      <button class="act chip" id="bonusBtn" type="button" hidden></button>
       <button class="act chip" data-bet="25" type="button">Bet 25</button>
       <button class="act chip" data-bet="100" type="button">Bet 100</button>
       <button class="act chip" data-bet="500" type="button">Bet 500</button>
@@ -510,6 +511,18 @@
       },
       debit: function (playerId, delta, reason, idemKey) {
         return this.move(playerId, -Math.abs(Number(delta) || 0), reason, idemKey);
+      },
+      /* the daily streak wheel (§B1): one claim per 24h, the
+         ladder rides with it. GET is the status, POST claims —
+         the hub's ONE grant door pays it (wheel_claim).        */
+      bonusStatus: function (playerId) {
+        return call('GET', '/wallet/bonus?player=' + encodeURIComponent(playerId), { auth: true });
+      },
+      claimBonus: function (playerId) {
+        return call('POST', '/wallet/bonus', {
+          body: { playerId: playerId },
+          auth: true
+        });
       }
     };
   }
@@ -580,6 +593,7 @@
       you.sub = r.body.sub; you.name = r.body.name;
       showWho(r.body.name, null);
       refreshWallet();
+      probeBonus();                    /* is the daily wheel waiting? */
       /* sign-in can land mid-deal: the hand in flight gets its
          stake the moment the seat is known — a hand already
          settled never does (and never orphans a bet). */
@@ -596,6 +610,64 @@
       if (w.ok && typeof w.body.balance === 'number') showWho(you.name, w.body.balance);
       return w;
     });
+  }
+
+  /* ---- the daily bonus, claimed from the betting interlude ----
+     The floor already pauses there — the oldest ritual is the
+     newest money: one claim per 24h, the streak ladder rides
+     with it, and the VIP perk multiplies the prize. The button
+     shows only when the hub says READY — no grey nagging. A
+     claim credits through the hub's ONE grant door (its own
+     wheel_claim row), and the pill renders the hub's answer. */
+  var bonusReady = false, bonusClaiming = false;
+  function renderBonus() {
+    var b = document.getElementById('bonusBtn');
+    if (!b) return;
+    b.hidden = !bonusReady || !you.sub || bonusClaiming;
+    if (bonusReady && you.sub) {
+      b.textContent = bonusClaiming ? 'Claiming…' : '🎡 Bonus';
+      b.disabled = bonusClaiming;
+      b.title = 'Your daily streak bonus is ready at the wheel';
+    }
+  }
+  function probeBonus() {
+    bonusReady = false;
+    renderBonus();
+    if (!you.sub) return;
+    hub.bonusStatus(you.sub).then(function (r) {
+      bonusReady = !!(r.ok && r.body && r.body.ready);
+      renderBonus();
+    });
+  }
+  function claimBonus() {
+    if (!you.sub || bonusClaiming) return;
+    bonusClaiming = true;
+    renderBonus();
+    hub.claimBonus(you.sub).then(function (r) {
+      bonusClaiming = false;
+      if (r.ok && r.body && r.body.balanceAfter != null) {
+        bonusReady = false;
+        showWho(you.name, r.body.balanceAfter);   /* the hub's answer, not ours */
+        bonusWin(r.body.amount);
+        refreshWallet();
+      } else if (r.status === 429) {
+        bonusReady = false;   /* already claimed: come back tomorrow */
+      }
+      renderBonus();
+    });
+  }
+  function bonusWin(amount) {
+    /* one two-note chime (the betsOpen shape, one octave apart) for
+       the wheel's answer — quiet, like every voice here (spec 4.5) */
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + 0.02;
+    tone(c, 659.25, t, 0.3, 'triangle', 0.05);
+    tone(c, 1318.5, t + 0.12, 0.3, 'triangle', 0.035);
+    var b = document.getElementById('bonusBtn');
+    if (b && typeof amount === 'number') {
+      b.hidden = false;
+      b.textContent = '+' + amount.toLocaleString('en-US');
+    }
   }
 
   /* ================= real stakes on the table =============
@@ -1343,6 +1415,7 @@
     setStatus(fresh ? 'New shoe — place your bets' : 'Place your bets');
     betsOpen(0);                  /* the window opens with a soft chime */
     showBetBar(true);
+    probeBonus();                 /* every window asks: is the wheel ready? */
     later(BETS_MS, endBets);
   }
   function endBets() {
@@ -2143,6 +2216,8 @@
   }
   var btnDealNow = document.getElementById('btnDealNow');
   if (btnDealNow) btnDealNow.addEventListener('click', endBets);
+  var bonusBtn = document.getElementById('bonusBtn');
+  if (bonusBtn) bonusBtn.addEventListener('click', claimBonus);
 
   /* keyboard parity for the desktop preview */
   window.addEventListener('keydown', function (e) {

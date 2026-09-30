@@ -126,6 +126,15 @@ are additive screens kept beside it for side-by-side comparison.
   chime opens the window. The picked stake rides the next bet — and its
   double — into the ledger; the deal follows the 3.8-second window or the
   Deal tap. A shoe at its cut riffles FIRST — ceremony, then the window.
+  When the daily wheel is waiting, the window also carries a **🎡 Bonus**
+  button — signed-in players claim the streak prize right where they bet:
+  the button shows only when the hub says ready (no grey nagging), the
+  claim credits through the hub's one grant door (its own `wheel_claim`
+  row, labelled '🎡 Streak wheel'), the pill and the button render the
+  hub's answer (+6,250 sampled: 5,000 base + 1,250 gold VIP), a two-note
+  chime marks the claim, and the wheel closes until tomorrow — a replay
+  gets the hub's 429 and a reload shows no button. Not signed in, or not
+  ready? The window looks exactly as it did before.
 - **The cinematic deal** — a slow-motion mode (the 🎬 tool, key `C`) where
   card flights and their sounds stretch **together**: the flight duration
   is the one knob, so the whoosh swells over the stretched flight, the
