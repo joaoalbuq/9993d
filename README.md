@@ -94,12 +94,17 @@ are additive screens kept beside it for side-by-side comparison.
   frame holds each box as it pays — chips fly in with the settlement's own
   `+delta` floating at the total, a losing stack flies out to the dealer —
   and the round ends back on the dealer's hand.
-- **The audio ceremony (spec 4.5)** — chip clacks, card snaps and
-  win/lose stingers, every sound Web Audio **synthesis** (no CDN, no
-  bundled sample, no runtime download). Impact then sound: a chip clacks
+- **The audio ceremony (spec 4.5)** — chip clacks, card snaps, the shoe's
+  riffle and win/lose stingers, every sound Web Audio **synthesis** (no CDN,
+  no bundled sample, no runtime download). Impact then sound: a chip clacks
   when it lands, a card snaps when it hits the cloth, and one stinger per
   round marks **your** verdict only. Gated by the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
+- **The shoe ceremony (spec 4.5)** — the shoe plays **8 rounds**, then the
+  deal pauses: the deck splits in two at the shoe, the halves riffle back
+  together and the stack squares up while the camera holds "The shoe" —
+  twelve card backs and nothing else moving, a paper slide and fourteen
+  card snaps sounding with the riffle and two taps as the deck squares.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
   `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
   action and user zoom survives every shot change.
@@ -192,6 +197,14 @@ answers with CORS headers.
   snaps in the deal, chip clacks landing with the bet debits and each
   payout-walk flight, a rising triad at a won hand and a falling sigh at a
   lost one; the 🔊 toggle silences and restores it all mid-round.
+- **The shoe ceremony** — live-sampled across 40+ ceremonies on the running
+  page: a riffle every **8 rounds** dealt, the status line on "Shuffling the
+  shoe…", the camera holding "The shoe", twelve card backs splitting
+  (x-spread 0.28 world) and squaring up (0.006) over exactly 2400ms. The
+  riffle sounds with the cards — a paper slide at +60ms, fourteen snaps at
+  +550…1356ms (a body tone every third), two square-up taps at +1580 and
+  +1800ms — 65 synthesis nodes per ceremony, and **zero** under the 🔊
+  mute while the animation still plays.
 - **Sign-in outside localhost** — the live Pages build drives the public hub
   end to end, cross-origin: guest mint → verify → wallet (opening + starter
   grant) → a live round's `bj_bet` debit landing in the hub's own ledger

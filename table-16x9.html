@@ -1091,7 +1091,7 @@
      (the game reports a box as an index; the seat id is +1)    */
   var SHOE = [2.55, 0.62, DEALER_Z - 0.12];
   var game = {
-    phase: 'idle',                    /* idle | dealing | acting | dealer | settle | pause */
+    phase: 'idle',                    /* idle | shuffle | dealing | acting | dealer | settle | pause */
     acting: -1,
     payoutBox: -1,                    /* the payout walk: -2 before, -1 back at the dealer */
     hands: [],
@@ -1147,6 +1147,13 @@
   }
 
   /* ================= the round machine ===================== */
+  /* the shoe ceremony (spec 4.5): a shoe plays SHOE_ROUNDS
+     rounds, then the deck is riffled back together before the
+     next deal — the shoe splits in two, the halves interleave
+     and the deck squares up at the shoe. The ceremony pauses
+     the deal and the riffle sounds with the cards.            */
+  var SHOE_ROUNDS = 8, SHUFFLE_MS = 2400;
+  var roundsInShoe = 0;
   function startRound() {
     game.token++;
     game.phase = 'dealing';
@@ -1154,11 +1161,31 @@
     game.hands = [];
     for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null, chipT0: [] });
     game.dealer = { cards: [] };
+    if (roundsInShoe >= SHOE_ROUNDS) {
+      roundsInShoe = 0;
+      shuffleShoe();
+      return;
+    }
+    roundsInShoe++;
+    dealRound();
+  }
+  function shuffleShoe() {
+    game.phase = 'shuffle';
+    game.shuffleT0 = performance.now();
+    setStatus('Shuffling the shoe…');
+    riffleShuffle(0);               /* impact first, sound with it (spec 4.5) */
+    later(SHUFFLE_MS, function () {
+      game.phase = 'dealing';
+      roundsInShoe = 1;       /* the deal that follows is round 1 of the new shoe */
+      dealRound();
+    });
+  }
+  function dealRound() {
     setStatus('Dealing — one to each box, then the dealer');
     /* the bots' nominal chips land with the deal; the player's
        chip waits for the real debit (placeBet below) — a felt
        stack only exists where a stake landed               */
-    for (i = 0; i < BOX_N; i++) {
+    for (var i = 0; i < BOX_N; i++) {
       if (i === YOUR) continue;
       game.hands[i].chipT0 = [performance.now()];
       chipClack(0.42 + i * 0.06, 0.7);  /* the bots' chips land in a soft cascade */
@@ -1167,7 +1194,7 @@
 
     /* Deal order (spec 4.5, European): one card each to boxes
        1…6, one to the dealer, then a second to boxes 1…6.       */
-    var seq = [], t = 200, i;
+    var seq = [], t = 200;
     for (i = 0; i < BOX_N; i++) seq.push({ box: i });
     seq.push({ dealer: true });
     for (i = 0; i < BOX_N; i++) seq.push({ box: i });
@@ -1344,6 +1371,13 @@
   }
 
   function desiredShot() {
+    if (game.phase === 'shuffle') {
+      /* the shoe ceremony holds the shoe: the riffling deck is
+         the subject until it squares up and the deal begins  */
+      var sp = pose([SHOE[0] - 0.35, 0.38, SHOE[2] + 0.45], 3.2, -0.25, 1.4);
+      sp.name = 'The shoe';
+      return sp;
+    }
     if (game.phase === 'settle' && game.payoutBox >= 0) {
       /* the payout walk holds the box it is paying — the same
          close hold the box got while it decided                */
@@ -1639,6 +1673,25 @@
        chips they belong to                                  */
     for (var k = 0; k < count; k++) chipClack(delay0 + k * step, Math.max(1 - k * 0.06, 0.5));
   }
+  function riffleShuffle(delay0) {
+    /* the shoe ceremony (spec 4.5): the halves lift with a
+       paper slide, the riffle runs off the thumbs card by card,
+       then two taps square the deck up — every sound timed to
+       the animation it belongs to                          */
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + (delay0 || 0);
+    burst(c, t + 0.06, 0.34, 'bandpass', 850, 0.7, 0.09);   /* the halves lift apart */
+    for (var k = 0; k < 14; k++) {
+      /* the riffle: a rapid run of shaped snaps, one per card */
+      var at = t + 0.55 + k * 0.062;
+      burst(c, at, 0.055, 'bandpass', 1500 + Math.random() * 1400, 2.6, 0.11);
+      if (k % 3 === 0) tone(c, 240 + Math.random() * 60, at, 0.05, 'triangle', 0.035, 170);
+    }
+    burst(c, t + 1.58, 0.05, 'bandpass', 1900, 1.2, 0.12);  /* squaring up: two taps */
+    tone(c, 190, t + 1.58, 0.09, 'triangle', 0.15, 120);
+    burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11);
+    tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105);
+  }
   function stinger(result) {
     /* one stinger per round is ceremony; six would be noise —
        it only ever marks YOUR verdict                       */
@@ -1664,6 +1717,29 @@
     var n = toDealer ? (h.chipT0 || []).length : (h.flyPay || 0);
     chipFan(n, CHIP_FLY + (toDealer ? 0 : PAY_LAG), CHIP_STAG);
     if (b === YOUR) stinger(h.result);
+  }
+
+  /* ---- the riffle at the shoe (spec 4.5) -----------------
+     Twelve card backs at the shoe and nothing else moving:
+     the deck splits into two halves, the halves lean together
+     as the cards interleave back in, and the stack straightens
+     through the square-up. The riffle sounds with the cards.  */
+  function drawShuffle(ts) {
+    if (game.phase !== 'shuffle' || game.shuffleT0 == null) return;
+    var t = ts - game.shuffleT0;
+    var W = [1, 1, 1, 1];
+    /* the halves lift apart, then close as they riffle together */
+    var sep = 0.52 * clamp(t / 550, 0, 1) * (1 - 0.85 * clamp((t - 1150) / 1250, 0, 1));
+    var tilt = 0.3 * Math.sin(Math.PI * clamp((t - 300) / 1250, 0, 1));
+    var sq = clamp((t - 1550) / 850, 0, 1);   /* the square-up straightens the stack */
+    for (var k = 0; k < 12; k++) {
+      var side = k % 2, half = (k / 2) | 0;
+      var p = clamp((t - (550 + k * 72)) / 210, 0, 1), e = 1 - Math.pow(1 - p, 2.4);
+      var x = lerp(SHOE[0] + (side ? sep : -sep), SHOE[0] + (side ? 0.014 : -0.014) * (1 - sq), e);
+      var y = lerp(0.36 + half * 0.011, 0.36 + k * 0.01, e) + Math.sin(p * Math.PI) * 0.16;
+      var r = lerp(side ? tilt : -tilt, 0, e);
+      drawQuad(getBackTex(), 1, W, x, y, SHOE[2], r, CARD_W, CARD_L, false);
+    }
   }
 
   /* ================= render loop =========================== */
@@ -1699,6 +1775,10 @@
     for (var tc = 0; tc < 5; tc++) {
       drawQuad(chipTex, 1, hexTint(CHIP_TINTS[tc], 1), -1.28 + tc * 0.64, 0.012, DEALER_Z - 0.78, 0, 0.5, 0.5, false);
     }
+
+    /* the shoe ceremony (spec 4.5): the deck riffles where the
+       shoe sits — split, interleave, square up */
+    drawShuffle(ts);
 
     /* each box's bet stack — the felt's chips tell the truth:
        a stack appears where a stake landed, grows with a
