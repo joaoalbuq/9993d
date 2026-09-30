@@ -118,6 +118,12 @@ are additive screens kept beside it for side-by-side comparison.
   previewed in felt, and a soft two-note chime opens the window. The picked
   stake rides the next bet — and its double — into the ledger; the deal
   follows the 3.8-second window or the Deal tap.
+- **The cinematic deal** — a slow-motion mode (the 🎬 tool, key `C`) where
+  card flights and their sounds stretch **together**: the flight duration
+  is the one knob, so the whoosh swells over the stretched flight, the
+  snap lands at its end, and the gaps between cards breathe in the same
+  tempo. The shoe ceremony, the betting window and the payout walk keep
+  real time.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
   `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
   action and user zoom survives every shot change.
@@ -222,6 +228,12 @@ answers with CORS headers.
   near (2009Hz) with the dealer's card brightest at 2100Hz, second-card
   landings shifting +15–32Hz as the stack climbs toward the shoe, and the
   swell falling from 0.055 to 0.036 across the table.
+- **The cinematic deal** — the flight duration is the single knob and the
+  audio rides it: at 2.5× the measured whoosh swell is 1.045s and the snap
+  lands at 1.065s (exactly (flight−30ms)/1000 and (flight−10ms)/1000 for
+  the 1075ms flight), inter-card gaps stretch 700→1750ms (85–92ms measured
+  under test compression), and toggling mid-round snaps the sound back at
+  once while the in-flight cascade keeps its own tempo.
 - **The shoe ceremony** — live-sampled across 40+ ceremonies on the running
   page: the cut card surfacing mid-final-round and the round playing out
   (cards-before-final-round < cut ≤ cards-dealt verified on every measured

@@ -311,6 +311,7 @@
     <a class="tool" id="who" href="login-16x9.html">Sign in</a>
     <button class="tool" id="zoom" type="button">Zoom out</button>
     <button class="tool" id="audioBtn" type="button" title="Toggle sound">🔊 Sound</button>
+    <button class="tool" id="cineBtn" type="button" title="Cinematic deal (C)">◻ Normal</button>
     <button class="tool" id="fsBtn" type="button" title="Toggle fullscreen">⤢ Fullscreen</button>
     <button class="tool" id="installBtn" type="button" hidden>⤓ Install</button>
     <div class="swatches" id="swatches" role="group" aria-label="Table cloth palette"></div>
@@ -1143,26 +1144,47 @@
     return Math.hypot(t.x - SHOE[0], t.y - SHOE[1], t.z - SHOE[2]);
   }
 
+  /* The cinematic deal: slow motion where the card flights and
+     their sounds stretch TOGETHER. The flight duration is the
+     one knob — the whoosh swells over it, the snap lands at its
+     end — and the gaps between cards stretch with it, so the
+     whole cascade breathes in one tempo. Everything else keeps
+     real time: the shoe ceremony, the betting window, the
+     payout walk. Toggle: the 🎬 tool (key C).                   */
+  var cineOn = false, pace = 1;
+  try { cineOn = localStorage.getItem('999.table.cine') === 'on'; pace = cineOn ? 2.5 : 1; } catch (e) { }
+  function setCine(on) {
+    cineOn = on;
+    pace = on ? 2.5 : 1;
+    try { localStorage.setItem('999.table.cine', on ? 'on' : 'off'); } catch (e) { }
+    var b = document.getElementById('cineBtn');
+    if (b) b.textContent = on ? '🎬 Cinema' : '◻ Normal';
+  }
   function makeCard(isDealer, box, idx) {
     shoeDealt++;             /* every card leaving the shoe counts toward the cut */
     return {
       rank: dealRank(), suit: Math.floor(Math.random() * 4),
       dealer: isDealer, box: box, idx: idx,
-      t0: performance.now(), dur: 430,
+      t0: performance.now(), dur: 430 * pace,
       from: [SHOE[0], SHOE[1], SHOE[2]]
     };
   }
   function dealTo(box) {
     var h = game.hands[box];
-    h.cards.push(makeCard(false, box, h.cards.length));
-    cardWhoosh(0, 0.4, flightDist(false, box, h.cards.length - 1));  /* the slide rides the flight, carrying its distance */
-    cardSnap(0.42);                /* the snap lands with the card */
+    var c = makeCard(false, box, h.cards.length);
+    h.cards.push(c);
+    /* the flight duration is the one knob (the cinematic deal):
+       the whoosh swells over it, the snap lands at its end —
+       stretch the flight and its sound stretches with it        */
+    cardWhoosh(0, (c.dur - 30) / 1000, flightDist(false, box, c.idx));
+    cardSnap((c.dur - 10) / 1000);  /* the snap lands with the card */
   }
   function dealToDealer() {
     var d = game.dealer;
-    d.cards.push(makeCard(true, -1, d.cards.length));
-    cardWhoosh(0, 0.4, flightDist(true, -1, d.cards.length - 1));   /* one whoosh per flight, carrying its distance */
-    cardSnap(0.42);                /* the snap lands with the card */
+    var c = makeCard(true, -1, d.cards.length);
+    d.cards.push(c);
+    cardWhoosh(0, (c.dur - 30) / 1000, flightDist(true, -1, c.idx));  /* one whoosh per flight — sound stretched with it */
+    cardSnap((c.dur - 10) / 1000);  /* the snap lands with the card */
   }
 
   /* ================= the round machine ===================== */
@@ -1257,7 +1279,7 @@
 
     /* Deal order (spec 4.5, European): one card each to boxes
        1…6, one to the dealer, then a second to boxes 1…6.       */
-    var seq = [], t = 200;
+    var seq = [], t = 200 * pace;
     for (i = 0; i < BOX_N; i++) seq.push({ box: i });
     seq.push({ dealer: true });
     for (i = 0; i < BOX_N; i++) seq.push({ box: i });
@@ -1265,9 +1287,9 @@
       later(t, function () {
         if (s.dealer) dealToDealer(); else dealTo(s.box);
       });
-      t += 700;                        /* one card per ~0.7s */
+      t += 700 * pace;                 /* one card per ~0.7s — one tempo with the flight */
     });
-    later(t + 350, beginTurns);
+    later(t + 350 * pace, beginTurns);
   }
 
   function beginTurns() {
@@ -1282,19 +1304,19 @@
     game.acting = i;
     if (i === YOUR) {
       var s = score(game.hands[i].cards);
-      if (s >= 21) { later(750, playerStand); return; }
+      if (s >= 21) { later(750 * pace, playerStand); return; }
       setStatus('Your move — hit, stand or double');
       enableActions(true);
     } else {
       setStatus('Seat ' + (i + 1) + ' decides');
-      later(850, botStep);
+      later(850 * pace, botStep);
     }
   }
   function botStep() {
     var h = game.hands[game.acting];
     if (score(h.cards) < 17 && h.cards.length < 5) {
       dealTo(game.acting);
-      later(850, botStep);
+      later(850 * pace, botStep);
     } else {
       h.done = true;
       nextBox();
@@ -1329,15 +1351,15 @@
     game.phase = 'dealer';
     enableActions(false);
     setStatus('Dealer draws to 17');
-    later(500, dealerStep);
+    later(500 * pace, dealerStep);
   }
   function dealerStep() {
     var d = game.dealer;
     if (score(d.cards) < 17 && d.cards.length < 6) {
       dealToDealer();
-      later(750, dealerStep);
+      later(750 * pace, dealerStep);
     } else {
-      later(650, settle);
+      later(650 * pace, settle);
     }
   }
 
@@ -2004,6 +2026,7 @@
     if (e.key === 'h' || e.key === 'H') playerHit();
     else if (e.key === 's' || e.key === 'S') playerStand();
     else if (e.key === 'd' || e.key === 'D') playerDouble();
+    else if (e.key === 'c' || e.key === 'C') setCine(!cineOn);
   });
 
   /* the 3D zoom control — the label reflects the NEXT action,
@@ -2028,6 +2051,12 @@
     syncAudioBtn();
     wakeAudio();               /* this click IS the gesture */
   });
+
+  /* the cinematic deal toggle — slow motion where the flights
+     and their sounds stretch together (key C)                  */
+  var cineBtn = document.getElementById('cineBtn');
+  if (cineBtn) cineBtn.addEventListener('click', function () { setCine(!cineOn); });
+  setCine(cineOn);
 
   /* ================= fullscreen (mobile landscape) ==========
      The first tap on a phone drops the browser chrome and locks
