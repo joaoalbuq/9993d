@@ -505,13 +505,17 @@
 
   /* same resolution as the login page: ?hub=<url>, then a hub the host
      declared (serve.js injects window.__HUB_BASE__), then the dev host,
-     then the dev hub directly. */
+     the dev hub on localhost — and off localhost the PUBLIC hub (poker's
+     hub-party.js on PartyKit; a grandfathered hostname, infra not brand,
+     CORS is the hub's own). */
   function hubBase() {
     var q = new URLSearchParams(location.search).get('hub');
     if (q) return q.replace(/\/+$/, '');
     if (typeof window.__HUB_BASE__ === 'string' && window.__HUB_BASE__) return window.__HUB_BASE__.replace(/\/+$/, '');
     if (location.port === '8899') return '/hub';           /* served by the dev host */
-    return 'http://localhost:8899/hub';
+    var local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (local) return 'http://localhost:8899/hub';         /* the dev hub, directly */
+    return 'https://maison-21.joaoalbuq.partykit.dev/parties/main/hub';
   }
   var BASE = hubBase();
   var hub = makeHubClient({ base: BASE });

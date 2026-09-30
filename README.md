@@ -40,6 +40,16 @@ are additive screens kept beside it for side-by-side comparison.
   you to the table — and the stakes are REAL: the bet (unit 25) is debited
   when the hand is dealt, a double debits one more, and settle pays the
   hand through the hub ledger. The balance tracks play.
+- **The hub travels with the app** — off localhost (the Pages build, the
+  installed home-screen app) the pages sign in against the **public hub**:
+  `poker/hub/hub-party.js` deployed on PartyKit at
+  `maison-21.joaoalbuq.partykit.dev/parties/main/hub` — the one
+  grandfathered hostname that still provisions in the saturated
+  `partykit.dev` zone (project name, never brand). It runs the same hub
+  contract as the dev hub, persists sessions and wallets in Durable
+  Object storage, and answers CORS itself. Resolution order:
+  `?hub=<url>` → host-declared `__HUB_BASE__` → dev hub on localhost →
+  the public hub.
 - **Guest names are credentials** — unguessable handles (`Guest-` + 16
   random chars, ≈82 bits) replace the enumerable `Guest-NNNN` space;
   sessions verify against the hub, and existing handles are adopted from the

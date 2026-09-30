@@ -847,14 +847,19 @@
      same-origin hub route (serve.js injects window.__HUB_BASE__ into the
      pages it serves — then the calls never cross an origin and CORS is not
      part of the conversation at all); then the dev host serving its own
-     pages; then the dev hub directly (which then does need CORS — the hub
-     sends it). */
+     pages; then the dev hub directly on localhost. Anywhere else — the
+     Pages build, the installed app — the PUBLIC hub answers: poker's
+     hub-party.js on PartyKit, cross-origin with CORS of its own. Its
+     hostname is a grandfathered PartyKit project name (the shared
+     partykit.dev zone is saturated) — infrastructure, never brand. */
   function hubBase() {
     var q = new URLSearchParams(location.search).get('hub');
     if (q) return q.replace(/\/+$/, '');
     if (typeof window.__HUB_BASE__ === 'string' && window.__HUB_BASE__) return window.__HUB_BASE__.replace(/\/+$/, '');
     if (location.port === '8899') return '/hub';           /* served by the dev host */
-    return 'http://localhost:8899/hub';
+    var local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (local) return 'http://localhost:8899/hub';         /* the dev hub, directly */
+    return 'https://maison-21.joaoalbuq.partykit.dev/parties/main/hub';
   }
   var BASE = hubBase();
   var hub = makeHubClient({ base: BASE });
