@@ -453,17 +453,120 @@
   }
   function fmt(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }
 
+  /* ---- EV999: what a deviation costs ---------------------- */
+  /* An infinite-deck engine in the floor's own flavor (S17,
+     European no-peek: a dealer natural takes everything): from
+     the upcard it builds the dealer's final distribution, then
+     prices every play as the chips it expects back per unit
+     staked. The gap between the book play and the click is
+     the price of the mistake — accuracy alone never showed
+     that. The engine shares the canon's rules; it only ever
+     judges, never deals.                                     */
+  var EV999 = (function () {
+    var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    function val(r) {
+      return r === 'A' ? 11 : (r === '10' || r === 'J' || r === 'Q' || r === 'K') ? 10 : parseInt(r, 10);
+    }
+    var dists = {};                      /* up rank -> dealer final distribution */
+    function dealerDist(up) {
+      if (dists[up]) return dists[up];
+      var d = {};
+      function step(t, aces, nc, p) {    /* aces = live aces still counting 11 */
+        if (t >= 17) {                   /* S17: every 17 stands */
+          var k = t + '|' + (nc === 2 ? 2 : 3);
+          d[k] = (d[k] || 0) + p;
+          return;
+        }
+        for (var i = 0; i < RANKS.length; i++) {
+          var r = RANKS[i], t2 = t + val(r), a2 = aces;
+          if (r === 'A') a2++;
+          while (t2 > 21 && a2) { t2 -= 10; a2--; }
+          if (t2 > 21) d.bust = (d.bust || 0) + p / 13;
+          else step(t2, a2, nc + 1, p / 13);
+        }
+      }
+      step(val(up), up === 'A' ? 1 : 0, 1, 1);
+      dists[up] = d;
+      return d;
+    }
+    var tables = {};                     /* up rank -> the stand/hit return tables */
+    function tbl(up) {
+      if (tables[up]) return tables[up];
+      var d = dealerDist(up), S = {}, W = {};
+      function pay(t, f) {
+        if (f === 'bust') return 2;
+        var fv = parseInt(f, 10);
+        return t > fv ? 2 : t === fv ? 1 : 0;
+      }
+      /* stand: every final but the dealer's two-card natural
+         pays — the natural itself returns zero (European)     */
+      for (var t = 4; t <= 21; t++) {
+        var s = 0;
+        for (var k in d) if (k !== '21|2') s += d[k] * pay(t, k);
+        S[t] = s;
+      }
+      function hitCont(t, aces) {        /* the return of drawing, then playing on */
+        var key = t + '|' + aces;
+        if (W[key] != null) return W[key];
+        var h = 0;
+        for (var i = 0; i < RANKS.length; i++) {
+          var r = RANKS[i], t2 = t + val(r), a2 = aces;
+          if (r === 'A') a2++;
+          while (t2 > 21 && a2) { t2 -= 10; a2--; }
+          if (t2 > 21) continue;         /* the draw busts: zero back */
+          h += (1 / 13) * Math.max(S[t2], hitCont(t2, a2));
+        }
+        W[key] = h;
+        return h;
+      }
+      tables[up] = { S: S, hit: hitCont };
+      return tables[up];
+    }
+    function prices(t, soft, up, canDouble) {
+      /* every price is the expected PROFIT per unit staked —
+         the stake itself is netted out, so stand, hit and double
+         are comparable in the chips they actually make or lose  */
+      var aces = soft ? 1 : 0;           /* two aces can never both count 11 (22>21):
+                                            a non-bust hand holds 0 or 1 live ace   */
+      var T = tbl(up);
+      var dbl = null;
+      if (canDouble) {
+        var e = 0;
+        for (var i = 0; i < RANKS.length; i++) {
+          var r = RANKS[i], t2 = t + val(r), a2 = aces;
+          if (r === 'A') a2++;
+          while (t2 > 21 && a2) { t2 -= 10; a2--; }
+          if (t2 > 21) continue;
+          e += (1 / 13) * T.S[t2];
+        }
+        dbl = 2 * e - 2;             /* two units STAKED: the price is the
+                                        PROFIT, never the raw return — the
+                                        extra unit is real money out        */
+      }
+      return { stand: T.S[t] - 1, hit: T.hit(t, aces) - 1, double: dbl };
+    }
+    return { prices: prices, dealerDist: dealerDist };
+  })();
+
   /* ---- the coach: basic strategy + the session score ------ */
   /* The book for THIS shoe: two decks, S17, no split. The
      coach marks the book play at every decision, judges the
      click against it and keeps the score — the practice
      floor's whole advantage over the live table.            */
   var coachOn = true;
-  var coachStats = { decisions: 0, book: 0, streak: 0, best: 0 };
+  var coachStats = { decisions: 0, book: 0, streak: 0, best: 0, loss: 0, lossBase: 0 };
   try {
     coachOn = localStorage.getItem('999.practice.coach') !== 'off';
     var cs = JSON.parse(localStorage.getItem('999.practice.coachstats') || 'null');
-    if (cs && typeof cs.decisions === 'number' && typeof cs.book === 'number') coachStats = cs;
+    if (cs && typeof cs.decisions === 'number' && typeof cs.book === 'number') {
+      coachStats = cs;
+      if (typeof coachStats.loss !== 'number') {      /* a score from before the price: the
+                                                         misses already counted stay out of
+                                                         the new average, honestly            */
+        coachStats.loss = 0;
+        coachStats.lossBase = Math.max(0, (cs.decisions - cs.book) || 0);
+      }
+    }
   } catch (e) { }
   function saveCoach() {
     try {
@@ -499,10 +602,20 @@
       else if (t === 9) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
       else play = 'hit';
     }
+    /* the floor's own odds have the last word: where THIS floor's
+       flavor (no peek, no splits) makes the chart's play cost
+       expected chips, the engine's conviction flips the book —
+       chart ties stay chart. Badge, verdict and price agree.    */
+    var pr = EV999.prices(t, soft, up, canD), cur = pr[play];
+    if (cur != null) {
+      if (pr.hit != null && pr.hit - cur > 0.004) { play = 'hit'; cur = pr.hit; }
+      if (canD && pr.double != null && pr.double - cur > 0.004) play = 'double';
+    }
     return play;
   }
   var coachHint = document.getElementById('coachHint');
   var lastBook = null;
+  var lastPrices = null;                 /* what each play costs, from the mark */
   function capWord(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function coachBtnFor(p) {
     return document.getElementById(p === 'hit' ? 'btnHit' : p === 'stand' ? 'btnStand' : 'btnDouble');
@@ -516,13 +629,17 @@
   function coachHide() {
     clearCoachMarks();
     lastBook = null;
+    lastPrices = null;
     if (coachHint) coachHint.hidden = true;
   }
   function coachMark() {
     clearCoachMarks();
     lastBook = null;
+    lastPrices = null;
     if (!coachOn || !dealerArr.length) { if (coachHint) coachHint.hidden = true; return; }
     lastBook = bookPlay();
+    lastPrices = EV999.prices(total(you), isSoft(you), dealerArr[0] ? dealerArr[0].rank : '10',
+      you.length === 2 && bank >= bet);   /* priced where the badge is shown */
     var b = coachBtnFor(lastBook);
     if (b) b.classList.add('book');
     coachHint.hidden = false;
@@ -532,21 +649,31 @@
   function coachVerdict(choice) {
     if (!coachOn || !lastBook) return;
     var ok = choice === lastBook;
+    var cost = 0;
+    if (!ok && lastPrices && lastPrices[lastBook] != null && lastPrices[choice] != null) {
+      var du = lastPrices[lastBook] - lastPrices[choice];
+      if (du > 0) cost = du * bet;       /* expected chips the deviation throws away */
+    }
     coachStats.decisions++;
     if (ok) {
       coachStats.book++;
       coachStats.streak++;
       if (coachStats.streak > coachStats.best) coachStats.best = coachStats.streak;
-    } else coachStats.streak = 0;
+    } else {
+      coachStats.streak = 0;
+      coachStats.loss += cost;
+    }
     saveCoach();
     renderCoach();
     var b = coachBtnFor(choice);
     if (b) { b.classList.remove('book'); b.classList.add(ok ? 'hit-ok' : 'miss'); }
     coachHint.hidden = false;
     coachHint.className = 'coachhint ' + (ok ? 'ok' : 'miss');
-    coachHint.textContent = ok ? '\u2713 Book play' : 'Book says ' + capWord(lastBook);
+    coachHint.textContent = ok ? '\u2713 Book play'
+      : 'Book says ' + capWord(lastBook) + (cost > 0 ? ' \u00b7 \u2212' + cost.toFixed(1) : '');
     coachCue(ok);
     lastBook = null;
+    lastPrices = null;
     /* clear only the VERDICT's own flash — a newer decision may
        have already re-marked the book, and its badge is not ours
        to take (the hint goes only if nothing replaced it)        */
@@ -561,8 +688,10 @@
   function renderCoach() {
     var el = document.getElementById('coachScore');
     var pct = coachStats.decisions ? Math.round(100 * coachStats.book / coachStats.decisions) : null;
+    var misses = Math.max(0, (coachStats.decisions - coachStats.book) - (coachStats.lossBase || 0));
+    var perDev = misses ? '\u00b7 \u2212' + (coachStats.loss / misses).toFixed(1) + '/dev' : '';
     el.textContent = coachOn
-      ? (pct == null ? 'Coach' : 'Coach ' + pct + '% \u00b7 ' + coachStats.book + '/' + coachStats.decisions)
+      ? (pct == null ? 'Coach' : 'Coach ' + pct + '% \u00b7 ' + coachStats.book + '/' + coachStats.decisions + (perDev ? ' ' + perDev : ''))
       : 'Coach off';
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
   }

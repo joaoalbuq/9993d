@@ -305,7 +305,19 @@ answers with CORS headers.
   caught two real bugs: a verdict cleanup that wiped the NEXT decision's
   badge at any speed, and a stranded tray — 3:2 payouts leave half-chips
   and a bank of 12.5 could never bet or refill again; the tray now refills
-  whenever the minimum bet can't be covered.
+  whenever the minimum bet can't be covered. The coach now also scores
+  **what mistakes cost**: the EV999 engine prices every decision in
+  expected chips (infinite deck, S17, this floor's no-peek flavor) and a
+  deviation is charged `(evBook − evChoice) × bet` — the pill reads
+  "Coach 44% · 3453/7894 · **−5.6/dev**" under an always-stand drive, and
+  the miss hint names the price ("Book says Hit · −12.5"). The engine is
+  itself verified: its dealer distributions match independent exact
+  recursion to 1e-9, all sampled prices land inside Monte-Carlo noise at
+  120k trials/action, and a hand-level cross-check keeps book and engine
+  united — where this floor's flavor convicts the chart (hard 11 v A/10:
+  the peek-game double that no-peek turns into a hit), the book FLIPS to
+  the engine's play, so badge, verdict and price can never disagree
+  (chart knife-edges under 0.004 stay chart).
 - **The Hi-Lo drills** — the running count recomputed from the cards the
   DOM actually showed matched the meter to the card (`3 7 8 6 8` = +2
   against "Hi-Lo +2" in green, "Hi-Lo -1" wearing red), the drill opening
@@ -362,6 +374,8 @@ answers with CORS headers.
 | `serve.js` | Static host + same-origin `/hub` proxy (zero-dep Node) |
 | `test/shoe999.canon.js` | The SHOE999 canon — one shoe + settlement module, byte-identical in both pages |
 | `test/shoe999.test.js` | Drift guard (byte-equality against both pages) + settlement/shoe math |
+| `test/ev999.mc.js` | Monte-Carlo + exact-recursion ground truth for the EV999 pricing engine |
+| `test/ev999.crosscheck.js` | Book-vs-engine agreement sweep over every hand × upcard × double state |
 | `README.md` | This page |
 
 Cloth palettes, the hub client and identity handling are vendored from
