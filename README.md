@@ -1,5 +1,7 @@
 # 9993d — 999 Casino · the fullscreen 16:9 build
 
+![The 3D table mid-round — six boxes with live bet stacks, the dealer's fan, one cloth](media/table.png)
+
 **The table is the screen.** One cloth, one dealer, six boxes, and a camera
 that holds whoever is deciding — a full 3D blackjack table rendered live in
 raw WebGL, with a fullscreen sign-in in the same presentation language.
@@ -8,6 +10,8 @@ every page is self-contained, and nothing here touches the live app — these
 are additive screens kept beside it for side-by-side comparison.
 
 **▶ Play it live: https://joaoalbuq.github.io/9993d/**
+
+**▶ Watch a round:** [deal → play → the payout walk](media/round.mp4) (≈22s)
 
 *(workspace folder: `3dfullscreen/`)*
 
@@ -79,6 +83,8 @@ are additive screens kept beside it for side-by-side comparison.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
   `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
   action and user zoom survives every shot change.
+
+  ![The payout walk holds each box as it pays — chips land and the +delta floats at its total](media/payout-walk.png)
 
 ### `serve.js` — the preview host with the hub on one origin
 
