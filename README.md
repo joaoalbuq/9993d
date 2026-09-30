@@ -84,6 +84,12 @@ are additive screens kept beside it for side-by-side comparison.
   frame holds each box as it pays — chips fly in with the settlement's own
   `+delta` floating at the total, a losing stack flies out to the dealer —
   and the round ends back on the dealer's hand.
+- **The audio ceremony (spec 4.5)** — chip clacks, card snaps and
+  win/lose stingers, every sound Web Audio **synthesis** (no CDN, no
+  bundled sample, no runtime download). Impact then sound: a chip clacks
+  when it lands, a card snaps when it hits the cloth, and one stinger per
+  round marks **your** verdict only. Gated by the 🔊 tool toggle (a mute
+  that persists), and quiet behind the rotate gate and in a hidden tab.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
   `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
   action and user zoom survives every shot change.
@@ -165,6 +171,10 @@ answers with CORS headers.
   and the frame returns to the dealer's hand. Sampled chip-by-chip against
   the ledger: win brings 2× the stake in, a push returns 1×, a loss sends
   the stack to the tray, and an unstaked hand moves no chips either way.
+- **The audio ceremony** — live-sampled on the running page: 13 card
+  snaps in the deal, chip clacks landing with the bet debits and each
+  payout-walk flight, a rising triad at a won hand and a falling sigh at a
+  lost one; the 🔊 toggle silences and restores it all mid-round.
 - **Clean pages** — `node --check` on every inline script, no console
   errors.
 
