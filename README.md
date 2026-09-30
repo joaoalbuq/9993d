@@ -323,6 +323,21 @@ answers with CORS headers.
   page they wanted. The ledger still passes through untouched.
 - **Clean pages** — `node --check` on every inline script, no console
   errors.
+- **One shoe + settlement for both pages** — the **SHOE999 canon**
+  (`test/shoe999.canon.js`) is spliced byte-identical into `table-16x9.html`
+  and `offline.html`: the stack builder (composition-exact, Fisher-Yates),
+  the draw, the cut-card draw, hand value (total AND soft flag), the floor's
+  one settlement (bust 0, natural 3:2, win 2:1, push returns; a dealer's
+  natural takes the stake — European), and the money-edge rounding. Pages
+  keep their own flavors (4 decks vs 2, ledger chips vs a cosmetic bank)
+  but every rule runs from the same code. `node test/shoe999.test.js`
+  fails the moment the two copies drift, and pins the math: composition
+  exact at 1/2/4/6 decks, totals and soft flags on the ace-boundary hands,
+  all settlement kinds, 62.5 → 63 at the money edge, 5,000 cut draws in
+  bounds. Re-unifying surfaced a real divergence: the live table had been
+  paying naturals 1:1 — the canon pays **3:2 everywhere** (the table
+  quantizes to whole chips at its money edge, 25 → 63, verified live
+  through the hub's ledger; the practice bank keeps exact halves).
 
 ## Layout
 
@@ -336,6 +351,8 @@ answers with CORS headers.
 | `sw.js` | Installability service worker (network-first, `/hub/` untouched) |
 | `make-icons.js` | Draws the PWA icons procedurally → `media/icon-*.png` |
 | `serve.js` | Static host + same-origin `/hub` proxy (zero-dep Node) |
+| `test/shoe999.canon.js` | The SHOE999 canon — one shoe + settlement module, byte-identical in both pages |
+| `test/shoe999.test.js` | Drift guard (byte-equality against both pages) + settlement/shoe math |
 | `README.md` | This page |
 
 Cloth palettes, the hub client and identity handling are vendored from

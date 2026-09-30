@@ -650,8 +650,11 @@
       var stake = h.stake || 0;
       if (!stake || !h.result) { refreshWallet(); return; }        /* unstaked: hub truth */
       if (h.result !== 'win' && h.result !== 'push') { refreshWallet(); return; }  /* a loss keeps the stake */
-      return applyMove('pay', 'credit', h.result === 'win' ? 2 * stake : stake,
-        h.result === 'win' ? 'bj_prize' : 'bj_push');
+      /* the canon's numbers at the money edge: a natural credits
+         its 3:2 in whole chips (25 -> 63), a win 2:1, a push back */
+      var prize = h.result === 'push' ? stake : h.natural ? SHOE999.chips(stake * 2.5) : 2 * stake;
+      return applyMove('pay', 'credit', prize,
+        h.result === 'push' ? 'bj_push' : 'bj_prize');
     });
   }
 
@@ -1098,18 +1101,75 @@
     }
   }
 
+    /* ==== SHOE999 canon - one shoe + settlement for both pages ====
+     The 3D table and the practice shoe deal from the same stack
+     and settle by the same rules. This block must stay
+     byte-identical in table-16x9.html and offline.html;
+     test/shoe999.test.js fails if the copies drift.             */
+  var SHOE999 = (function () {
+    var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    var TEN = { '10': 1, 'J': 1, 'Q': 1, 'K': 1 };
+    function build(decks) {
+      var a = [], d, s, r, i, j, t;
+      for (d = 0; d < decks; d++)
+        for (s = 0; s < 4; s++)
+          for (r = 0; r < RANKS.length; r++) a.push({ rank: RANKS[r], suit: s });
+      for (i = a.length - 1; i > 0; i--) {           /* Fisher-Yates */
+        j = Math.floor(Math.random() * (i + 1));
+        t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+    function draw(stack) {
+      return stack.length ? stack.pop() : null;    /* pages reshuffle at their cut */
+    }
+    function cutBetween(cards, lo, hi) {           /* where the cut card lands */
+      return Math.round(cards * (lo + Math.random() * (hi - lo)));
+    }
+    function value(cards, rname) {                 /* best total; soft = an ace still counts 11 */
+      var rk = rname || 'rank', t = 0, aces = 0, i, r;
+      for (i = 0; i < cards.length; i++) {
+        r = cards[i][rk];
+        if (r === 'A') { aces++; t += 11; }
+        else if (TEN[r]) t += 10;
+        else t += parseInt(r, 10);
+      }
+      while (t > 21 && aces) { t -= 10; aces--; }
+      return { total: t, soft: aces > 0 };
+    }
+    function total(cards, rname) { return value(cards, rname).total; }
+    /* the floor's one settlement (spec 5): bust 0, blackjack 3:2,
+       win 2:1, push returns the stake. The European no-peek
+       flavor both pages play: a dealer's natural takes the stake,
+       naturals cancel to a push, a player natural pays 3:2.       */
+    function settle(you, dealer, stake, rname) {
+      var p = total(you, rname), d = total(dealer, rname);
+      var nat = you.length === 2 && p === 21;
+      var dn = dealer.length === 2 && d === 21;
+      var kind;
+      if (p > 21) kind = 'bust';
+      else if (nat && dn) kind = 'push';
+      else if (nat) kind = 'blackjack';
+      else if (dn) kind = 'lose';
+      else if (d > 21 || p > d) kind = 'win';
+      else if (p === d) kind = 'push';
+      else kind = 'lose';
+      var mult = kind === 'blackjack' ? 2.5 : kind === 'win' ? 2 : kind === 'push' ? 1 : 0;
+      return { kind: kind, mult: mult, prize: stake * mult, net: stake * mult - stake };
+    }
+    function chips(prize) {                        /* the money edge: integer chips, house rounds up */
+      return Math.ceil(prize - 1e-9) + 0;
+    }
+    return { RANKS: RANKS, build: build, draw: draw, cutBetween: cutBetween,
+             value: value, total: total, settle: settle, chips: chips };
+  })();
+  /* ==== SHOE999 end ==== */
+
+
   /* ================= cards & scoring ======================= */
   var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   function score(cards) {
-    var total = 0, aces = 0;
-    for (var i = 0; i < cards.length; i++) {
-      var r = cards[i].rank;
-      if (r === 'A') { aces++; total += 11; }
-      else if (r === 'J' || r === 'Q' || r === 'K') total += 10;
-      else total += parseInt(r, 10);
-    }
-    while (total > 21 && aces) { total -= 10; aces--; }
-    return total;
+    return SHOE999.total(cards);   /* the canon's value: one counting rule everywhere */
   }
 
   /* ================= the table state ======================= */
@@ -1224,20 +1284,12 @@
      in one riffle.                                           */
   var shoeArr = [];
   function buildShoe() {
-    shoeArr = [];
-    for (var d = 0; d < SHOE_DECKS; d++) {
-      for (var s = 0; s < 4; s++) {
-        for (var r = 0; r < RANKS.length; r++) shoeArr.push({ rank: RANKS[r], suit: s });
-      }
-    }
-    for (var i = shoeArr.length - 1; i > 0; i--) {       /* Fisher-Yates */
-      var j = Math.floor(Math.random() * (i + 1));
-      var tmp = shoeArr[i]; shoeArr[i] = shoeArr[j]; shoeArr[j] = tmp;
-    }
+    shoeArr = SHOE999.build(SHOE_DECKS);   /* the canon builds the stack */
   }
   function drawCard() {
-    if (!shoeArr.length) buildShoe();   /* never deal from empty — the cut reshuffles first */
-    return shoeArr.pop();
+    var c = SHOE999.draw(shoeArr);
+    if (!c) { buildShoe(); c = SHOE999.draw(shoeArr); }   /* never deal from empty */
+    return c;
   }
   /* The cut card is VISIBLE at the shoe: it surfaces when the
      shuffle is near — CUT_NEAR cards before the cut — rises out
@@ -1246,7 +1298,7 @@
   var CUT_NEAR = 20, cutT0 = 0;
   function newShoe() {
     shoeDealt = 0;
-    shoeCut = Math.round(SHOE_CARDS * (0.75 + Math.random() * 0.10));
+    shoeCut = SHOE999.cutBetween(SHOE_CARDS, 0.75, 0.85);
     cutT0 = 0;               /* a new shoe takes its cut card back */
     shoeFresh = true;        /* its first betting window says so */
     buildShoe();             /* a fresh stack: 208 cards, shuffled whole */
@@ -1419,7 +1471,6 @@
   function settle() {
     game.phase = 'settle';
     var ds = score(game.dealer.cards);
-    var dbust = ds > 21;
     /* the payout walk (spec 4.4): every staked box takes its
        beat — the camera HOLDS it while its chips fly to the
        winner with a +delta at its total, or its stack flies to
@@ -1427,18 +1478,17 @@
     game.payoutBox = -2;                 /* the verdict landed; the walk hasn't */
     game.walk = [];
     for (var i = 0; i < BOX_N; i++) {
-      var h = game.hands[i], s = score(h.cards);
-      if (s > 21) h.result = 'bust';
-      else if (dbust || s > ds) h.result = 'win';
-      else if (s === ds) h.result = 'push';
-      else h.result = 'lose';
+      var h = game.hands[i];
+      /* the canon settles every hand — one rule for both pages */
+      var st = SHOE999.settle(h.cards, game.dealer.cards, h.stake || (h.chipT0 || []).length * UNIT_BET);
+      h.result = st.kind === 'blackjack' ? 'win' : st.kind;
+      h.natural = st.kind === 'blackjack';   /* the felt shows its 3:2 at the money edge */
       var n = (h.chipT0 || []).length;
       h.flyPay = h.result === 'win' ? n * 2 : h.result === 'push' ? n : 0;
       /* the delta is the settlement's own number (spec 5: the
-         renderer never re-derives settlement) — 2:1 on a win,
-         the stake back on a push, nothing where no stake sits  */
-      var stake = h.stake || n * UNIT_BET;
-      h.payDelta = h.result === 'win' ? stake * 2 : h.result === 'push' ? stake : 0;
+         renderer never re-derives settlement) — a natural pays
+         3:2 in whole chips (25 -> 63), a win 2:1, a push its stake */
+      h.payDelta = h.result === 'win' ? SHOE999.chips(st.prize) : h.result === 'push' ? st.prize : 0;
       if (n) game.walk.push(i);          /* a beat only where a stake sits */
     }
     setStatus('Round settles — the payout walk');
