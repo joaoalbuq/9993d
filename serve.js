@@ -26,6 +26,16 @@ const PAGES = {
   '/table-16x9.html': 'table-16x9.html'
 };
 
+/* the PWA shell — same allowlist rule, binary-safe */
+const ASSETS = {
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json; charset=utf-8'],
+  '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
+  '/media/icon-180.png': ['media/icon-180.png', 'image/png'],
+  '/media/icon-192.png': ['media/icon-192.png', 'image/png'],
+  '/media/icon-512.png': ['media/icon-512.png', 'image/png'],
+  '/media/icon-512-maskable.png': ['media/icon-512-maskable.png', 'image/png']
+};
+
 /* hop-by-hop headers belong to the transport, not the proxy. The
    access-control-* family is dropped on purpose: these calls are
    same-origin, so CORS is not part of the conversation. */
@@ -79,6 +89,15 @@ http.createServer((req, res) => {
       html = html.replace(/<head[^>]*>/i, (m) => m + '<script>window.__HUB_BASE__=location.origin+"/hub";</script>');
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
       res.end(html);
+    });
+    return;
+  }
+  const asset = ASSETS[p];
+  if (asset) {
+    fs.readFile(path.join(HERE, asset[0]), (e, buf) => {
+      if (e) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('not found'); }
+      res.writeHead(200, { 'content-type': asset[1], 'cache-control': 'no-cache' });
+      res.end(buf);
     });
     return;
   }

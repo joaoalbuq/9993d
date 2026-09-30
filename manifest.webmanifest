@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "999 Casino — Blackjack",
+  "short_name": "999 Casino",
+  "description": "The fullscreen 16:9 3D blackjack floor — six boxes, one dealer, one wallet.",
+  "start_url": "./table-16x9.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0b2b1d",
+  "theme_color": "#0b2b1d",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "media/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "media/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "media/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

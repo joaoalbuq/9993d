@@ -97,10 +97,32 @@ the pages fetch their own origin and the browser never enters CORS — no
 preflight, no `Access-Control-*` needed on any answer. The host injects
 `window.__HUB_BASE__` into the pages it serves so they know the route.
 
+### `manifest.webmanifest` + `sw.js` — the home-screen app
+
+- **Landscape, fullscreen, installed** — the manifest locks the display to
+  `orientation: landscape` and `display: fullscreen`, so the installed app
+  IS the sideways 16:9 build, opening straight on the table. The icons are
+  drawn at build time by `make-icons.js` — the table's own chip texture in
+  logo form (gold ring, eight notches, 999 at the center), encoded as real
+  PNGs by a minimal zlib encoder; `icon-512-maskable.png` scales the mark
+  into the maskable safe circle.
+- **An install prompt that respects the platform** — a ⤓ button (portal,
+  sign-in strip, table tools) appears only when the browser fires
+  `beforeinstallprompt`, and owns the prompt when it does. iOS never fires
+  it — so the portal points at Share → Add to Home Screen instead, with
+  `apple-touch-icon` and the `apple-mobile-web-app-*` metas covering the
+  home-screen chrome.
+- **`sw.js` is a pass-through** — Chrome's installability criteria still
+  require a registered fetch handler, so the worker is a network-first
+  shell cache with an offline fallback that never touches `/hub/`: the
+  ledger always goes to the network.
+
 ## Play it
 
 **https://joaoalbuq.github.io/9993d/** — GitHub Pages, no install: the portal
-opens onto the sign-in and the 3D table. The table is fully playable there
+opens onto the sign-in and the 3D table. On a phone it installs as a
+home-screen app — landscape, fullscreen, straight to the table. The table
+is fully playable there
 (deal, hit/stand/double, the camera director, all six cloths); sign-in needs
 a hub, so on the public host it degrades to the visible preview state by
 design.
@@ -150,8 +172,12 @@ answers with CORS headers.
 
 | Path | What it is |
 | --- | --- |
+| `index.html` | The portal entry |
 | `login-16x9.html` | The fullscreen 16:9 sign-in (2D canvas felt engine) |
 | `table-16x9.html` | The fullscreen 16:9 table (raw WebGL 3D engine) |
+| `manifest.webmanifest` | The PWA manifest — landscape fullscreen, home-screen install |
+| `sw.js` | Installability service worker (network-first, `/hub/` untouched) |
+| `make-icons.js` | Draws the PWA icons procedurally → `media/icon-*.png` |
 | `serve.js` | Static host + same-origin `/hub` proxy (zero-dep Node) |
 | `README.md` | This page |
 

@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="media/icon-192.png">
+<link rel="apple-touch-icon" href="media/icon-180.png">
 <title>999 Casino — Enter the floor · fullscreen 16:9</title>
 <style>
   /* ============================================================
@@ -385,7 +388,7 @@
 
   <footer class="strip">
     <span>999 Casino · play-money social casino</span>
-    <span><button class="fsbtn" id="fsBtn" type="button" title="Toggle fullscreen">⤢ Fullscreen</button> · <a href="table-16x9.html" style="color: var(--accent); text-decoration: none;">The 3D table →</a> · fullscreen 16:9 · revamp preview</span>
+    <span><button class="fsbtn" id="installBtn" type="button" hidden>⤓ Install</button><span id="installSep" hidden> · </span><button class="fsbtn" id="fsBtn" type="button" title="Toggle fullscreen">⤢ Fullscreen</button> · <a href="table-16x9.html" style="color: var(--accent); text-decoration: none;">The 3D table →</a> · fullscreen 16:9 · revamp preview</span>
   </footer>
 </div>
 
@@ -1051,6 +1054,42 @@
     });
   } else {
     setHub('', 'HUB — ' + BASE);
+  }
+
+  /* ================= install: the home-screen app ===========
+     The manifest locks the display to landscape fullscreen; the
+     ⤓ button owns Chrome's install prompt when the browser
+     offers one. iOS never fires the event — it installs via the
+     Share sheet (the portal says so).                            */
+  var installBtn = document.getElementById('installBtn');
+  var installSep = document.getElementById('installSep');
+  var installEvt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installEvt = e;
+    if (installBtn) installBtn.hidden = false;
+    if (installSep) installSep.hidden = false;
+  });
+  window.addEventListener('appinstalled', function () {
+    installEvt = null;
+    if (installBtn) installBtn.hidden = true;
+    if (installSep) installSep.hidden = true;
+  });
+  if (installBtn) installBtn.addEventListener('click', function () {
+    var e = installEvt;
+    if (!e) return;
+    installEvt = null;
+    installBtn.hidden = true;
+    if (installSep) installSep.hidden = true;
+    e.prompt();
+    if (e.userChoice && e.userChoice.then) e.userChoice.then(function () { }, function () { });
+  });
+
+  /* the service worker: Chrome's installability criteria still
+     require a fetch handler — sw.js is a network-first
+     pass-through with an offline shell fallback.                */
+  if ('serviceWorker' in navigator) {
+    try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
   }
 })();
 </script>

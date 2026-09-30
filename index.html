@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0B0F0C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="media/icon-192.png">
+<link rel="apple-touch-icon" href="media/icon-180.png">
 <title>999 Casino — the fullscreen 16:9 build</title>
 <style>
   :root {
@@ -67,6 +70,10 @@
     letter-spacing: 0.22em; text-transform: uppercase; color: rgba(236, 219, 165, 0.62);
   }
   .facts b { color: var(--print); }
+  .ios-hint {
+    margin-top: 1.1rem; font-size: 0.72rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(236, 219, 165, 0.55);
+  }
   footer {
     margin-top: 2.8rem; font-size: 0.68rem; letter-spacing: 0.26em;
     text-transform: uppercase; color: rgba(236, 219, 165, 0.45);
@@ -132,7 +139,9 @@
   <div class="entries">
     <a class="go primary" href="login-16x9.html">Enter the floor</a>
     <a class="go ghost" href="table-16x9.html">Play the table</a>
+    <button class="go ghost" id="installBtn" type="button" hidden>⤓ Install app</button>
   </div>
+  <p class="ios-hint" id="iosHint" hidden>iPhone or iPad? Share → Add to Home Screen</p>
   <div class="facts">
     <span><b>6</b> decks</span>
     <span><b>S17</b> · dealer stands</span>
@@ -153,6 +162,40 @@
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', fit);
   fit();
+
+  /* install: the home-screen app. The manifest locks the display to
+     landscape fullscreen; the ⤓ button owns Chrome's install prompt
+     when the browser offers one. iOS never fires the event — it
+     installs via the Share sheet, so it gets a hint instead.      */
+  var installBtn = document.getElementById('installBtn');
+  var installEvt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installEvt = e;
+    if (installBtn) installBtn.hidden = false;
+  });
+  window.addEventListener('appinstalled', function () {
+    installEvt = null;
+    if (installBtn) installBtn.hidden = true;
+  });
+  if (installBtn) installBtn.addEventListener('click', function () {
+    var e = installEvt;
+    if (!e) return;
+    installEvt = null;
+    installBtn.hidden = true;
+    e.prompt();
+    if (e.userChoice && e.userChoice.then) e.userChoice.then(function () { }, function () { });
+  });
+  var iosHint = document.getElementById('iosHint');
+  if (iosHint) iosHint.hidden = !(/iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+  /* the service worker: Chrome's installability criteria still
+     require a fetch handler — sw.js is a network-first
+     pass-through with an offline shell fallback.                */
+  if ('serviceWorker' in navigator) {
+    try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
+  }
 })();
 </script>
 </body>
