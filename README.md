@@ -103,7 +103,10 @@ are additive screens kept beside it for side-by-side comparison.
   lands it, and one stinger per round marks **your**
   verdict only. **Every whoosh carries its SEAT too**: the whoosh pans
   from the shoe to the box it lands in (a StereoPannerNode ramping
-  across the flight), and the box's pan is where the SCREEN puts it —
+  across the flight), and a **lowpass veil rides the same near model**
+  (16.5kHz open at the nearest seat down to 1.3kHz behind the
+  farthest), so a far seat is DARKER, not just quieter — and the box's
+  pan is where the SCREEN puts it —
   the camera holds boxes close when it holds them, so the pan tracks
   what the player sees, not the felt alone; off-frame falls back to the
   felt's own geometry, pans stop 0.85 short of the rail, and a missing

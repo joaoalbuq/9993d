@@ -45,13 +45,14 @@ console.log('off-frame: the felt\u2019s own geometry carries the pan until the c
 const cwFull = grab('  function cardWhoosh(', '\n  }');
 const cwBody = cwFull.slice(cwFull.indexOf('{') + 1, cwFull.lastIndexOf('}'));
 function mockCtx(withPanner) {
-  const rec = { panSets: [], panRamps: [], retSets: [], retRamps: [], retTargets: [] };
+  const rec = { panSets: [], panRamps: [], retSets: [], retRamps: [], retTargets: [], fSets: [], fRamps: [], links: [], lpNode: null };
   function param(tag) {
     return {
       value: 0,
       setValueAtTime(v, t) {
         if (tag === 'pan') rec.panSets.push([v, t]);
         if (tag === 'retpan') rec.retSets.push([v, t]);
+        if (tag === 'lp') rec.lpSets.push([v, t]);
       },
       linearRampToValueAtTime(v, t) {
         if (tag === 'pan') rec.panRamps.push([v, t]);
@@ -61,7 +62,16 @@ function mockCtx(withPanner) {
       exponentialRampToValueAtTime() {}
     };
   }
-  function node(tag) { return { connect() {}, gain: param('gain'), frequency: param('freq'), Q: { value: 0 }, pan: param(tag) }; }
+  function node(tag) {
+    const n = { __tag: tag, type: '', connect(dst) { rec.links.push([n.type || tag, dst && (dst.__type || dst.__tag)]); }, gain: param('gain'), Q: { value: 0 }, pan: param(tag) };
+    n.frequency = {
+      value: 0,
+      setValueAtTime(v, t) { rec.fSets.push({ type: n.type, v, t }); },
+      linearRampToValueAtTime(v, t) { rec.fRamps.push({ type: n.type, v, t }); },
+      exponentialRampToValueAtTime(v, t) { rec.fRamps.push({ type: n.type, v, t, exp: true }); }
+    };
+    return n;
+  }
   const c = {
     currentTime: 10,
     sampleRate: 48000,
@@ -74,6 +84,17 @@ function mockCtx(withPanner) {
     let first = true;
     c.createStereoPanner = () => node(first ? 'pan' : (first = false, 'retpan'));
   }
+  let fSeq = 0;
+  const baseCreate = c.createBiquadFilter.bind(c);
+  c.createBiquadFilter = () => {
+    const n = node('f' + (fSeq++));
+    let t = '';
+    Object.defineProperty(n, 'type', {
+      set(v) { t = v; n.__type = v; if (v === 'lowpass') rec.lpNode = n; },
+      get() { return t; }
+    });
+    return n;
+  };
   return { c, rec };
 }
 function makeWhoosh(withPanner) {
@@ -162,6 +183,23 @@ w6.whoosh(0, 0.43, 3.1, 0.6, -0.5);
 if (w6.rec.retSets.length || w6.rec.retRamps.length)
   throw new Error('without a return panner nothing may try to lean the walls');
 console.log('no return panner: the reflections stay centered \u2014 graceful, not broken');
+
+/* --- the air's veil: far seats are darker, not just quieter --- */
+const w7 = makeWhoosh(true);
+w7.whoosh(0, 0.43, 2.4, 0.6, -0.5);            /* the nearest flight: full top       */
+w7.whoosh(0, 0.43, 6.4, 0.6, -0.5);            /* the farthest: the veil comes down  */
+w7.whoosh(0, 0.43, 4.4, 0.6, -0.5);            /* the model's midpoint               */
+const lpSets = w7.rec.fSets.filter((f) => f.type === 'lowpass').map((f) => f.v);
+if (lpSets.length !== 3) throw new Error('every flight must carry its own veil: ' + JSON.stringify(w7.rec.fSets));
+if (lpSets[0] !== 16500) throw new Error('a nearest card must keep its air open: ' + lpSets[0]);
+if (lpSets[1] !== 1300) throw new Error('a farthest card must sit behind the veil: ' + lpSets[1]);
+if (Math.abs(lpSets[2] - (1300 + 15200 * 0.5)) > 1e-9)
+  throw new Error('the veil must ride the same near model as the level: ' + lpSets[2]);
+const bpSets = w7.rec.fSets.filter((f) => f.type === 'bandpass').length;
+if (!bpSets) throw new Error('the bandpass body must remain');
+if (JSON.stringify(w7.rec.links.slice(0, 2)) !== JSON.stringify([['bandpass', 'lowpass'], ['lowpass', 'gain']]))
+  throw new Error('the veil must sit in the chain, not beside it: ' + JSON.stringify(w7.rec.links.slice(0, 3)));
+console.log('the veil: 16.5kHz near \u2192 1.3kHz far on the same near model, in-chain \u2014 darker, not just quieter');
 
 /* --- the payout walk crosses the channels the way the deal does --- */
 const cfFull = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
