@@ -323,6 +323,9 @@
   .leaks ol { margin: 0; padding-left: 1.2em; }
   .leaks li { margin: 0.15em 0; color: rgba(255,255,255,0.85); }
   .leaks li.grad { opacity: 0.55; }
+  .leaks .viewtabs { margin: 0 0 0.45em; font-size: 0.9em; letter-spacing: 0.06em; }
+  .leaks .viewtabs span { cursor: pointer; color: rgba(255,255,255,0.45); text-decoration: underline dotted; }
+  .leaks .viewtabs span.on { color: #d8b56a; text-decoration: none; font-weight: bold; }
   .leaks b { color: #e2705f; }
   .idx b { color: #d8b56a; }
   .leaks .drillnow { margin-top: 0.55em; }
@@ -703,6 +706,22 @@
     arr.sort(function (a, b) { return b.cost - a.cost; });
     return arr;
   }
+  /* this sitting's own ledger: every miss lands twice - the
+     persistent cell for the drills, and the session map for the
+     panel's "this session" tab. A reload wipes it: a clean
+     start every sitting.                                  */
+  var sessionLeaks = {};
+  function sessionMiss(cell, cost) {
+    if (!sessionLeaks[cell]) sessionLeaks[cell] = { n: 0, cost: 0 };
+    sessionLeaks[cell].n++;
+    sessionLeaks[cell].cost += cost;
+  }
+  function rankCells(map) {
+    var arr = [], k;
+    for (k in map) if (map[k] && map[k].n) arr.push({ cell: k, n: map[k].n, cost: map[k].cost });
+    arr.sort(function (a, b) { return b.cost - a.cost; });
+    return arr;
+  }
   /* graduation: a cell that answers with the book three times
      running leaves the drill - retired with honours - and
      returns with spacing (six drill hands, then double, capped
@@ -978,6 +997,7 @@
         var lb = document.getElementById('btnLeaks');
         if (lb) lb.hidden = false;
         gradMiss(lastCell);                  /* the miss undoes any graduation */
+        sessionMiss(lastCell, cost);         /* and lands in this sitting's own ledger */
       }
       var entry = {                      /* ...and the replay reel keeps the hand */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
@@ -1054,6 +1074,7 @@
      the target upcard — so the exact decision returns, not
      one like it.                                         */
   var leakMode = false, leakQueue = [], leakCell = null;
+  var leakView = 'session';          /* the panel's tab: this sitting vs the whole ledger */
   var indexMode = false;             /* the index sheet: the count's plays, taught in the open */
   /* ---- the session review: your misses, replayed whole ----
      The reel holds the last misses exactly as they happened.
@@ -1175,8 +1196,12 @@
       box.hidden = false;
       return;
     }
-    var cells = weakestCells();
-    if (!leakMode || !cells.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var allCells = weakestCells();
+    if (!leakMode || !allCells.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var cells = leakView === 'session' ? rankCells(sessionLeaks) : allCells;
+    var tabs = '<p class="viewtabs"><span id="leakViewSession"' + (leakView === 'session' ? ' class="on"' : '') +
+      '>this session</span> \u00b7 <span id="leakViewAll"' + (leakView === 'all' ? ' class="on"' : '') +
+      '>all time</span></p>';
     var rows = cells.slice(0, 5).map(function (c) {
       var st = '';
       if (c.r) st = ' \u00b7 \uD83C\uDF93' + (c.g || 1) + ' \u00b7 back in ' + Math.max(0, c.back - gradClock);
@@ -1185,15 +1210,20 @@
         ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + '</li>';
     }).join('');
     var next = null, retiredN = 0;
-    for (var ci = 0; ci < cells.length; ci++) {
-      if (cells[ci].r) retiredN++;
-      else if (!next) next = cells[ci];
+    for (var ci = 0; ci < allCells.length; ci++) {
+      if (allCells[ci].r) retiredN++;
+      else if (!next) next = allCells[ci];
     }
-    box.innerHTML = '<h3>Where the chips leak</h3><ol>' + rows + '</ol>' +
-      '<p class="drillnow">' + (next
-        ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.' +
-          (retiredN ? ' \uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced.' : '')
-        : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>';
+    var sessN = 0, sessCost = 0, sk;
+    for (sk in sessionLeaks) { sessN += sessionLeaks[sk].n; sessCost += sessionLeaks[sk].cost; }
+    box.innerHTML = '<h3>Where the chips leak</h3>' + tabs + '<ol>' + rows + '</ol>' +
+      '<p class="drillnow">' +
+      (leakView === 'session'
+        ? (sessN ? 'This sitting: \u2212' + Math.round(sessCost) + ' in ' + sessN + ' miss' + (sessN === 1 ? '' : 'es') + '. '
+                 : 'A clean sitting so far \u2014 nothing leaked this session. ')
+        : (retiredN ? '\uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced. ' : '')) +
+      (next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
+            : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>';
     box.hidden = false;
   }
   /* the index sheet: the count's plays taught in the open — every
@@ -2023,6 +2053,7 @@
       var lb = document.getElementById('btnLeaks');
       if (lb) lb.hidden = false;
       gradMiss('insurance v ace');           /* the miss undoes any graduation */
+      sessionMiss('insurance v ace', cost);  /* and lands in this sitting's own ledger */
       replay.push({                    /* the reel keeps it like any other miss */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
         up: 'A', us: dealerArr[0].suit,
@@ -2285,6 +2316,12 @@
 
   /* the leaks: the ledger, the panel, the targeted rounds   */
   document.getElementById('btnIndex').addEventListener('click', toggleIndex);
+  /* the panel's tabs: this sitting's ranking beside the whole ledger */
+  var leakBoxEl = document.getElementById('leakBox');
+  if (leakBoxEl) leakBoxEl.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'leakViewSession') { leakView = 'session'; renderLeaks(); }
+    else if (e.target && e.target.id === 'leakViewAll') { leakView = 'all'; renderLeaks(); }
+  });
   document.getElementById('btnLeaks').addEventListener('click', toggleLeaks);
 
   /* the session review: the reel, replayed on the felt       */

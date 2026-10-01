@@ -466,7 +466,16 @@ answers with CORS headers.
   all persisted. The leak drill now seeds its queue from the ledger's
   weakest cells, so "Next hand: <cell> — the shoe deals it to you" is
   a promise kept; insurance misses land in the ledger as "insurance v
-  ace" and replay from the reel like any other miss. **The drill now
+  ace" and replay from the reel like any other miss. **The panel
+  keeps two ledgers, one tab apart**: "this session" ranks the
+  sitting's own miss classes by expected chips lost — every miss
+  (hand and insurance) lands in both maps, the session one wiped by a
+  reload — and totals it ("This sitting: −9 in 1 miss"), while "all
+  time" shows the persistent ledger with its graduation states
+  ("insurance v ace ×4 · −8 · clean 1/3"); the drill's queue stays
+  on the all-time cells. Live: a deliberate stand on 9 v 10 against
+  the book's hit landed as "hard 9 v 10 ×1 · −9" on the session tab
+  while the all-time cell read ×2, the tabs toggling both ways. **The drill now
   graduates its students**: a cell that answers with the book three
   times running retires from the queue — shown muted on the panel with
   its honours ("🎓1 · back in 6") — and returns with spacing for a
