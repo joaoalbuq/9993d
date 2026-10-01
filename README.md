@@ -462,7 +462,15 @@ answers with CORS headers.
   the base the engine evolves from. The ♠ Count pill carries the drill's
   progress onto the main floor — best time ("⚡0.2s") and the live
   streak right beside the counting accuracy, refreshed the moment a
-  run locks in, visible even with counting toggled off.
+  run locks in, visible even with counting toggled off. **The true-count
+  drill** — a second mode beside the pace row: the same flashing stream
+  but a variable slice (15–35 cards of a fresh deck), a live decks-left
+  readout ("0.69 dk left") ticking under the cards, recall of the TRUE
+  count to one decimal (a ±0.1 stepper beside the ±1s), the lock graded
+  on the exact tenth, misses showing the honest division ("RC −1 over
+  0.65 dk"), the adaptive cadence riding both modes, per-mode books
+  (`999.practice.speedtrue`), and the ♠ pill carrying whichever book is
+  active.
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the

@@ -416,8 +416,13 @@
 <div class="drill" id="speedBox" hidden>
   <p class="dq" id="speedTitle">Speed counting</p>
   <div class="speedstage" id="speedStage"></div>
+  <p class="dq" id="speedTrueDk" hidden></p>
   <p class="dverdict" id="speedVerdict"></p>
   <button class="btn" id="speedLock" type="button" hidden>Lock it in</button>
+  <div class="sprow" id="speedModes">
+    <button class="dbtn sp" id="modeRun" type="button" title="Flash cards, recall the running count">Running</button>
+    <button class="dbtn sp" id="modeTrue" type="button" title="Flash cards with a live decks-left readout — recall the TRUE count to one decimal">True</button>
+  </div>
   <div class="sprow" id="speedPaces">
     <button class="dbtn sp" data-pace="0.7" type="button">Slow</button>
     <button class="dbtn sp" data-pace="0.45" type="button">Normal</button>
@@ -1102,9 +1107,11 @@
          and the live streak, so the main floor shows where the
          ⚡ drill stands without opening it                  */
       var sp = '';
-      if (speedScore.runs) {
-        if (speedScore.bestMs) sp += ' \u00b7 \u26a1' + (speedScore.bestMs / 1000).toFixed(1) + 's';
-        sp += ' \u00b7 streak ' + speedScore.streak;
+      var spb = typeof speedStats === 'function' ? speedStats() : speedScore;   /* the
+        active drill's book: the true-count run owns the pill while it's up */
+      if (spb.runs) {
+        if (spb.bestMs) sp += ' \u00b7 \u26a1' + (spb.bestMs / 1000).toFixed(1) + 's';
+        sp += ' \u00b7 streak ' + spb.streak;
       }
       sc.textContent = countingOn
         ? (base + (tcPct == null ? '' : ' \u00b7 TC ' + tcPct + '%') + sp)
@@ -1877,10 +1884,11 @@
      The stream is independent of the table shoe — the session
      meter stays honest and the runs repeat forever. Timing is
      REAL time, outside the round machine's clock.            */
-  var SPEED = { on: false, pace: 0.45, N: 15, stream: [], idx: 0, adapt: true,
+  var SPEED = { on: false, pace: 0.45, N: 15, stream: [], idx: 0, adapt: true, mode: 'run',
                 target: 0, val: 0, recallT0: 0, timer: 0, ticker: 0, phase: 'idle' };
   try { SPEED.pace = parseFloat(localStorage.getItem('999.practice.speed')) || 0.45; } catch (e) { }
   try { SPEED.adapt = localStorage.getItem('999.practice.speedadapt') !== 'off'; } catch (e) { }
+  try { SPEED.mode = localStorage.getItem('999.practice.speedmode') === 'true' ? 'true' : 'run'; } catch (e) { }
   /* the adaptive cadence: a hit tightens the stream by 6% of the
      current pace (never less than 20ms), a miss eases it back by
      12% (never less than 40ms) — the drill finds your edge and
@@ -1896,14 +1904,37 @@
     var sst = JSON.parse(localStorage.getItem('999.practice.speedstats') || 'null');
     if (sst && typeof sst.runs === 'number') speedScore = sst;
   } catch (e) { }
+  /* the true-count drill keeps its own books: the same shape, a
+     second key, so each mode's accuracy and bests stay honest */
+  var speedTrue = { runs: 0, right: 0, bestMs: 0, streak: 0, bestStreak: 0 };
+  try {
+    var sstt = JSON.parse(localStorage.getItem('999.practice.speedtrue') || 'null');
+    if (sstt && typeof sstt.runs === 'number') speedTrue = sstt;
+  } catch (e) { }
+  function speedStats() { return SPEED.mode === 'true' ? speedTrue : speedScore; }
+  function speedMode(m) {
+    if (SPEED.mode === m) return;
+    SPEED.mode = m;
+    try { localStorage.setItem('999.practice.speedmode', m); } catch (e) { }
+    renderSpeed();                  /* the books swap, the buttons follow */
+  }
   function speedTarget(stream) {
     var t = 0;
     for (var i = 0; i < stream.length; i++) t += (HILO[stream[i].rank] || 0);
     return t;
   }
+  /* the true-count stream: a VARIABLE slice of the deck (15-35
+     cards), so the decks-left readout is genuinely decimal and
+     the answer earns its tenth. The deck is the stream's SOURCE
+     of 52: the count rides the cards SEEN, the division by the
+     decks LEFT — the same convention as the session meter.     */
+  function trueTargetFor(rc, dkStr) {
+    return Math.round((rc / parseFloat(dkStr)) * 10) / 10;
+  }
   function saveSpeed() {
-    try {
+      try {
       localStorage.setItem('999.practice.speedstats', JSON.stringify(speedScore));
+      localStorage.setItem('999.practice.speedtrue', JSON.stringify(speedTrue));
       localStorage.setItem('999.practice.speed', String(SPEED.pace));
       localStorage.setItem('999.practice.speedadapt', SPEED.adapt ? 'on' : 'off');
     } catch (e) { }
@@ -1911,23 +1942,31 @@
   function speedIdleStage() {
     document.getElementById('speedStage').innerHTML = '';
     document.getElementById('speedStage').appendChild(cardEl(null, true));
+    var tr = document.getElementById('speedTrueDk');
+    if (tr) tr.hidden = true;
     document.getElementById('speedGo').hidden = false;
-    document.getElementById('speedGo').textContent = speedScore.runs ? 'Go again' : 'Start';
+    document.getElementById('speedGo').textContent = speedStats().runs ? 'Go again' : 'Start';
     document.getElementById('speedLock').hidden = true;
   }
   function renderSpeed() {
+    var mr = document.getElementById('modeRun'), mt = document.getElementById('modeTrue');
+    if (mr) mr.classList.toggle('on', SPEED.mode === 'run');
+    if (mt) mt.classList.toggle('on', SPEED.mode === 'true');
     var paces = document.querySelectorAll('#speedPaces .sp[data-pace]');
     for (var i = 0; i < paces.length; i++) {
       paces[i].classList.toggle('on', parseFloat(paces[i].getAttribute('data-pace')) === SPEED.pace);
     }
     var ab = document.getElementById('speedAdapt');
     if (ab) ab.classList.toggle('on', SPEED.adapt);
+    var stats = speedStats();
     var st = document.getElementById('speedStats');
-    st.textContent = speedScore.runs
-      ? 'runs ' + speedScore.runs + ' \u00b7 ' + speedScore.right + ' right \u00b7 best ' +
-        (speedScore.bestMs / 1000).toFixed(1) + 's \u00b7 streak ' + speedScore.streak +
-        ' (best ' + speedScore.bestStreak + ')'
-      : 'count at table speed \u2014 no marks, just the running count';
+    st.textContent = stats.runs
+      ? 'runs ' + stats.runs + ' \u00b7 ' + stats.right + ' right \u00b7 best ' +
+        (stats.bestMs / 1000).toFixed(1) + 's \u00b7 streak ' + stats.streak +
+        ' (best ' + stats.bestStreak + ')'
+      : (SPEED.mode === 'true'
+          ? 'count the stream, divide by the decks left \u2014 one decimal, under the clock'
+          : 'count at table speed \u2014 no marks, just the running count');
     if (SPEED.adapt) st.textContent += ' \u00b7 pace ' + SPEED.pace.toFixed(2) + 's';
     renderCount();                   /* the pill on the main floor carries
                                         the drill's best time and streak */
@@ -1935,11 +1974,19 @@
   }
   function speedStart() {
     if (SPEED.phase !== 'idle') return;
+    var isTrue = SPEED.mode === 'true';
+    var N = isTrue ? 15 + Math.floor(Math.random() * 21) : SPEED.N;
     var deck = SHOE999.build(1);
     SPEED.stream = [];
-    for (var i = 0; i < SPEED.N; i++) SPEED.stream.push(deck.pop());
-    SPEED.target = speedTarget(SPEED.stream);
+    for (var i = 0; i < N; i++) SPEED.stream.push(deck.pop());
+    SPEED.rc = speedTarget(SPEED.stream);
+    SPEED.dkStr = isTrue ? ((52 - N) / 52).toFixed(2) : null;
+    SPEED.target = isTrue ? trueTargetFor(SPEED.rc, SPEED.dkStr) : SPEED.rc;
     SPEED.idx = 0; SPEED.val = 0; SPEED.phase = 'flash';
+    if (isTrue) {
+      var tr = document.getElementById('speedTrueDk');
+      if (tr) { tr.hidden = false; tr.textContent = '1.00 dk left'; }
+    }
     document.getElementById('speedVerdict').textContent = '';
     document.getElementById('speedVerdict').className = 'dverdict';
     document.getElementById('speedGo').hidden = true;
@@ -1947,26 +1994,49 @@
   }
   function speedFlash() {
     if (SPEED.phase !== 'flash') return;
-    if (SPEED.idx >= SPEED.N) { speedRecall(); return; }
+    var sN = SPEED.stream.length;
+    if (SPEED.idx >= sN) { speedRecall(); return; }
     document.getElementById('speedTitle').textContent =
-      'Card ' + (SPEED.idx + 1) + ' of ' + SPEED.N + ' \u2014 keep the count';
+      'Card ' + (SPEED.idx + 1) + ' of ' + sN + ' \u2014 keep the count';
     var stage = document.getElementById('speedStage');
     stage.innerHTML = '';
     stage.appendChild(cardEl(SPEED.stream[SPEED.idx]));
     SPEED.idx++;
+    /* the true-count run keeps the tray honest: the readout counts
+       the decks LEFT of the 52-card deck — after this card, the
+       number the running count divides by at the end */
+    if (SPEED.mode === 'true') {
+      var tRead = document.getElementById('speedTrueDk');
+      if (tRead) tRead.textContent = ((52 - SPEED.idx) / 52).toFixed(2) + ' dk left';
+    }
     SPEED.timer = setTimeout(speedFlash, SPEED.pace * 1000);   /* REAL time, not the round clock */
   }
   function speedRecall() {
     SPEED.phase = 'recall';
     SPEED.recallT0 = Date.now();
     var stage = document.getElementById('speedStage');
-    stage.innerHTML = '<div class="stepper"><button class="dbtn" id="speedMinus" type="button">&minus;</button>' +
-      '<span class="dval" id="speedVal">0</span>' +
-      '<button class="dbtn" id="speedPlus" type="button">+</button></div>' +
-      '<p class="dq" id="speedClock">0.0s</p>';
+    if (SPEED.mode === 'true') {
+      stage.innerHTML = '<div class="stepper"><button class="dbtn" id="speedMinus" type="button">&minus;</button>' +
+        '<span class="dval" id="speedVal">0.0</span>' +
+        '<button class="dbtn" id="speedPlus" type="button">+</button></div>' +
+        '<p class="sprow"><button class="dbtn" id="speedHalf" type="button">&minus;.1</button>' +
+        '<button class="dbtn" id="speedHalfUp" type="button">+.1</button></p>' +
+        '<p class="dq" id="speedClock">0.0s</p>';
+    } else {
+      stage.innerHTML = '<div class="stepper"><button class="dbtn" id="speedMinus" type="button">&minus;</button>' +
+        '<span class="dval" id="speedVal">0</span>' +
+        '<button class="dbtn" id="speedPlus" type="button">+</button></div>' +
+        '<p class="dq" id="speedClock">0.0s</p>';
+    }
     document.getElementById('speedTitle').textContent = 'Lock the count';
+    if (SPEED.mode === 'true') document.getElementById('speedTitle').textContent =
+      'Lock the true count \u2014 RC \u00f7 ' + SPEED.dkStr + ' dk';
     document.getElementById('speedMinus').addEventListener('click', function () { speedStep(-1); });
     document.getElementById('speedPlus').addEventListener('click', function () { speedStep(1); });
+    if (SPEED.mode === 'true') {
+      document.getElementById('speedHalf').addEventListener('click', function () { speedStep(-0.1); });
+      document.getElementById('speedHalfUp').addEventListener('click', function () { speedStep(0.1); });
+    }
     document.getElementById('speedLock').hidden = false;   /* the clock is running */
     SPEED.ticker = setInterval(function () {
       var el = document.getElementById('speedClock');
@@ -1975,22 +2045,25 @@
   }
   function speedStep(d) {
     if (SPEED.phase !== 'recall') return;
-    SPEED.val += d;
-    document.getElementById('speedVal').textContent = fmtCount(SPEED.val);
+    SPEED.val = Math.round((SPEED.val + d) * 10) / 10;
+    document.getElementById('speedVal').textContent =
+      SPEED.mode === 'true' ? fmtCount(SPEED.val) : fmtCount(Math.round(SPEED.val));
   }
   function speedLock() {
     if (SPEED.phase !== 'recall') return;
     clearInterval(SPEED.ticker);
     var ms = Date.now() - SPEED.recallT0;
     var ok = SPEED.val === SPEED.target;
-    speedScore.runs++;
+    var stats = speedStats();
+    var isTrue = SPEED.mode === 'true';
+    stats.runs++;
     var isBest = false;
     if (ok) {
-      speedScore.right++;
-      speedScore.streak++;
-      if (speedScore.streak > speedScore.bestStreak) speedScore.bestStreak = speedScore.streak;
-      if (!speedScore.bestMs || ms < speedScore.bestMs) { speedScore.bestMs = ms; isBest = true; }
-    } else speedScore.streak = 0;
+      stats.right++;
+      stats.streak++;
+      if (stats.streak > stats.bestStreak) stats.bestStreak = stats.streak;
+      if (!stats.bestMs || ms < stats.bestMs) { stats.bestMs = ms; isBest = true; }
+    } else stats.streak = 0;
     /* the cadence learns between runs, never mid-stream: a hit
        tightens the next run, a miss eases it — and the verdict
        says which way the drill moved                      */
@@ -2009,6 +2082,10 @@
     v.textContent = ok
       ? '\u2713 ' + fmtCount(SPEED.target) + ' \u00b7 ' + (ms / 1000).toFixed(1) + 's' + (isBest ? ' \u2014 best!' : '') + cadence
       : 'It was ' + fmtCount(SPEED.target) + ' \u2014 you said ' + fmtCount(SPEED.val) + ' \u00b7 ' + (ms / 1000).toFixed(1) + 's' + cadence;
+    if (isTrue) {
+      v.textContent += ok ? '' : ' \u00b7 RC ' + fmtCount(SPEED.rc) +
+        ' over ' + SPEED.dkStr + ' dk';
+    }
     coachCue(ok);
     SPEED.phase = 'idle';
     speedIdleStage();
@@ -2032,6 +2109,8 @@
   document.getElementById('speedGo').addEventListener('click', speedStart);
   document.getElementById('speedBack').addEventListener('click', speedClose);
   document.getElementById('speedLock').addEventListener('click', speedLock);
+  document.getElementById('modeRun').addEventListener('click', function () { speedMode('run'); });
+  document.getElementById('modeTrue').addEventListener('click', function () { speedMode('true'); });
   (function () {
     var paces = document.querySelectorAll('#speedPaces .sp[data-pace]');
     for (var i = 0; i < paces.length; i++) {
