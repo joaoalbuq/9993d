@@ -293,7 +293,10 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   upcard; a spent shoe earns a fresh shuffle) so "hard 16 v 10" returns
   whole, not something like it. The panel's two tabs compare this sitting
   against the whole ledger — a ▲ marks any class bleeding worse than its
-  own history, and each sitting row carries a one-tap drill-now hand-off. With an empty ledger it teaches the
+  own history, and each sitting row carries a one-tap drill-now hand-off.
+  A class's FIRST miss of the sitting opens the panel by itself, ranked
+  on the session tab — a leak you didn't know you make is seen, not
+  hunted for. With an empty ledger it teaches the
   classic — hard 16 v 10, the costliest stand in the book. The **⏪
   Review** mode goes deeper: the last misses are kept as they HAPPENED
   (cards and suits, the click, the book's answer, the price) and replayed
@@ -572,7 +575,13 @@ answers with CORS headers.
   16 v 10 — place any bet, the shoe stacks it"). Live: a stand-then-double
   on the drilled 16 v 10 (−0.3, then −288) flagged "×2 · −288 · ▲144 a
   miss v 25 all time", the tap announcing the hand-off before the next
-  stacked deal. **The drill now
+  stacked deal. **The panel opens itself on a new class**: the first miss
+  of a class this sitting — hand or insurance — flips the 🩹 pill on and
+  swings the panel to the session tab mid-hand, ranked and tap-ready,
+  without clobbering the hand's status; an open panel re-ranks instead,
+  and the review reel keeps its box. Live: a hit against the book's
+  Stand on 16 v 6 opened the panel on the spot with "hard 16 v 6 ×1 ·
+  −139" ranked first. **The drill now
   graduates its students**: a cell that answers with the book three
   times running retires from the queue — shown muted on the panel with
   its honours ("🎓1 · back in 6") — and returns with spacing for a

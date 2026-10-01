@@ -713,9 +713,11 @@
      start every sitting.                                  */
   var sessionLeaks = {};
   function sessionMiss(cell, cost) {
-    if (!sessionLeaks[cell]) sessionLeaks[cell] = { n: 0, cost: 0 };
+    var fresh = !sessionLeaks[cell];       /* a class's first miss this sitting */
+    if (fresh) sessionLeaks[cell] = { n: 0, cost: 0 };
     sessionLeaks[cell].n++;
     sessionLeaks[cell].cost += cost;
+    return fresh;
   }
   function rankCells(map) {
     var arr = [], k;
@@ -1015,7 +1017,8 @@
         var lb = document.getElementById('btnLeaks');
         if (lb) lb.hidden = false;
         gradMiss(lastCell);                  /* the miss undoes any graduation */
-        sessionMiss(lastCell, cost);         /* and lands in this sitting's own ledger */
+        /* a FIRST miss of its class opens the panel itself */
+        if (sessionMiss(lastCell, cost)) leakAutoOpen();
       }
       var entry = {                      /* ...and the replay reel keeps the hand */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
@@ -1291,6 +1294,25 @@
     var b = document.getElementById('btnIndex');
     if (b) b.classList.toggle('on', indexMode);
     if (phase === 'betting') setStatus(indexMode ? 'The count\u2019s plays \u2014 the sheet the coach marks by' : 'Place your bet');
+  }
+  /* the panel opens itself the moment a NEW class first lands
+     in this sitting's ledger: a miss you didn't know you make
+     should be seen ranked, not hunted for. The review reel
+     keeps the box mid-replay; an open panel swings to the
+     session tab and re-ranks, so a climbing class is current. */
+  function leakAutoOpen() {
+    if (reviewMode) return;                /* the reel owns the box during a replay */
+    if (leakMode) {
+      if (leakView !== 'session') leakView = 'session';
+      renderLeaks();
+      return;
+    }
+    leakMode = true;
+    leakView = 'session';
+    renderCoach();
+    renderLeaks();
+    if (!leakQueue.length) refillQueue();  /* the drill arms quietly behind the panel */
+    if (phase === 'betting' && !bet) setStatus('Leak drilling \u2014 your worst cells, dealt on purpose');
   }
   function toggleLeaks() {
     leakMode = !leakMode;
@@ -2125,7 +2147,7 @@
       var lb = document.getElementById('btnLeaks');
       if (lb) lb.hidden = false;
       gradMiss('insurance v ace');           /* the miss undoes any graduation */
-      sessionMiss('insurance v ace', cost);  /* and lands in this sitting's own ledger */
+      if (sessionMiss('insurance v ace', cost)) leakAutoOpen();   /* a first of its class opens the panel */
       replay.push({                    /* the reel keeps it like any other miss */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
         up: 'A', us: dealerArr[0].suit,

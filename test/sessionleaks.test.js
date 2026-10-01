@@ -9,7 +9,8 @@
    the all-time one — \u25B2 marks a class bleeding more per
    miss than its own history — and every session row carries a
    one-tap drill-now hand-off that forces the cell past the
-   all-time queue.                                             */
+   all-time queue. A class's FIRST miss of the sitting opens
+   the panel on the session tab by itself.                     */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -42,18 +43,69 @@ if (ranked.map(c => c.cell).join('|') !== 'hard 16 v 10|soft 13 v Q|hard 12 v 2'
   throw new Error('costliest first: ' + JSON.stringify(ranked));
 console.log('rankCells: costliest first, junk dropped \u2014 16 v 10 (\u221250) over 13 v Q (\u221230) over 12 v 2 (\u221210)');
 
-/* --- sessionMiss: the sitting's own accumulator --- */
+/* --- sessionMiss: the sitting's own accumulator, and it says
+       when a class is NEW (the panel auto-opens on that) --- */
 const sessionLeaks = {};
 const sessionMiss = extract('sessionMiss', 'sessionLeaks')(sessionLeaks);
-sessionMiss('hard 16 v 10', 25);
-sessionMiss('hard 16 v 10', 25.5);
-sessionMiss('hard 12 v 2', 2.6);
+if (sessionMiss('hard 16 v 10', 25) !== true) throw new Error('a first miss must read as a new class');
+if (sessionMiss('hard 16 v 10', 25.5) !== false) throw new Error('a repeat miss is not new');
+if (sessionMiss('hard 12 v 2', 2.6) !== true) throw new Error('a different cell is new again');
 if (sessionLeaks['hard 16 v 10'].n !== 2 || Math.abs(sessionLeaks['hard 16 v 10'].cost - 50.5) > 1e-9)
   throw new Error('per-cell accumulation: ' + JSON.stringify(sessionLeaks));
 if (sessionLeaks['hard 12 v 2'].n !== 1) throw new Error('cells stay isolated');
 const r2 = rankCells(sessionLeaks);
 if (r2[0].cell !== 'hard 16 v 10' || r2[0].n !== 2) throw new Error('the session map ranks');
 console.log('sessionMiss: \u00d72 \u221250.5 in one cell, \u00d71 \u22122.6 in another \u2014 reloaded away each visit');
+console.log('sessionMiss: a class\u2019s first miss reads as new \u2014 the panel opens on it');
+
+/* --- leakAutoOpen: a first-of-its-class miss opens the panel --- */
+const aGrab = grab('  function leakAutoOpen(', '\n  }');
+function autoRun(o) {
+  const said = [];
+  const marks = { renders: 0, coach: 0, refills: 0 };
+  const leakQueue = o.queue || [];
+  const peek = new Function('reviewMode', 'leakMode', 'leakView', 'leakQueue', 'phase', 'bet',
+    'renderCoach', 'renderLeaks', 'refillQueue', 'setStatus',
+    aGrab + '\nreturn function () { leakAutoOpen();' +
+      ' return { mode: leakMode, view: leakView, review: reviewMode }; };')(
+    !!o.review, !!o.leakMode, o.view || 'session', leakQueue,
+    o.phase || 'acting', o.bet == null ? 1 : o.bet,
+    function () { marks.coach++; },
+    function () { marks.renders++; },
+    function () { marks.refills++; leakQueue.push('refilled-from-all-time'); },
+    function (s) { said.push(s); });
+  const out = peek();
+  return { out: out, said: said, marks: marks, queue: leakQueue };
+}
+
+let a = autoRun({ phase: 'betting', bet: 0 });
+if (!a.out.mode || a.out.view !== 'session' || a.out.review)
+  throw new Error('a brand-new class must open the panel on the session tab: ' + JSON.stringify(a.out));
+if (a.marks.refills !== 1) throw new Error('the auto-open must arm the all-time queue');
+if (a.said.length !== 1 || !/Leak drilling/.test(a.said[0]))
+  throw new Error('the auto-open must announce itself between hands: ' + JSON.stringify(a.said));
+console.log('leakAutoOpen: a new class opens the panel \u2014 session tab, drill armed, announced');
+
+a = autoRun({ phase: 'acting' });
+if (!a.out.mode || a.out.view !== 'session') throw new Error('a mid-hand first must still open the panel');
+if (a.said.length) throw new Error('mid-hand the status is the hand\u2019s \u2014 no clobbering');
+console.log('leakAutoOpen: mid-hand it opens silently, the hand\u2019s status stands');
+
+a = autoRun({ leakMode: true, view: 'all' });
+if (a.out.view !== 'session' || !a.out.mode) throw new Error('an open panel must swing to the session tab');
+if (a.marks.renders !== 1) throw new Error('the swing must re-rank');
+if (a.marks.refills) throw new Error('an open panel needs no re-arming');
+console.log('leakAutoOpen: an open panel swings to the session ranking and re-ranks');
+
+a = autoRun({ leakMode: true, view: 'session' });
+if (a.marks.renders !== 1 || a.said.length)
+  throw new Error('already on the session tab: just re-rank, quietly');
+console.log('leakAutoOpen: already on the session tab \u2014 a fresh rank, no fuss');
+
+a = autoRun({ review: true });
+if (!a.out.review || a.out.mode) throw new Error('a replay owns the box \u2014 the reel must not be yanked');
+if (a.marks.renders || a.said.length) throw new Error('review mode: the auto-open stands down entirely');
+console.log('leakAutoOpen: review mode keeps its reel');
 
 /* --- wiring: every miss lands twice, the tabs re-render --- */
 const verdict = grab('  function coachVerdict(choice) {', 'var entry = {');
@@ -176,5 +228,16 @@ if (!/\\u25B2 = bleeding more per miss than its own history/.test(src))
 if (!/tap a row to drill it now \\u2014 the all-time queue waits\./.test(src))
   throw new Error('the footer must name the hand-off');
 console.log('wiring: rows flag drift, session rows tap to drill, the footer explains both');
+
+/* --- wiring: a class's first miss opens the panel by itself --- */
+if (!/var fresh = !sessionLeaks\[cell\];/.test(src) || !/return fresh;/.test(src))
+  throw new Error('sessionMiss must report a class\u2019s first appearance');
+if (!/if \(sessionMiss\(lastCell, cost\)\) leakAutoOpen\(\);/.test(src))
+  throw new Error('a first-of-its-class hand miss must open the panel');
+if (!/if \(sessionMiss\('insurance v ace', cost\)\) leakAutoOpen\(\);/.test(src))
+  throw new Error('a first insurance miss must open the panel too');
+if (!/if \(reviewMode\) return;/.test(grab('  function leakAutoOpen(', '\n  }')))
+  throw new Error('the auto-open must stand down while the replay reel owns the box');
+console.log('wiring: a class\u2019s first miss \u2014 hand or insurance \u2014 opens the panel on its own');
 
 console.log('\nsession leaks verified');
