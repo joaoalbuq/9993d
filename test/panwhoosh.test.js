@@ -45,12 +45,19 @@ console.log('off-frame: the felt\u2019s own geometry carries the pan until the c
 const cwFull = grab('  function cardWhoosh(', '\n  }');
 const cwBody = cwFull.slice(cwFull.indexOf('{') + 1, cwFull.lastIndexOf('}'));
 function mockCtx(withPanner) {
-  const rec = { panSets: [], panRamps: [] };
+  const rec = { panSets: [], panRamps: [], retSets: [], retRamps: [], retTargets: [] };
   function param(tag) {
     return {
       value: 0,
-      setValueAtTime(v, t) { if (tag === 'pan') rec.panSets.push([v, t]); },
-      linearRampToValueAtTime(v, t) { if (tag === 'pan') rec.panRamps.push([v, t]); },
+      setValueAtTime(v, t) {
+        if (tag === 'pan') rec.panSets.push([v, t]);
+        if (tag === 'retpan') rec.retSets.push([v, t]);
+      },
+      linearRampToValueAtTime(v, t) {
+        if (tag === 'pan') rec.panRamps.push([v, t]);
+        if (tag === 'retpan') rec.retRamps.push([v, t]);
+      },
+      setTargetAtTime(v, t, tc) { if (tag === 'retpan') rec.retTargets.push([v, t, tc]); },
       exponentialRampToValueAtTime() {}
     };
   }
@@ -63,14 +70,26 @@ function mockCtx(withPanner) {
     createBiquadFilter: () => node('filter'),
     createGain: () => node('gain')
   };
-  if (withPanner) c.createStereoPanner = () => node('pan');
+  if (withPanner) {
+    let first = true;
+    c.createStereoPanner = () => node(first ? 'pan' : (first = false, 'retpan'));
+  }
   return { c, rec };
 }
 function makeWhoosh(withPanner) {
   const m = mockCtx(withPanner);
-  const whoosh = new Function('ready', 'noise', 'master', 'clamp', 'lerp', 'toRoom', 'WHOOSH_ROOM',
+  const whoosh = new Function('ready', 'noise', 'master', 'clamp', 'lerp', 'toRoom', 'WHOOSH_ROOM', 'wetPan', 'wet',
     'return function cardWhoosh(' + cwFull.slice(cwFull.indexOf('(') + 1, cwFull.indexOf(')')) + ') {' + cwBody + '}')(
-    () => m.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, (a, b, t) => a + (b - a) * t, () => {}, 1.5);
+    () => m.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, (a, b, t) => a + (b - a) * t, () => {}, 1.5,
+    m.c.createStereoPanner ? { pan: param2() } : null, { hold: 0 });
+  function param2() {
+    return {
+      value: 0,
+      setValueAtTime(v, t) { m.rec.retSets.push([v, t]); },
+      linearRampToValueAtTime(v, t) { m.rec.retRamps.push([v, t]); },
+      setTargetAtTime(v, t, tc) { m.rec.retTargets.push([v, t, tc]); }
+    };
+  }
   return { whoosh, rec: m.rec };
 }
 
@@ -112,6 +131,37 @@ if (!/if \(pan != null && c\.createStereoPanner\) \{/.test(src))
 if (!cwFull.includes('toRoom(p, WHOOSH_ROOM);') || !cwFull.includes('toRoom(g, WHOOSH_ROOM);'))
   throw new Error('the whoosh must swim after its pan \u2014 the reflections keep the direction');
 console.log('wiring: both deal paths pan shoe \u2192 box, gated on the API, the room seated after the pan');
+
+/* --- the far wall: the return leans opposite the flying card --- */
+const w4 = makeWhoosh(true);
+w4.whoosh(0, 0.43, 3.1, 0.6, -0.5);
+if (w4.rec.retSets.length !== 1 || Math.abs(w4.rec.retSets[0][0] - 0.175) > 1e-9 || w4.rec.retSets[0][1] !== 10)
+  throw new Error('the return must open opposite the shoe seat (\u2212\u00d70.35): ' + JSON.stringify(w4.rec.retSets));
+if (w4.rec.retRamps.length !== 1 || Math.abs(w4.rec.retRamps[0][0] - (-0.21)) > 1e-9 || w4.rec.retRamps[0][1] !== 10.43)
+  throw new Error('the return must land opposite the box seat when the flight ends: ' + JSON.stringify(w4.rec.retRamps));
+if (w4.rec.retTargets.length !== 1 || w4.rec.retTargets[0][0] !== 0 || w4.rec.retTargets[0][1] !== 10.43 || w4.rec.retTargets[0][2] !== 0.25)
+  throw new Error('the walls must re-center a beat after the landing');
+if (w4.rec.retRamps[0][0] > 0) throw new Error('a card flying right must find its room on the left');
+console.log('the far wall: return \u22120.5\u00d70.35 \u2192 \u22120.6\u00d70.35 across the flight, re-centered 0.25s after the landing');
+
+/* --- one flyer owns the walls; a straggler doesn't yank them --- */
+const w5 = makeWhoosh(true);
+w5.whoosh(0, 0.43, 3.1, 0.6, -0.5);            /* the flight claims the walls           */
+const mid = w5.rec.retSets.length;
+w5.whoosh(0.2, 0.43, 3.1, 0.6, -0.5);          /* a straggler tapped mid-hold: no yank  */
+if (w5.rec.retSets.length !== mid || w5.rec.retRamps.length !== 1)
+  throw new Error('a straggler mid-hold must not move the walls');
+w5.whoosh(2.0, 0.43, 3.1, 0.6, -0.5);          /* after the hold the walls free up again */
+if (w5.rec.retSets.length !== mid + 1)
+  throw new Error('the next flight after the hold must own the walls again');
+console.log('one flyer: the walls hold through the flight + 0.75s, then hand over');
+
+/* --- a missing return panner leaves the reflections centered --- */
+const w6 = makeWhoosh(false);
+w6.whoosh(0, 0.43, 3.1, 0.6, -0.5);
+if (w6.rec.retSets.length || w6.rec.retRamps.length)
+  throw new Error('without a return panner nothing may try to lean the walls');
+console.log('no return panner: the reflections stay centered \u2014 graceful, not broken');
 
 /* --- the payout walk crosses the channels the way the deal does --- */
 const cfFull = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');

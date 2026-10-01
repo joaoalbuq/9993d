@@ -2313,7 +2313,8 @@
      lands it — impact, then sound. A push is silent apart from its returning chips.   */
   var audioOn = true;
   try { audioOn = localStorage.getItem('999.table.audio') !== 'off'; } catch (e) { }
-  var actx = null, master = null, noiseBuf = null, reverbBus = null, wetA = null, wetB = null;
+  var actx = null, master = null, noiseBuf = null, reverbBus = null, wetA = null, wetB = null, wetPan = null;
+  var wet = { hold: 0 };               /* one flyer owns the walls at a time */
   function roomIR(c, big) {
     /* the room, synthesized - no samples, no downloads: a dozen
        milliseconds of air, then the first reflections off the
@@ -2374,8 +2375,17 @@
         wetA.gain.value = cineOn ? 0 : 1;    /* a page born in cinema wakes in the hall */
         wetB = actx.createGain();
         wetB.gain.value = cineOn ? 1 : 0;
-        convFelt.connect(wetA); wetA.connect(actx.destination);
-        convHall.connect(wetB); wetB.connect(actx.destination);
+        convFelt.connect(wetA); convHall.connect(wetB);
+        /* the return itself leans: while a card flies, the walls
+           answer subtly OPPOSITE its seat - the far wall speaking
+           back - then the room re-centers when the card lands  */
+        if (actx.createStereoPanner) {
+          wetPan = actx.createStereoPanner();
+          wetA.connect(wetPan); wetB.connect(wetPan);
+          wetPan.connect(actx.destination);
+        } else {
+          wetA.connect(actx.destination); wetB.connect(actx.destination);
+        }
       }
       if (actx.state !== 'running') {
         var r = actx.resume();
@@ -2500,6 +2510,17 @@
       p.pan.setValueAtTime(clamp(panFrom == null ? pan : panFrom, -1, 1), t);
       if (panFrom != null) p.pan.linearRampToValueAtTime(clamp(pan, -1, 1), t + D);
       g.connect(p); p.connect(master); toRoom(p, WHOOSH_ROOM);   /* the send sits after the pan */
+      if (wetPan && wet.hold <= t) {
+        /* the far wall: the return leans subtly OPPOSITE the flyer -
+           0.35 of its seat, ramping across the flight, re-centered
+           a beat after it lands. One flyer owns the walls; a
+           straggler tapped mid-flight doesn't yank them        */
+        var s0 = clamp(panFrom == null ? pan : panFrom, -1, 1);
+        wetPan.pan.setValueAtTime(clamp(-s0 * 0.35, -1, 1), t);
+        wetPan.pan.linearRampToValueAtTime(clamp(-pan * 0.35, -1, 1), t + D);
+        wetPan.pan.setTargetAtTime(0, t + D, 0.25);
+        wet.hold = t + D + 0.75;
+      }
     } else {
       g.connect(master); toRoom(g, WHOOSH_ROOM);     /* no panning API: the whoosh stays centered */
     }

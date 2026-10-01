@@ -131,7 +131,12 @@ are additive screens kept beside it for side-by-side comparison.
   pre-delay, reflections pushed wider, the same 0.35 loudness —
   bigger, not louder), crossfaded over ~0.75s so the walls move back
   with the stretched flights and never click; a page born in cinema
-  wakes in the hall. **The payout walk speaks the cards' model too**:
+  wakes in the hall. **The walls answer from the far side**: while a
+  card flies, the reverb return itself leans subtly opposite its seat
+  (−0.35×, ramping across the flight) and re-centers a beat after it
+  lands — the far wall speaking back — and one flyer owns the walls
+  at a time, so a straggler mid-flight never yanks them. **The payout
+  walk speaks the cards' model too**:
   every clack measures its chips' tray-to-box flight — the tray sits
   left of center, so the ladder runs bright at the center seat to the
   1.75kHz floor at the far rail, deeper and quieter with every unit of

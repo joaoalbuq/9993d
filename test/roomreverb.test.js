@@ -84,8 +84,8 @@ if (hd < 40) throw new Error('the hall must be a stereo room too');
 console.log('the hall: ' + (hall.length / SR).toFixed(2) + 's of air against the felt\u2019s ' + (buf.length / SR).toFixed(2) + 's \u2014 same loudness, decorrelated, breathing with the stretched flights');
 
 /* --- the wiring: a send off the mix into a convolver, straight out --- */
-if (!/var actx = null, master = null, noiseBuf = null, reverbBus = null, wetA = null, wetB = null;/.test(src))
-  throw new Error('the two rooms must live beside the bus');
+if (!/var actx = null, master = null, noiseBuf = null, reverbBus = null, wetA = null, wetB = null, wetPan = null;/.test(src))
+  throw new Error('the two rooms and their shared return must live beside the bus');
 const chain = grab('        reverbBus = actx.createGain();', 'wetB.connect(actx.destination);');
 if (!/convFelt\.buffer = roomIR\(actx\);/.test(chain)) throw new Error('the felt convolver must carry the synthesized room');
 if (!/convHall\.buffer = roomIR\(actx, true\);/.test(chain)) throw new Error('the hall convolver must carry the second character');
@@ -94,6 +94,11 @@ if (!/reverbBus\.connect\(convFelt\);/.test(chain) || !/reverbBus\.connect\(conv
 if (!/reverbBus\.gain\.value = 0\.35;/.test(chain)) throw new Error('the bus trims the shared share at 0.35 — under the deal, never over it');
 if (!/wetA\.gain\.value = cineOn \? 0 : 1;/.test(chain) || !/wetB\.gain\.value = cineOn \? 1 : 0;/.test(chain))
   throw new Error('a page born in cinema must wake in the hall');
+if (!/convFelt\.connect\(wetA\); convHall\.connect\(wetB\);/.test(chain) ||
+    !/wetA\.connect\(wetPan\); wetB\.connect\(wetPan\);/.test(chain))
+  throw new Error('the shared return must hang past both rooms\u2019 crossfade gains');
+if (!/else \{\s*\n\s*wetA\.connect\(actx\.destination\); wetB\.connect\(actx\.destination\);/.test(chain))
+  throw new Error('a missing panner API must leave the return centered, not broken');
 if (/master\.connect\(reverbBus\)/.test(src))
   throw new Error('the send must come from the voices — a mix-bus send would double every room');
 console.log('wiring: voices → their own send → bus 0.35 → two rooms crossfaded → destination — no mix-bus double-send');
@@ -103,6 +108,16 @@ if (!/wetA\.gain\.setTargetAtTime\(on \? 0 : 1, actx\.currentTime, 0\.25\);/.tes
     !/wetB\.gain\.setTargetAtTime\(on \? 1 : 0, actx\.currentTime, 0\.25\);/.test(src))
   throw new Error('the cinema toggle must crossfade the two rooms');
 console.log('the toggle: the wet path slides felt \u2194 hall over ~0.75s while the flights stretch');
+
+/* --- the far wall: the return leans opposite the flying card --- */
+if (!/wetPan\.pan\.setValueAtTime\(clamp\(-s0 \* 0\.35, -1, 1\), t\);/.test(src) ||
+    !/wetPan\.pan\.linearRampToValueAtTime\(clamp\(-pan \* 0\.35, -1, 1\), t \+ D\);/.test(src))
+  throw new Error('the return must lean subtly opposite the flyer\u2019s seat, ramping across the flight');
+if (!/wetPan\.pan\.setTargetAtTime\(0, t \+ D, 0\.25\);/.test(src))
+  throw new Error('the walls must re-center after the card lands');
+if (!/if \(wetPan && wet\.hold <= t\) \{/.test(src) || !/wet\.hold = t \+ D \+ 0\.75;/.test(src))
+  throw new Error('one flyer must own the walls \u2014 a straggler mid-flight must not yank them');
+console.log('the far wall: the return leans \u22120.35\u00d7 the flyer\u2019s seat across the flight, re-centers a beat after it lands, one flyer at a time');
 
 /* --- the room answers the mute too --- */
 if (!/reverbBus\.gain\.value = audioOn \? 0\.35 : 0;/.test(src))
