@@ -79,4 +79,46 @@ try {
 if (!refused) throw new Error('soft 12 should be excluded from the drill taxonomy');
 console.log('soft 12 (A+A pair): correctly refused by the taxonomy');
 
+/* --- the review reel's stacker: a stored hole card must come off
+   the top at the dealer's turn, after the player's two and the
+   upcard — the replay plays the EXACT dealer hand. Entries
+   without a stored hole (pre-hole-card saves) keep the old
+   3-card behavior. Extracted from reviewDeal's findAndStack.  */
+const rdStart = src.indexOf('function reviewDeal() {');
+const rdEnd = src.indexOf('\n  }', src.indexOf('if (!findAndStack()) { buildShoe(); findAndStack(); }', rdStart)) + 4;
+if (rdStart < 0 || rdEnd < 0) throw new Error('reviewDeal not found');
+const rdSrc = src.slice(rdStart, rdEnd);
+if (rdSrc.split('{').length !== rdSrc.split('}').length) throw new Error('reviewDeal extraction unbalanced');
+
+function reviewFactory(entry) {
+  buildShoe();
+  const deal = new Function('reviewMode', 'replay', 'reviewIdx', 'shoeArr', 'r', 'buildShoe',
+    rdSrc.replace('function reviewDeal() {', 'function reviewDeal() {') +
+    '\nreturn reviewDeal;');
+  return deal(true, [entry], 0, shoeArr, entry, buildShoe);
+}
+
+/* an entry WITH a stored hole: pop order must be first, up, second, hole */
+const withHole = { yc: ['6', '10'], ys: [0, 1], up: '10', us: 2, hole: '9', holes: 3 };
+{
+  buildShoe();
+  const d = reviewFactory(withHole);
+  d();
+  const p1 = shoeArr.pop(), up = shoeArr.pop(), p2 = shoeArr.pop(), hole = shoeArr.pop();
+  if (p1.rank !== '6' || p2.rank !== '10' || up.rank !== '10' || up.suit !== 2) throw new Error('review stack (hole): ' + [p1.rank, up.rank, p2.rank].join(','));
+  if (hole.rank !== '9') throw new Error('hole card must be next off the shoe: got ' + hole.rank);
+  console.log('review stacker: stored hole card rides fourth — first, up, second, hole');
+}
+
+/* an entry WITHOUT a stored hole: the classic 3-card stack, no fourth pop owed */
+const noHole = { yc: ['8', '8'], ys: [0, 1], up: '6', us: 2 };
+{
+  buildShoe();
+  const d = reviewFactory(noHole);
+  d();
+  const p1 = shoeArr.pop(), up = shoeArr.pop(), p2 = shoeArr.pop();
+  if (p1.rank !== '8' || p2.rank !== '8' || up.rank !== '6' || up.suit !== 2) throw new Error('review stack (no hole): ' + [p1.rank, up.rank, p2.rank].join(','));
+  console.log('review stacker: hole-less entries replay as before — nothing extra owed');
+}
+
 console.log('\nleak drill: every forced deal lands in its target cell');

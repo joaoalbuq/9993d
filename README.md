@@ -491,7 +491,12 @@ answers with CORS headers.
   the settle line ("the spread wanted 4 units (true +5): −0.5
   unplayed") and accumulated into the ♠ pill's betting hint as a
   Spread % and a −unplayed total (`999.practice.spread`). Over-betting
-  is never punished; flat shoes cost nothing.
+  is never punished; flat shoes cost nothing. **The replay reel keeps the
+  dealer's hole card**: the European deal holds it in the shoe through
+  the player's decision, so each stored miss is back-filled at settle
+  with the card the dealer actually held, and the review stacks it
+  fourth — first, up, second, hole — replaying the EXACT dealer hand
+  you misplayed against (hole-less legacy entries replay as before).
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the
