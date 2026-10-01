@@ -859,6 +859,16 @@
      so the two always reconcile over the hands the engine
      can see.                                               */
   var evSession = { rounds: 0, ev: 0, felt: 0, sd2: 0 };
+  try {
+    var evRaw = JSON.parse(localStorage.getItem('999.practice.evsession') || 'null');
+    if (evRaw && typeof evRaw.rounds === 'number' && typeof evRaw.ev === 'number' &&
+        typeof evRaw.felt === 'number' && typeof evRaw.sd2 === 'number') {
+      evSession = evRaw;     /* the reconciliation survives reloads, like the reel */
+    }
+  } catch (e) { }
+  function saveEv() {
+    try { localStorage.setItem('999.practice.evsession', JSON.stringify(evSession)); } catch (e) { }
+  }
   var HAND_SD = 1.15;        /* a blackjack hand's spread, in betting units — the
                                 engine prices the mean; this is how wide it sits */
   var evRound = false;       /* this round counts (not a review replay) */
@@ -2431,6 +2441,7 @@
       evSession.felt += st.net + insWin - insStake;
       evSession.sd2 += Math.pow(HAND_SD * (doubled ? 2 * bet : bet), 2);   /* the round's own
                                 width — a double rides twice the stake, twice the spread */
+      saveEv();
       renderEvStrip();
       renderCoach();                   /* the pill's luck reads the same commit */
     }
@@ -2993,6 +3004,7 @@
   syncUI();
   renderCoach();
   renderCount();
+  renderEvStrip();                 /* the restored book draws at boot, beside the pill */
   setStatus('Place your bet');
   probe();
 })();

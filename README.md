@@ -665,7 +665,9 @@ answers with CORS headers.
   −27.0 engine · −75 felt · −48.0 luck · 2 rounds", the gap being the
   luck the shoe dealt. Naturals (no decision to price) stay out of
   both sides, so the two always reconcile over the hands the engine
-  can see; the book is per-session — a reload starts a new one. **The
+  can see; the book persists beside the reel (`999.practice.evsession`),
+  so the pill's luck and the strip survive reloads and the band widens
+  as the rounds pile up. **The
   gap rides the coach pill too**: after each settle the score line
   carries it ("Coach 83% · 19/23 · −2.9/dev · −9.0 luck"), the strip
   and the pill reading one source for the word, live-verified against

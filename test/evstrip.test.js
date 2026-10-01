@@ -126,6 +126,14 @@ console.log('the strip: the band rides the round count \u2014 and sessions witho
 /* --- the wiring: variance accumulates where the legs do --- */
 if (!/var evSession = \{ rounds: 0, ev: 0, felt: 0, sd2: 0 \};/.test(src))
   throw new Error('the session must carry its accumulated spread');
+if (!/'999\.practice\.evsession'/.test(src) || !/function saveEv\(\)/.test(src))
+  throw new Error('the reconciliation must persist, like the reel');
+if (!/typeof evRaw\.rounds === 'number' && typeof evRaw\.ev === 'number' &&\n        typeof evRaw\.felt === 'number' && typeof evRaw\.sd2 === 'number'/.test(src))
+  throw new Error('a restored book must be all numbers or not restored at all');
+if (!grab('evSession.sd2 += Math.pow(HAND_SD * (doubled ? 2 * bet : bet), 2);', 'renderEvStrip();').includes('saveEv();'))
+  throw new Error('the settle commit must save the book it just banked');
+if (!/  renderCoach\(\);\n  renderCount\(\);\n  renderEvStrip\(\);/.test(src))
+  throw new Error('the restored book must draw at boot, not only at the next settle');
 if (!/var HAND_SD = 1\.15;/.test(src))
   throw new Error('the hand spread must be named, not magic');
 if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD \* \(doubled \? 2 \* bet : bet\), 2\);/.test(src))
