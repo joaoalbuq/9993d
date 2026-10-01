@@ -4,7 +4,10 @@
    test: exact arithmetic (luck = felt − engine), one-decimal
    engine and luck against a fmt'd felt, singular rounds, and
    the wiring that prices the first decision, carries the
-   insurance leg, and commits once per round at settle.     */
+   insurance leg, and commits once per round at settle. The
+   gap is also BANDED by the engine's accumulated standard
+   deviation — even, cool, warm, cold, hot, freak — so hot
+   and cold know how unusual they are.                     */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -25,7 +28,10 @@ const fnBody = fnFull.slice(fnFull.indexOf('{') + 1, fnFull.lastIndexOf('}'));
 const luckFull = grab('  function luckWord(s) {', '\n  }');
 const luckBody = luckFull.slice(luckFull.indexOf('{') + 1, luckFull.lastIndexOf('}'));
 const luckWord = new Function('return function luckWord(s) {' + luckBody + '}')();
-const evStripLine = new Function('fmt', 'luckWord', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord);
+const bandFull = grab('  function luckBand(s) {', '\n  }');
+const bandBody = bandFull.slice(bandFull.indexOf('{') + 1, bandFull.lastIndexOf('}'));
+const luckBand = new Function('return function luckBand(s) {' + bandBody + '}')();
+const evStripLine = new Function('fmt', 'luckWord', 'luckBand', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord, luckBand);
 
 /* --- an empty session draws no line --- */
 if (evStripLine({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('empty session must draw nothing');
@@ -75,7 +81,7 @@ console.log('wiring: first click prices, insurance rides along, settle commits o
 if (luckWord({ ev: -3.1, felt: -25 }) !== '\u221221.9') throw new Error('cold luck word');
 if (luckWord({ ev: -2, felt: 10 }) !== '+12.0') throw new Error('hot luck word');
 if (luckWord({ ev: 0, felt: 0 }) !== '+0.0') throw new Error('a perfect reconciliation reads signed');
-if (!/\\u00b7 ' \+ luckWord\(evSession\) \+ ' luck';/.test(src))
+if (!/\\u00b7 ' \+ luckWord\(evSession\) \+ ' luck/.test(src))
   throw new Error('the coach pill must carry the gap');
 if (!/if \(evSession\.rounds\) el\.textContent \+=/.test(src))
   throw new Error('the pill shows the gap only once a round has been priced');
@@ -85,5 +91,49 @@ if (!/renderEvStrip\(\);/.test(commit2))
 if (!/luckWord\(s\)/.test(src))
   throw new Error('the strip must read the same word as the pill \u2014 one source for the gap');
 console.log('the pill: "\u221248.0 luck" rides the coach score \u2014 one source for the gap, refreshed at the commit');
+
+/* --- the band: the gap read as a distance in the engine's spreads --- */
+const card = { rounds: 1, ev: 0, felt: 0, sd2: 13225 };   /* one round at 100: spread 115 */
+if (luckBand({ rounds: 1, ev: -3.1, felt: -25 }) !== '')
+  throw new Error('a session without a spread cannot claim a band');
+if (luckBand(Object.assign({}, card, { felt: 50 })) !== 'even')
+  throw new Error('inside one spread is even');
+if (luckBand(Object.assign({}, card, { felt: -150 })) !== 'cool')
+  throw new Error('past one spread cold-side reads cool');
+if (luckBand(Object.assign({}, card, { felt: 180 })) !== 'warm')
+  throw new Error('past one spread hot-side reads warm');
+if (luckBand(Object.assign({}, card, { felt: -250 })) !== 'cold')
+  throw new Error('past two spreads reads cold');
+if (luckBand(Object.assign({}, card, { felt: 250 })) !== 'hot')
+  throw new Error('past two spreads reads hot');
+if (luckBand(Object.assign({}, card, { felt: -400 })) !== 'freak cold')
+  throw new Error('past three spreads cold-side is a freak');
+if (luckBand(Object.assign({}, card, { felt: 400 })) !== 'freak hot')
+  throw new Error('past three spreads hot-side is a freak');
+const grown = { rounds: 12, ev: -3.1, felt: -25, sd2: 12 * 13225 };   /* more rounds, wider spread */
+if (luckBand(grown) !== 'even')
+  throw new Error('\u221221.9 over twelve rounds is ordinary: ' + luckBand(grown));
+console.log('the band: even < 1 spread, cool/warm < 2, cold/hot < 3, freak past \u2014 sizes, not moods');
+
+/* --- the strip carries the band; old sessions read unchanged --- */
+const banded = evStripLine({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
+if (!/2 rounds \u00b7 hot$/.test(banded)) throw new Error('the strip must end in the band: ' + banded);
+if (!/<b>\+236\.0<\/b> luck/.test(banded)) throw new Error('the gap rides beside its band: ' + banded);
+const evenStrip = evStripLine({ rounds: 1, ev: 0, felt: 50, sd2: 13225 });
+if (!/1 round \u00b7 even$/.test(evenStrip)) throw new Error('an ordinary session says so: ' + evenStrip);
+console.log('the strip: the band rides the round count \u2014 and sessions without a spread read exactly as before');
+
+/* --- the wiring: variance accumulates where the legs do --- */
+if (!/var evSession = \{ rounds: 0, ev: 0, felt: 0, sd2: 0 \};/.test(src))
+  throw new Error('the session must carry its accumulated spread');
+if (!/var HAND_SD = 1\.15;/.test(src))
+  throw new Error('the hand spread must be named, not magic');
+if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD \* \(doubled \? 2 \* bet : bet\), 2\);/.test(src))
+  throw new Error('settle must bank the round\u2019s width \u2014 a double rides twice');
+if (!/evSession\.sd2 \+= insBet \* insBet \* \(1 \+ 3 \* td - Math\.pow\(3 \* td - 1, 2\)\);/.test(src))
+  throw new Error('the insurance leg must bank its own spread');
+if (!/\\u00b7 ' \+ luckWord\(evSession\) \+ ' luck \\u00b7 ' \+ luckBand\(evSession\);/.test(src))
+  throw new Error('the pill must name the gap AND its band');
+console.log('wiring: the spread banks with the legs at settle \u2014 pill and strip read the same band');
 
 console.log('\nev strip verified');

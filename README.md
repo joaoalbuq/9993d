@@ -669,7 +669,13 @@ answers with CORS headers.
   gap rides the coach pill too**: after each settle the score line
   carries it ("Coach 83% · 19/23 · −2.9/dev · −9.0 luck"), the strip
   and the pill reading one source for the word, live-verified against
-  a stood 17 v A (engine −16.0 · felt −25 · −9.0 both places).
+  a stood 17 v A (engine −16.0 · felt −25 · −9.0 both places). **And
+  the luck is banded by its own spread**: each round banks a width —
+  1.15 betting units of stake, doubled riding twice, insurance riding
+  the ten density — so the gap reads as a distance in spreads: even
+  inside one, cool or warm inside two, cold or hot inside three, freak
+  past that ("−13.1 luck · even" on one small hand; a 500 double losing
+  flat is a different animal). Hot and cold are sizes, not moods.
   **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle

@@ -858,7 +858,9 @@
      decision to price) stay out of both sides of the ledger,
      so the two always reconcile over the hands the engine
      can see.                                               */
-  var evSession = { rounds: 0, ev: 0, felt: 0 };
+  var evSession = { rounds: 0, ev: 0, felt: 0, sd2: 0 };
+  var HAND_SD = 1.15;        /* a blackjack hand's spread, in betting units — the
+                                engine prices the mean; this is how wide it sits */
   var evRound = false;       /* this round counts (not a review replay) */
   var evPriced = false;      /* its first decision has been priced */
   var evRoundExp = 0;        /* the engine's expected chips for the round */
@@ -874,7 +876,10 @@
   }
   function evInsPrice() {
     if (!evRound) return;
-    evInsExp += INDEX999.insEdge(shoeArr) * insBet;
+    var td = INDEX999.tenDensity(shoeArr);
+    evInsExp += (3 * td - 1) * insBet;
+    evSession.sd2 += insBet * insBet * (1 + 3 * td - Math.pow(3 * td - 1, 2));   /* the side
+      bet's own spread: it pays 2:1 on the tens, so its swings ride the ten density */
   }
   /* the gap's own word: felt minus engine, one decimal, signed —
      the one number both the strip and the pill read          */
@@ -882,13 +887,30 @@
     var luck = s.felt - s.ev;
     return (luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1);
   }
+  /* the gap's own band: how unusual is this luck? The session's
+     spread is the square root of the accumulated per-round
+     variance, so the gap reads as a distance in those spreads —
+     even inside one, cool or warm inside two, cold or hot inside
+     three, and past three a freak either way. Hot and cold are
+     not moods; they are sizes.                             */
+  function luckBand(s) {
+    var sd = Math.sqrt(s.sd2 || 0);
+    if (!sd) return '';
+    var luck = s.felt - s.ev, z = Math.abs(luck) / sd;
+    if (z < 1) return 'even';
+    if (z < 2) return luck < 0 ? 'cool' : 'warm';
+    if (z < 3) return luck < 0 ? 'cold' : 'hot';
+    return luck < 0 ? 'freak cold' : 'freak hot';
+  }
   function evStripLine(s) {
     if (!s || !s.rounds) return '';
     function w(v, dec) {
       return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmt(Math.abs(v)));
     }
+    var band = luckBand(s);
     return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b>' +
-      luckWord(s) + '</b> luck \u00b7 ' + s.rounds + ' round' + (s.rounds === 1 ? '' : 's');
+      luckWord(s) + '</b> luck \u00b7 ' + s.rounds + ' round' + (s.rounds === 1 ? '' : 's') +
+      (band ? ' \u00b7 ' + band : '');
   }
   function renderEvStrip() {
     var el = document.getElementById('evStrip');
@@ -1097,7 +1119,7 @@
       : 'Coach off';
     /* the session's reconciliation rides the pill: what the engine
        expected against what the felt actually moved             */
-    if (evSession.rounds) el.textContent += ' \u00b7 ' + luckWord(evSession) + ' luck';
+    if (evSession.rounds) el.textContent += ' \u00b7 ' + luckWord(evSession) + ' luck \u00b7 ' + luckBand(evSession);
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
     var lb = document.getElementById('btnLeaks');
     if (lb) {
@@ -2407,6 +2429,8 @@
       evSession.rounds++;
       evSession.ev += evRoundExp + evInsExp;
       evSession.felt += st.net + insWin - insStake;
+      evSession.sd2 += Math.pow(HAND_SD * (doubled ? 2 * bet : bet), 2);   /* the round's own
+                                width — a double rides twice the stake, twice the spread */
       renderEvStrip();
       renderCoach();                   /* the pill's luck reads the same commit */
     }
