@@ -229,6 +229,17 @@ if (!/tap a row to drill it now \\u2014 the all-time queue waits\./.test(src))
   throw new Error('the footer must name the hand-off');
 console.log('wiring: rows flag drift, session rows tap to drill, the footer explains both');
 
+/* --- the pill's graduation roster: honours beside the drill --- */
+if (!/var roster = weakestCells\(\), gradN = 0, drillN = 0, ri;/.test(src))
+  throw new Error('renderCoach must read the roster once, for the pill and the pill visibility');
+if (!/\(roster\[ri\]\.r \? gradN\+\+ : drillN\+\+\);/.test(src))
+  throw new Error('the crowds must be counted by their retirement flag');
+if (!/if \(gradN\) el\.textContent \+= ' \\u00b7 \\uD83C\\uDF93' \+ gradN \+ ' \\u00b7 ' \+ drillN \+ ' drilling';/.test(src))
+  throw new Error('the pill must carry the two crowds \u2014 honours first, drills beside');
+if (!/lb\.hidden = coachOn && !roster\.length;/.test(src))
+  throw new Error('the pill visibility must read the same roster, not a second walk');
+console.log('the pill roster: \u{1F393}N honours beside N still drilling \u2014 one walk, both crowds');
+
 /* --- wiring: a class's first miss opens the panel by itself --- */
 if (!/var fresh = !sessionLeaks\[cell\];/.test(src) || !/return fresh;/.test(src))
   throw new Error('sessionMiss must report a class\u2019s first appearance');

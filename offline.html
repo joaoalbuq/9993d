@@ -1130,10 +1130,16 @@
     /* the session's reconciliation rides the pill: what the engine
        expected against what the felt actually moved             */
     if (evSession.rounds) el.textContent += ' \u00b7 ' + luckWord(evSession) + ' luck \u00b7 ' + luckBand(evSession);
+    /* the drill's roster rides the pill: cells holding honours
+       beside cells still drilling \u2014 the panel's two crowds,
+       read in one glance                                */
+    var roster = weakestCells(), gradN = 0, drillN = 0, ri;
+    for (ri = 0; ri < roster.length; ri++) (roster[ri].r ? gradN++ : drillN++);
+    if (gradN) el.textContent += ' \u00b7 \uD83C\uDF93' + gradN + ' \u00b7 ' + drillN + ' drilling';
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
     var lb = document.getElementById('btnLeaks');
     if (lb) {
-      lb.hidden = coachOn && !weakestCells().length;
+      lb.hidden = coachOn && !roster.length;
       lb.textContent = leakMode ? 'back to the shoe' : '\uD83E\uDE79 Leaks';
       lb.classList.toggle('on', leakMode);
     }

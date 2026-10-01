@@ -606,8 +606,10 @@ answers with CORS headers.
   and the review reel keeps its box. Live: a hit against the book's
   Stand on 16 v 6 opened the panel on the spot with "hard 16 v 6 ×1 ·
   −139" ranked first. **The drill now
-  graduates its students**: a cell that answers with the book three
-  times running retires from the queue — shown muted on the panel with
+  graduates its students**:  a cell that answers with the book three
+  times running retires from the queue — the pill carries the roster
+  ("· 🎓2 · 4 drilling"), honours beside the cells still at it — and
+  shown muted on the panel with
   its honours ("🎓1 · back in 6") — and returns with spacing for a
   refresher (six served hands, doubling each re-graduation, capped at
   twenty-four, the clock persisted in `999.practice.grad`); any miss on
