@@ -10,13 +10,13 @@ const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
 /* --- nextPace, exactly as shipped (the cadence rides both modes) --- */
-const pa = src.indexOf('function nextPace(pace, ok) {');
+const pa = src.indexOf('function nextPace(pace, ok, heat) {');
 if (pa < 0) throw new Error('nextPace not found');
 const pb = src.indexOf('\n  }', pa) + 4;
 const paceBlock = src.slice(pa, pb);
 if (paceBlock.split('{').length !== paceBlock.split('}').length) throw new Error('pace extraction unbalanced');
 const paceBody = paceBlock.slice(paceBlock.indexOf('{') + 1, paceBlock.lastIndexOf('}'));
-const nextPace = new Function('pace', 'ok', paceBody + '\nreturn nextPace;');
+const nextPace = new Function('pace', 'ok', 'heat', paceBody + '\nreturn nextPace;');
 
 /* --- the canon the stream draws from --- */
 const cStart = src.indexOf('  var SHOE999 = (function () {');
@@ -106,9 +106,9 @@ console.log('per-mode books: the true drill and the running drill never share a 
 
 /* --- 6. the cadence rides both modes: extract-and-simulate --- */
 let p = 0.45;
-for (let i = 0; i < 60; i++) p = nextPace(p, true);
+for (let i = 0; i < 60; i++) p = nextPace(p, true, 0);
 if (p !== 0.18) throw new Error('cadence floor in true mode: ' + p);
-for (let i = 0; i < 60; i++) p = nextPace(p, false);
+for (let i = 0; i < 60; i++) p = nextPace(p, false, 0);
 if (p !== 0.75) throw new Error('cadence ceiling in true mode: ' + p);
 console.log('adaptive cadence: same engine, same bounds, mode-agnostic');
 

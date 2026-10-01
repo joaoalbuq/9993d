@@ -1889,13 +1889,28 @@
   try { SPEED.pace = parseFloat(localStorage.getItem('999.practice.speed')) || 0.45; } catch (e) { }
   try { SPEED.adapt = localStorage.getItem('999.practice.speedadapt') !== 'off'; } catch (e) { }
   try { SPEED.mode = localStorage.getItem('999.practice.speedmode') === 'true' ? 'true' : 'run'; } catch (e) { }
-  /* the adaptive cadence: a hit tightens the stream by 6% of the
-     current pace (never less than 20ms), a miss eases it back by
-     12% (never less than 40ms) — the drill finds your edge and
-     holds it, bounded between 0.18s and 0.75s a card. The pace
-     buttons still set the base the engine evolves from.         */
-  function nextPace(pace, ok) {
-    var step = ok ? Math.max(0.02, pace * 0.06) : Math.max(0.04, pace * 0.12);
+  /* each drill tunes its OWN cadence: the running drill and the
+     true-count drill remember separate paces, so pressing one
+     never drags the other off its edge                   */
+  SPEED.paceRun = SPEED.pace;
+  try {
+    var paceT = parseFloat(localStorage.getItem('999.practice.speedtruepace'));
+    SPEED.paceTrue = isFinite(paceT) ? paceT : SPEED.pace;   /* the true drill
+                                                starts where the run drill stands */
+  } catch (e) { SPEED.paceTrue = SPEED.pace; }
+  if (SPEED.mode === 'true') SPEED.pace = SPEED.paceTrue;
+  /* the adaptive cadence chases a PERSONAL edge: a hit tightens
+     the stream by 6% of the current pace (never less than 20ms),
+     a miss eases it back by 12% (never less than 40ms). A hot
+     streak presses harder (8%, min 25ms) and a miss that breaks
+     a long streak eases gently (8%, min 20ms) — the drill rides
+     your best run without punishing the collapse. Bounded
+     between 0.18s and 0.75s a card. The pace buttons still set
+     the base each mode evolves from.                           */
+  function nextPace(pace, ok, heat) {
+    var hot = (heat || 0) >= 3;
+    var step = ok ? (hot ? Math.max(0.025, pace * 0.08) : Math.max(0.02, pace * 0.06))
+                  : (hot ? Math.max(0.02, pace * 0.08) : Math.max(0.04, pace * 0.12));
     var p = ok ? pace - step : pace + step;
     return Math.round(Math.min(0.75, Math.max(0.18, p)) * 1000) / 1000;
   }
@@ -1915,6 +1930,7 @@
   function speedMode(m) {
     if (SPEED.mode === m) return;
     SPEED.mode = m;
+    SPEED.pace = m === 'true' ? SPEED.paceTrue : SPEED.paceRun;   /* each drill resumes its own cadence */
     try { localStorage.setItem('999.practice.speedmode', m); } catch (e) { }
     renderSpeed();                  /* the books swap, the buttons follow */
   }
@@ -1935,7 +1951,8 @@
       try {
       localStorage.setItem('999.practice.speedstats', JSON.stringify(speedScore));
       localStorage.setItem('999.practice.speedtrue', JSON.stringify(speedTrue));
-      localStorage.setItem('999.practice.speed', String(SPEED.pace));
+      localStorage.setItem('999.practice.speed', String(SPEED.paceRun));
+      localStorage.setItem('999.practice.speedtruepace', String(SPEED.paceTrue));
       localStorage.setItem('999.practice.speedadapt', SPEED.adapt ? 'on' : 'off');
     } catch (e) { }
   }
@@ -1968,6 +1985,19 @@
           ? 'count the stream, divide by the decks left \u2014 one decimal, under the clock'
           : 'count at table speed \u2014 no marks, just the running count');
     if (SPEED.adapt) st.textContent += ' \u00b7 pace ' + SPEED.pace.toFixed(2) + 's';
+    /* the personal edge: hits proven down to edgeHi, misses proven
+       up to edgeLo — the cadence lives in the gap between them  */
+    if (SPEED.adapt && stats.edgeHi != null && stats.edgeLo != null) {
+      st.textContent += stats.edgeHi <= stats.edgeLo + 1e-9
+        ? (Math.abs(stats.edgeHi - stats.edgeLo) < 1e-9
+            ? ' \u00b7 edge ' + stats.edgeHi.toFixed(2) + 's'
+            : ' \u00b7 edge ' + stats.edgeHi.toFixed(2) + '\u2013' + stats.edgeLo.toFixed(2) + 's')
+        : ' \u00b7 edge \u2248' + ((stats.edgeHi + stats.edgeLo) / 2).toFixed(2) + 's';
+    } else if (SPEED.adapt && stats.edgeHi != null) {
+      st.textContent += ' \u00b7 hits to ' + stats.edgeHi.toFixed(2) + 's';
+    } else if (SPEED.adapt && stats.edgeLo != null) {
+      st.textContent += ' \u00b7 misses from ' + stats.edgeLo.toFixed(2) + 's';
+    }
     renderCount();                   /* the pill on the main floor carries
                                         the drill's best time and streak */
     if (SPEED.phase === 'idle') speedIdleStage();
@@ -1983,6 +2013,7 @@
     SPEED.dkStr = isTrue ? ((52 - N) / 52).toFixed(2) : null;
     SPEED.target = isTrue ? trueTargetFor(SPEED.rc, SPEED.dkStr) : SPEED.rc;
     SPEED.idx = 0; SPEED.val = 0; SPEED.phase = 'flash';
+    SPEED.runPace = SPEED.pace;    /* what this run was flashed at — the edge ledger prices it */
     if (isTrue) {
       var tr = document.getElementById('speedTrueDk');
       if (tr) { tr.hidden = false; tr.textContent = '1.00 dk left'; }
@@ -2056,6 +2087,7 @@
     var ok = SPEED.val === SPEED.target;
     var stats = speedStats();
     var isTrue = SPEED.mode === 'true';
+    var prevStreak = stats.streak;   /* the streak this run walks into */
     stats.runs++;
     var isBest = false;
     if (ok) {
@@ -2063,14 +2095,19 @@
       stats.streak++;
       if (stats.streak > stats.bestStreak) stats.bestStreak = stats.streak;
       if (!stats.bestMs || ms < stats.bestMs) { stats.bestMs = ms; isBest = true; }
-    } else stats.streak = 0;
+      stats.edgeHi = stats.edgeHi != null ? Math.min(stats.edgeHi, SPEED.runPace) : SPEED.runPace;
+    } else {
+      stats.streak = 0;
+      stats.edgeLo = stats.edgeLo != null ? Math.max(stats.edgeLo, SPEED.runPace) : SPEED.runPace;
+    }
     /* the cadence learns between runs, never mid-stream: a hit
        tightens the next run, a miss eases it — and the verdict
        says which way the drill moved                      */
     var cadence = '';
     if (SPEED.adapt) {
       var before = SPEED.pace;
-      SPEED.pace = nextPace(SPEED.pace, ok);
+      SPEED.pace = nextPace(SPEED.pace, ok, ok ? stats.streak : prevStreak);
+      if (isTrue) SPEED.paceTrue = SPEED.pace; else SPEED.paceRun = SPEED.pace;
       cadence = SPEED.pace === before
         ? (ok ? ' \u00b7 at the floor' : ' \u00b7 at the ceiling')
         : (ok ? ' \u00b7 cadence up \u2192 ' + SPEED.pace.toFixed(2) + 's'
@@ -2118,7 +2155,7 @@
         var v2 = parseFloat(e.currentTarget.getAttribute('data-pace'));
         if (!isFinite(v2)) return;
         SPEED.pace = v2;
-        saveSpeed();
+        if (SPEED.mode === 'true') SPEED.paceTrue = v2; else SPEED.paceRun = v2;
         renderSpeed();
       });
     }

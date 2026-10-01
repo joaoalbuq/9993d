@@ -452,13 +452,19 @@ answers with CORS headers.
   deliberate miss showed the honest two-sided verdict ("It was +4 — you
   said +3 · 1.2s") and reset the streak, stats persisted across reloads,
   and the session shoe never moved (100% · 2.0 dk before and after) — the
-  stream draws from its own fresh deck. **The cadence is adaptive**:
+  stream draws from its own fresh deck.  **The cadence is adaptive and chases a personal edge**:
   after each run the pace tightens 6% on a hit (never less than 20ms)
-  and eases back 12% on a miss (never less than 40ms), bounded at 0.18s
-  and 0.75s, the verdict telling the story ("cadence up → 0.28s",
-  "eased to 0.32s", "at the floor/ceiling" at the bounds) and the stats
-  line carrying the live pace; the Adaptive toggle (persisted,
-  `999.practice.speedadapt`)  turns it off, and the pace buttons reset
+  and eases back 12% on a miss (never less than 40ms) — but a streak
+  of three presses harder (8%, min 25ms) and the miss that breaks a
+  long streak eases gently (8%, min 20ms), so the drill rides the best
+  run without punishing the collapse; bounded at 0.18s and 0.75s, the
+  verdict telling the story ("cadence up → 0.28s", "eased to 0.32s",
+  "at the floor/ceiling" at the bounds). **Each drill keeps its own
+  tuned pace** (the running and true-count drills evolve separately,
+  persisted per mode) and the stats line shows the edge the player has
+  proven: fastest hit to slowest miss ("edge 0.28–0.35s", converging to
+  "edge ≈0.34s" when the band closes). The Adaptive toggle (persisted,
+  `999.practice.speedadapt`) turns it off, and the pace buttons reset
   the base the engine evolves from. The ♠ Count pill carries the drill's
   progress onto the main floor — best time ("⚡0.2s") and the live
   streak right beside the counting accuracy, refreshed the moment a
