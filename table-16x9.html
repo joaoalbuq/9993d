@@ -2389,14 +2389,18 @@
   document.addEventListener('pointerdown', wakeAudio);
   document.addEventListener('keydown', wakeAudio);
 
-  var RIFFLE_ROOM = 1.7, STINGER_ROOM = 1.4;   /* the ceremony and the verdict lean into the room */
+  var RIFFLE_ROOM = 1.7, STINGER_ROOM = 1.4, WHOOSH_ROOM = 1.5, CLACK_ROOM = 0.6;
+  /* the ceremony fills the air, the whoosh IS air and swims, the
+     verdict blooms, and the clacks stay dry-ish near the cloth */
   function toRoom(node, room) {
     /* every voice answers the room at its own level: the shared
        bus trims 0.35, a voice leans in or out with its send -
-       the riffle is four decks filling the air, the stinger is
-       the verdict blooming over it, and everything else keeps
-       the plain share it has always had. Sends sit AFTER the
-       panner, so the reflections keep the sound's direction. */
+       the riffle is four decks filling the air, the whoosh is
+       air moving and swims, the stinger is the verdict blooming
+       over it, the clacks stay dry-ish by the cloth, and what's
+       between keeps the plain share it has always had. Sends
+       sit AFTER the panner, so the reflections keep the sound's
+       direction.                                            */
     var w = actx.createGain();
     w.gain.value = room == null ? 1 : room;
     node.connect(w);
@@ -2456,10 +2460,10 @@
       out = c.createStereoPanner();     /* the chip's stereo seat */
       out.pan.setValueAtTime(clamp(pan, -1, 1), t);
       out.connect(master);
-      toRoom(out);                      /* the send sits after the pan: the room keeps the direction */
+      toRoom(out, CLACK_ROOM);          /* the send sits after the pan: the room keeps the direction */
     }
-    burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out);
-    tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out);
+    burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out, CLACK_ROOM);
+    tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out, CLACK_ROOM);
   }
   function cardSnap(delay) {
     /* the card hits the cloth at the end of its 430ms flight */
@@ -2495,9 +2499,9 @@
       var p = c.createStereoPanner();   /* the card's stereo seat: shoe to box */
       p.pan.setValueAtTime(clamp(panFrom == null ? pan : panFrom, -1, 1), t);
       if (panFrom != null) p.pan.linearRampToValueAtTime(clamp(pan, -1, 1), t + D);
-      g.connect(p); p.connect(master); toRoom(p);   /* the send sits after the pan */
+      g.connect(p); p.connect(master); toRoom(p, WHOOSH_ROOM);   /* the send sits after the pan */
     } else {
-      g.connect(master); toRoom(g);     /* no panning API: the whoosh stays centered */
+      g.connect(master); toRoom(g, WHOOSH_ROOM);     /* no panning API: the whoosh stays centered */
     }
     s.start(t); s.stop(t + D + 0.03);
   }

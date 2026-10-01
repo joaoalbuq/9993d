@@ -108,21 +108,29 @@ console.log('the toggle: the wet path slides felt \u2194 hall over ~0.75s while 
 if (!/reverbBus\.gain\.value = audioOn \? 0\.35 : 0;/.test(src))
   throw new Error('muting the felt must mute the walls as well');
 
-/* --- per-voice levels: default share, riffle and stinger lean in --- */
+/* --- per-voice levels: families, not one flat wash --- */
 if (!/function toRoom\(node, room\) \{/.test(src)) throw new Error('voices must send through toRoom');
 if (!/w\.gain\.value = room == null \? 1 : room;/.test(src)) throw new Error('a voice without a level keeps the plain share');
 if (!/toRoom\(g, room\);/.test(src)) throw new Error('tone and burst must send their own level');
-if (!/toRoom\(out\);/.test(src)) throw new Error('the panned clack must send after its pan');
-if (!/toRoom\(p\);/.test(src)) throw new Error('the whoosh must send after its pan');
+if (!/toRoom\(out, CLACK_ROOM\);/.test(src)) throw new Error('the panned clack must send after its pan, dry');
+if (!/toRoom\(p, WHOOSH_ROOM\);/.test(src)) throw new Error('the whoosh must send after its pan, swimming');
 const riffle = grab('  function riffleShuffle(delay0) {', '\n  }');
 const sting = grab('  function stinger(result) {', '\n  }');
 const rSends = (riffle.match(/RIFFLE_ROOM/g) || []).length, sSends = (sting.match(/STINGER_ROOM/g) || []).length;
 if (rSends < 7) throw new Error('every riffle voice must lean into the room: ' + rSends);
 if (sSends < 6) throw new Error('every stinger voice must lean into the room: ' + sSends);
-const lvl = src.match(/var RIFFLE_ROOM = ([\d.]+), STINGER_ROOM = ([\d.]+);/);
-if (!lvl) throw new Error('the two levels must be named constants');
-if (!(Number(lvl[1]) > Number(lvl[2]) && Number(lvl[2]) > 1))
-  throw new Error('the ceremony swells biggest, the verdict next, the felt plain: ' + lvl[0]);
-console.log('the swell: riffle ' + lvl[1] + '\u00d7, stinger ' + lvl[2] + '\u00d7, the felt at its plain 1\u00d7 — the room answers where it belongs');
+const lvl = src.match(/var RIFFLE_ROOM = ([\d.]+), STINGER_ROOM = ([\d.]+), WHOOSH_ROOM = ([\d.]+), CLACK_ROOM = ([\d.]+);/);
+if (!lvl) throw new Error('the four levels must be named constants');
+if (!(Number(lvl[1]) > Number(lvl[3]) && Number(lvl[3]) > Number(lvl[2]) && Number(lvl[2]) > 1 && Number(lvl[4]) < 1))
+  throw new Error('the ceremony swims biggest, the whoosh next, the verdict next, the felt plain, the clacks dry: ' + lvl[0]);
+console.log('the swell: riffle ' + lvl[1] + '\u00d7, whoosh ' + lvl[3] + '\u00d7, stinger ' + lvl[2] + '\u00d7, the felt at its plain 1\u00d7, the clacks dry at ' + lvl[4] + '\u00d7 — the room answers where it belongs');
+
+/* --- the families: clacks stay dry-ish, whooshes swim --- */
+const clackSrc = grab('  function chipClack(delay, gain, dist, pan) {', '\n  }');
+if ((clackSrc.match(/CLACK_ROOM/g) || []).length !== 3)
+  throw new Error('a clack must send dry on every path: the pan, the tick and the thock');
+const whooshSrc = grab('  function cardWhoosh(', '\n  }');
+if (!/toRoom\(p, WHOOSH_ROOM\);/.test(whooshSrc) || !/toRoom\(g, WHOOSH_ROOM\);/.test(whooshSrc))
+  throw new Error('the whoosh must swim on both of its paths');
 
 console.log('\nroom reverb verified');

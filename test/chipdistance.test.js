@@ -36,9 +36,9 @@ function makeClack(withPanner) {
   if (withPanner) ctx.createStereoPanner = () => panner;
   const burst = (c, t, dur, type, freq, q, gain, out) => rec.bursts.push({ freq, gain, out });
   const tone = (c, freq, t, dur, type, gain, slideTo, out) => rec.tones.push({ freq, gain, out });
-  const clack = new Function('ready', 'burst', 'tone', 'clamp', 'lerp', 'master', 'toRoom',
+  const clack = new Function('ready', 'burst', 'tone', 'clamp', 'lerp', 'master', 'toRoom', 'CLACK_ROOM',
     'return function chipClack(' + ccFull.slice(ccFull.indexOf('(') + 1, ccFull.indexOf(')')) + ') {' + ccBody + '}')(
-    () => ctx, burst, tone, clamp, lerp, master, () => {});
+    () => ctx, burst, tone, clamp, lerp, master, () => {}, 0.6);
   return { clack, rec, panner, master };
 }
 
