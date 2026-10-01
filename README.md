@@ -128,8 +128,10 @@ are additive screens kept beside it for side-by-side comparison.
   10 v 10 at +4, 9 v 2 at +1, and 13 v 2 runs the other way (a chart
   stand that turns into a hit once the shoe goes cold at −1) — with the
   coach naming the flip ("the count play (hard 16 v 10 flips at +1 ·
-  now +1)", "✓ book play — the count play") and insurance, the count's
-  own bet, explained at the felt when an ace shows.
+  now +1) — tens left make a draw bust too often to chase", "✓ book
+  play — the count play") and insurance, the count's own bet, taught
+  at the felt when an ace shows — both the turn ("it pays only past a
+  third tens — true +3 is that rich") and the decline.
 - **The betting interlude, every round** — the floor opens for the oldest
   ritual there is before every deal, not only when the shoe changes: the
   status line reads **"New shoe — place your bets"** when the shoe is fresh

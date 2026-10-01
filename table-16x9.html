@@ -1439,16 +1439,26 @@
      test/index999.test.js fails if the copies drift.            */
   var INDEX999 = (function () {
     var INDICES = {
-      'hard 16 v 10': { play: 'stand', at: 1 },
-      'hard 15 v 10': { play: 'stand', at: 4 },
-      'hard 13 v 2': { play: 'hit', at: -1, below: true },
-      'hard 12 v 2': { play: 'stand', at: 1 },
-      'hard 12 v 3': { play: 'stand', at: 2 },
-      'hard 11 v A': { play: 'double', at: 1 },
-      'hard 10 v 10': { play: 'double', at: 4 },
-      'hard 9 v 2': { play: 'double', at: 1 }
+      'hard 16 v 10': { play: 'stand', at: 1,
+        why: 'tens left make a draw bust too often to chase' },
+      'hard 15 v 10': { play: 'stand', at: 4,
+        why: 'the same tens logic, but 15 needs a richer deck to stand' },
+      'hard 13 v 2': { play: 'hit', at: -1, below: true,
+        why: 'a cold shoe keeps the dealer alive \u2014 better to draw small cards' },
+      'hard 12 v 2': { play: 'stand', at: 1,
+        why: 'tens left turn the dealer\'s weak 2 into busts' },
+      'hard 12 v 3': { play: 'stand', at: 2,
+        why: 'the 3 busts later than the 2 \u2014 it takes a richer deck' },
+      'hard 11 v A': { play: 'double', at: 1,
+        why: 'fewer aces left make the unseen natural cheaper to chase' },
+      'hard 10 v 10': { play: 'double', at: 4,
+        why: 'ten-rich shoes outdraw the dealer\'s 20 \u2014 two units on it' },
+      'hard 9 v 2': { play: 'double', at: 1,
+        why: 'tens land your 19 often enough to press a weak 2' }
     };
     var INSURE_AT = 3;                 /* the count's own bet: insurance turns at +3 */
+    var INS_WHY_IN = 'more than a third of the deck is tens \u2014 the 2:1 pays';
+    var INS_WHY_OUT = 'it pays only past a third tens \u2014 true +3 is that rich';
     function cell(t, soft, up) {
       return (soft ? 'soft ' : 'hard ') + t + ' v ' + (up === 11 ? 'A' : up);
     }
@@ -1471,7 +1481,8 @@
                                           breakeven at p = 1/3, near true +3       */
       return 3 * tenDensity(stack) - 1;
     }
-    return { INDICES: INDICES, INSURE_AT: INSURE_AT, cell: cell,
+    return { INDICES: INDICES, INSURE_AT: INSURE_AT, INS_WHY_IN: INS_WHY_IN,
+             INS_WHY_OUT: INS_WHY_OUT, cell: cell,
              flip: flip, tenDensity: tenDensity, insEdge: insEdge };
   })();
   /* ==== INDEX999 end ==== */
@@ -1564,7 +1575,7 @@
       html += '<br>Book: ' + capT(trainBook);
       if (trainFlip) html += ' — the count play (' + trainFlip.cell + ' flips at ' +
         (trainFlip.at < 0 ? '\u2212' : '+') + Math.abs(trainFlip.at) +
-        ' · now ' + fmtT(trainFlip.tc) + ')';
+        ' · now ' + fmtT(trainFlip.tc) + ') — ' + trainFlip.why;
     }
     else if (trainMsg) html += '<br>' + trainMsg;
     /* the session score rides under the count: accuracy, the
@@ -1591,7 +1602,7 @@
     var vT = SHOE999.value(h.cards);
     var tcT = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
     var ixD = INDEX999.INDICES[INDEX999.cell(vT.total, vT.soft, up)];
-    if (ixD && tcT >= ixD.at) trainFlip = { cell: INDEX999.cell(vT.total, vT.soft, up), at: ixD.at, tc: tcT };
+    if (ixD && tcT >= ixD.at) trainFlip = { cell: INDEX999.cell(vT.total, vT.soft, up), at: ixD.at, tc: tcT, why: ixD.why };
     /* the mark prices itself: EV999's expected profit per unit for
        stand, hit and the legal double — the raw material of the
        miss's cost when the click comes */

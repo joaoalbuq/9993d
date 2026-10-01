@@ -43,6 +43,15 @@ const body = a.slice(a.indexOf('var INDEX999 = (function () {'), a.indexOf('})()
 const INDEX999 = (0, eval)('(' + body.replace('var INDEX999 = ', '').replace(/;\s*$/, '') + ')');
 const I = INDEX999.INDICES;
 
+/* --- the why layer: every index explains itself, insurance both ways --- */
+for (const cellName in I) {
+  const ix = I[cellName];
+  if (typeof ix.why !== 'string' || ix.why.length < 12) throw new Error(cellName + ' lacks a why');
+}
+if (typeof INDEX999.INS_WHY_IN !== 'string' || INDEX999.INS_WHY_IN.length < 12) throw new Error('INS_WHY_IN missing');
+if (typeof INDEX999.INS_WHY_OUT !== 'string' || INDEX999.INS_WHY_OUT.length < 12) throw new Error('INS_WHY_OUT missing');
+console.log('why layer: ' + Object.keys(I).length + ' index reasons + insurance in/out reasons present');
+
 /* --- every index at its exact boundary (the flip's lower edge) --- */
 /* [cell, at, play, needsDouble, counterCell (below threshold, hit-family)] */
 const cases = [
