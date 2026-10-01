@@ -111,4 +111,40 @@ if (!/if \(pan != null && c\.createStereoPanner\) \{/.test(src))
   throw new Error('the panner must be gated on the API and a pan actually given');
 console.log('wiring: both deal paths pan shoe \u2192 box, gated on the API');
 
+/* --- the payout walk crosses the channels the way the deal does --- */
+const cfFull = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
+const cfBody = cfFull.slice(cfFull.indexOf('{') + 1, cfFull.lastIndexOf('}'));
+function makeFan() {
+  const rec = [];
+  const fan = new Function('chipClack', 'lerp',
+    'return function chipFan(' + cfFull.slice(cfFull.indexOf('(') + 1, cfFull.indexOf(')')) + ') {' + cfBody + '}') (
+      (delay, gain, dist, pan) => rec.push({ delay, gain, dist, pan }), (a, b, t) => a + (b - a) * t);
+  return { fan, rec };
+}
+const f1 = makeFan();
+f1.fan(5, 0.56, 0.09, 4.33, -0.4, 0.2);
+const pans1 = f1.rec.map((x) => x.pan);
+const want1 = [-0.4, -0.25, -0.1, 0.05, 0.2];
+if (pans1.length !== want1.length || pans1.some((p, i) => Math.abs(p - want1[i]) > 1e-9))
+  throw new Error('the fan must walk the channels from leave to land: ' + JSON.stringify(pans1));
+if (f1.rec[0].dist !== 4.33 || Math.abs(f1.rec[4].delay - (0.56 + 4 * 0.09)) > 1e-9)
+  throw new Error('the fan must keep its stagger and its distance');
+console.log('the walk: 5 chips pan \u22120.4 \u2192 +0.2, one step across the channels per chip');
+
+const f2 = makeFan();
+f2.fan(1, 0.56, 0.09, 4.33, -0.4, 0.2);
+if (Math.abs(f2.rec[0].pan - 0.2) > 1e-9) throw new Error('a lone chip lands at the box\u2019s own seat');
+const f3 = makeFan();
+f3.fan(3, 0.56, 0.09, 4.33);
+if (f3.rec.some((x) => x.pan !== null)) throw new Error('a seatless fan stays centered');
+console.log('edges: a lone chip takes the landing seat, a seatless fan stays centered');
+
+const walk = grab('  function walkCue(b, h) {', 'stinger(h.result);');
+if (!walk.includes('panFor({ x: from[0], y: 0.12, z: from[1] })') ||
+    !walk.includes('panFor({ x: to[0], y: 0.12, z: to[1] })'))
+  throw new Error('walkCue must seat the fan at the chip lane\u2019s own ends');
+if (!/chipFan\(n, CHIP_FLY \+ \(toDealer \? 0 : PAY_LAG\), CHIP_STAG, dist,\s*\n\s*panFor/.test(walk))
+  throw new Error('the walk\u2019s fan must carry both seats');
+console.log('wiring: walkCue projects both ends of the flight through panFor \u2014 the walk moves with the eye');
+
 console.log('\nstereo whoosh verified');

@@ -23,16 +23,23 @@ if (!lerpMatch) throw new Error('lerp one-liner not found');
 const lerp = new Function('a', 'b', 't', lerpMatch[0].slice(lerpMatch[0].indexOf('{') + 1, -1) + '\nreturn lerp;');
 
 /* --- chipClack over a recording context --- */
-const ccFull = grab('  function chipClack(delay, gain, dist) {', '\n  }');
+const ccFull = grab('  function chipClack(delay, gain, dist, pan) {', '\n  }');
 const ccBody = ccFull.slice(ccFull.indexOf('{') + 1, ccFull.lastIndexOf('}'));
-function makeClack() {
-  const rec = { bursts: [], tones: [] };
-  const burst = (c, t, dur, type, freq, q, gain) => rec.bursts.push({ freq, gain });
-  const tone = (c, freq, t, dur, type, gain, slideTo) => rec.tones.push({ freq, gain });
-  const clack = new Function('ready', 'burst', 'tone', 'clamp', 'lerp',
+function makeClack(withPanner) {
+  const rec = { bursts: [], tones: [], panSets: [], outs: [] };
+  const panner = {
+    pan: { setValueAtTime: (v, t) => rec.panSets.push([v, t]) },
+    connect: (dst) => rec.outs.push(dst)
+  };
+  const master = { tag: 'master' };
+  const ctx = { currentTime: 5 };
+  if (withPanner) ctx.createStereoPanner = () => panner;
+  const burst = (c, t, dur, type, freq, q, gain, out) => rec.bursts.push({ freq, gain, out });
+  const tone = (c, freq, t, dur, type, gain, slideTo, out) => rec.tones.push({ freq, gain, out });
+  const clack = new Function('ready', 'burst', 'tone', 'clamp', 'lerp', 'master',
     'return function chipClack(' + ccFull.slice(ccFull.indexOf('(') + 1, ccFull.indexOf(')')) + ') {' + ccBody + '}')(
-    () => ({ currentTime: 5 }), burst, tone, clamp, lerp);
-  return { clack, rec };
+    () => ctx, burst, tone, clamp, lerp, master);
+  return { clack, rec, panner, master };
 }
 
 /* --- the plain voice, untouched when no distance is given --- */
@@ -83,11 +90,26 @@ console.log('the felt: tray\u2192box flights \u2014 center ' + d2.toFixed(2) + '
 const cue = grab('  function walkCue(b, h) {', 'stinger(h.result);');
 if (!/var dist = Math\.hypot\(to\[0\] - from\[0\], to\[1\] - from\[1\]\);/.test(cue))
   throw new Error('walkCue must measure the tray-to-box flight');
-if (!/chipFan\(n, CHIP_FLY \+ \(toDealer \? 0 : PAY_LAG\), CHIP_STAG, dist\);/.test(cue))
-  throw new Error('the payout fan must carry the distance');
-const fan = grab('  function chipFan(count, delay0, step, dist) {', '\n  }');
-if (!fan.includes('dist') || !/chipClack\(delay0 \+ k \* step, Math\.max\(1 - k \* 0\.06, 0\.5\), dist\)/.test(fan))
-  throw new Error('every clack in the fan must carry the distance');
+if (!/chipFan\(n, CHIP_FLY \+ \(toDealer \? 0 : PAY_LAG\), CHIP_STAG, dist,\s*panFor\(/.test(cue))
+  throw new Error('the payout fan must carry the distance and the seats');
+const fan = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
+if (!fan.includes('dist') || !/chipClack\(delay0 \+ k \* step, Math\.max\(1 - k \* 0\.06, 0\.5\), dist, pk\)/.test(fan))
+  throw new Error('every clack in the fan must carry the distance and its seat');
 console.log('wiring: walkCue measures tray\u2192box, the fan carries it, every clack speaks the model');
+
+/* --- a panned clack rides one panner, gated on the API --- */
+const panned = makeClack(true);
+panned.clack(0, 1, 4.33, -0.4);
+if (panned.rec.bursts[0].out !== panned.panner || panned.rec.tones[0].out !== panned.panner)
+  throw new Error('the tick and the thock must share the chip\u2019s panner');
+if (panned.rec.panSets.length !== 1 || panned.rec.panSets[0][0] !== -0.4 || panned.rec.panSets[0][1] !== 5)
+  throw new Error('the pan must be set at the clack\u2019s own time: ' + JSON.stringify(panned.rec.panSets));
+if (panned.rec.outs[0] !== panned.master) throw new Error('the panner must feed the master mix');
+panned.clack(0, 1, null, 3);
+if (panned.rec.panSets[1][0] !== 1) throw new Error('a wild seat clamps to the rail');
+const noApi = makeClack(false);
+noApi.clack(0, 1, 4.33, -0.4);
+if (noApi.rec.bursts[0].out !== null) throw new Error('without createStereoPanner the clack stays centered');
+console.log('the seat: a panned clack rides its own panner to the master, wild seats clamp, no API stays centered');
 
 console.log('\nchip distance verified');

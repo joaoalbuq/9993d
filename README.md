@@ -123,7 +123,14 @@ are additive screens kept beside it for side-by-side comparison.
   1.75kHz floor at the far rail, deeper and quieter with every unit of
   cloth — while clacks without a flight keep the plain voice they have
   always had. Live: the walk's ticks landed at 2819 · 2636 · 2627 ·
-  2285 · 1832Hz across the seats. Gated by
+  2285 ·  1832Hz across the seats. **And the walk crosses the channels**: every
+  clack carries its SEAT — the fan pans from where the chips leave to
+  where they land, the tray's screen seat to the box's, one step per
+  chip through the same panFor the whooshes ride — so the payout walk
+  moves across the stereo field the way the deal does (and the panned
+  clacks keep their direction in the room's reflections, since the
+  panner sits upstream of the shared send); without the panner API the
+  clacks stay centered, never broken. Gated by
   the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
 - **The shoe ceremony (spec 4.5)** — a four-deck shoe with a **cut card at

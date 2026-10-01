@@ -2364,7 +2364,7 @@
   document.addEventListener('pointerdown', wakeAudio);
   document.addEventListener('keydown', wakeAudio);
 
-  function tone(c, freq, t, dur, type, gain, slideTo) {
+  function tone(c, freq, t, dur, type, gain, slideTo, out) {
     var o = c.createOscillator(), g = c.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
@@ -2372,7 +2372,7 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(master);
+    o.connect(g); g.connect(out || master);
     o.start(t); o.stop(t + dur + 0.03);
   }
   function noise(c) {
@@ -2384,7 +2384,7 @@
     }
     return noiseBuf;
   }
-  function burst(c, t, dur, type, freq, q, gain) {
+  function burst(c, t, dur, type, freq, q, gain, out) {
     /* a shaped noise burst — the whole percussive vocabulary */
     var s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
     s.buffer = noise(c);
@@ -2393,22 +2393,30 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(master);
+    s.connect(f); f.connect(g); g.connect(out || master);
     s.start(t); s.stop(t + dur + 0.03);
   }
-  function chipClack(delay, gain, dist) {
+  function chipClack(delay, gain, dist, pan) {
     /* a ceramic chip on cloth: the tick, then the body thock.
        With a distance the clack carries it - the same model the
        cards fly under: a chip off the far tray lands deeper and
        quieter than one from the near rail, the air taking the
-       tick's top off on the way. No distance: the plain voice  */
+       tick's top off on the way. No distance: the plain voice.
+       With a pan the clack carries its SEAT too — the payout
+       walk crosses the channels the way the deal's whooshes do */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0), g = gain == null ? 1 : gain;
     var far = dist != null;
     var near = far ? clamp(1 - (dist - 4.2) / 1.8, 0, 1) : 1;  /* 0 far .. 1 near */
     var dg = far ? lerp(0.62, 1, near) : 1;
-    burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg);
-    tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170);
+    var out = null;
+    if (pan != null && c.createStereoPanner) {
+      out = c.createStereoPanner();     /* the chip's stereo seat */
+      out.pan.setValueAtTime(clamp(pan, -1, 1), t);
+      out.connect(master);
+    }
+    burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out);
+    tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out);
   }
   function cardSnap(delay) {
     /* the card hits the cloth at the end of its 430ms flight */
@@ -2450,10 +2458,16 @@
     }
     s.start(t); s.stop(t + D + 0.03);
   }
-  function chipFan(count, delay0, step, dist) {
+  function chipFan(count, delay0, step, dist, panFrom, panTo) {
     /* a stack unwinds or arrives — clacks staggered like the
-       chips they belong to, each carrying the flight's distance */
-    for (var k = 0; k < count; k++) chipClack(delay0 + k * step, Math.max(1 - k * 0.06, 0.5), dist);
+       chips they belong to, each carrying the flight's distance
+       and its SEAT: the fan pans from where the chips leave to
+       where they land, one step across the channels per chip,
+       the way the deal's whooshes carry the shoe to the box   */
+    for (var k = 0; k < count; k++) {
+      var pk = panFrom == null ? null : (panTo == null ? panFrom : lerp(panFrom, panTo, count > 1 ? k / (count - 1) : 1));
+      chipClack(delay0 + k * step, Math.max(1 - k * 0.06, 0.5), dist, pk);
+    }
   }
   function riffleShuffle(delay0) {
     /* the shoe ceremony (spec 4.5): the halves lift with a
@@ -2511,13 +2525,19 @@
     /* the clacks land with the chips (the flights end at
        CHIP_FLY, the payout a PAY_LAG behind), then your box
        takes its stinger. The clacks carry the FLIGHT DISTANCE
-       tray to box - the payout walk's own distance model    */
+       tray to box - the payout walk's own distance model -
+       and the flight's SEAT: the fan pans from where the
+       chips leave to where they land, projected by the same
+       camera as the deal's whooshes, so the walk moves across
+       the channels as the eye follows the chips            */
     var toDealer = h.result === 'lose' || h.result === 'bust';
     var n = toDealer ? (h.chipT0 || []).length : (h.flyPay || 0);
     var from = toDealer ? chipSpot(b, 0) : traySpot(0);
     var to = toDealer ? traySpot(0) : chipSpot(b, 0);
     var dist = Math.hypot(to[0] - from[0], to[1] - from[1]);
-    chipFan(n, CHIP_FLY + (toDealer ? 0 : PAY_LAG), CHIP_STAG, dist);
+    chipFan(n, CHIP_FLY + (toDealer ? 0 : PAY_LAG), CHIP_STAG, dist,
+      panFor({ x: from[0], y: 0.12, z: from[1] }),
+      panFor({ x: to[0], y: 0.12, z: to[1] }));
     if (b === YOUR) stinger(h.result);
   }
 
