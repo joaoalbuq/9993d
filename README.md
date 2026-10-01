@@ -268,7 +268,14 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   **practice shoe** (two decks, a cut card at 75% penetration, the riffle
   ceremony between shoes) with cosmetic chips and **no ledger** — bet, hit,
   stand, double, and the floor's own settlement (blackjack 3:2, win 1:1,
-  push returns the stake). The house chip (inline SVG, so the brand can't
+  push returns the stake). **The card sounds carry their seat**: the
+  deal's whoosh pans from the shoe's live screen position to the hand
+  it lands in and the snap lands at that hand — read live from the
+  layout, so center stays center on any width and a narrow phone never
+  invents stereo it doesn't have (rails stop at ±0.85, and without the
+  panner API everything stays centered) — while the clacks, riffle,
+  coach cue and stinger keep the center, because this felt has one
+  seat. The house chip (inline SVG, so the brand can't
   404 offline) brands it, the card snaps and riffle sound through the app's
   own 🔊 toggle, and the page the player was bound for rides along in
   `?from=`. The moment the origin answers the pill offers the door straight
