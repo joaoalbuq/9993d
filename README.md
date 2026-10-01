@@ -315,7 +315,10 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   against the canon both ways ("missed: hard 10 v 10" or "a clean card").
   A card can be fixed and re-locked (the card scores once, the re-lock
   replaces its grade), the score rides the sheet as clean cards over
-  cards graded, and "a fresh count" deals again. The panels read and
+  cards graded, and "a fresh count" deals again. On the teach sheet
+  itself the flips announce themselves: each row goes gold with a ▸
+  the count it crosses — the live rows read gold beside the footer's
+  live line, refreshed with every dealt card. The panels read and
   take taps above the shoe's right edge, which used to swallow clicks.
   The drill teaches the **true count** too: the meter
   reads out decks left ("Shoe 99% · 2.0 dk"), questions ALTERNATE running →

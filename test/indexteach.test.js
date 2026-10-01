@@ -55,7 +55,7 @@ console.log('live line: liveness matches the canon at both edges \u2014 cold, fl
 
 /* --- the sheet: every index, the why, the spread, the explainer --- */
 for (const cell of Object.keys(INDEX999.INDICES))
-  if (!src.includes("'<li><b>' + c + '</b>")) throw new Error('the sheet must render the canon');
+  if (!src.includes("'<b>' + c + '</b>")) throw new Error('the sheet must render the canon');
 if (!src.includes('INS_WHY_IN +')) throw new Error('the insurance row must carry its why');
 if (!src.includes('The count\\u2019s plays')) throw new Error('the sheet\u2019s title');
 if (!/running count \\u00f7 decks left/.test(src)) throw new Error('the sheet must teach the conversion');
@@ -139,5 +139,20 @@ if (!/Score: ' \+ indexQuiz\.score\.clean \+ '\/' \+ indexQuiz\.score\.asked/.te
 if (!/data-act="new">quiz me/.test(src))
   throw new Error('the teach sheet must offer the quiz');
 console.log('quiz wiring: picks toggle, the lock grades, a fresh count deals, the score rides the sheet');
+
+/* --- the gold rows: live rows wear the flip as the count moves --- */
+if (!/var liveNow = countingOn \? indexLiveSet\(trueCount\(\)\) : \{\};/.test(src))
+  throw new Error('the teach rows must read liveness from the live count, gated on counting');
+if (!/\'<li\' \+ \(liveNow\[c\] \? \' class="live"\' : \'\'\)/.test(src))
+  throw new Error('each hand row must wear class=live when its threshold is crossed');
+if (!/countingOn && trueCount\(\) >= INDEX999\.INSURE_AT \? \' class="live"\'/.test(src))
+  throw new Error('the insurance row must gold out past +3');
+if (!/\(liveNow\[c\] \? \'\\u25B8 \' : \'\'\)/.test(src))
+  throw new Error('a live row must carry the flip marker');
+if (!/\.idx li\.live \{ color: #d8b56a; \}/.test(src))
+  throw new Error('the live row must read gold');
+if (!/renderIndexSheet\(\);              \/\* the teach sheet follows the live count \*\//.test(src))
+  throw new Error('the gold must refresh with the count, not only on toggle');
+console.log('gold rows: a row goes gold with the \u25B8 the count it crosses, refreshed every count');
 
 console.log('\nindex teach verified');

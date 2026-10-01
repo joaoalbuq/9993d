@@ -330,6 +330,7 @@
   .leaks .drilltap { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; white-space: nowrap; }
   .leaks b { color: #e2705f; }
   .idx b { color: #d8b56a; }
+  .idx li.live { color: #d8b56a; }   /* a flip: the row goes gold the count it crosses */
   .idx .quizcount { color: #d8b56a; }
   .idx .quizpicks span { cursor: pointer; color: rgba(255,255,255,0.5); text-decoration: underline dotted; }
   .idx .quizpicks span.on { color: #d8b56a; text-decoration: none; font-weight: bold; }
@@ -1382,14 +1383,19 @@
       box.hidden = false;
       return;
     }
+    var liveNow = countingOn ? indexLiveSet(trueCount()) : {};   /* the gold rows: each
+                    flip announces itself as the count crosses its threshold */
     var rows = [], c;
     for (c in INDEX999.INDICES) {
       var ix = INDEX999.INDICES[c];
-      rows.push('<li><b>' + c + '</b> \u2014 ' + ix.play + ' at true ' +
+      rows.push('<li' + (liveNow[c] ? ' class="live"' : '') + '>' + (liveNow[c] ? '\u25B8 ' : '') +
+        '<b>' + c + '</b> \u2014 ' + ix.play + ' at true ' +
         (ix.below ? fmtCount(ix.at) + ' or lower' : fmtCount(ix.at)) +
         ' \u00b7 ' + ix.why + '</li>');
     }
-    rows.push('<li><b>insurance v ace</b> \u2014 insure at true +' + INDEX999.INSURE_AT +
+    rows.push('<li' + (countingOn && trueCount() >= INDEX999.INSURE_AT ? ' class="live"' : '') + '>' +
+      (countingOn && trueCount() >= INDEX999.INSURE_AT ? '\u25B8 ' : '') +
+      '<b>insurance v ace</b> \u2014 insure at true +' + INDEX999.INSURE_AT +
       ' \u00b7 ' + INDEX999.INS_WHY_IN + '</li>');
     indexQuiz = null;                    /* teaching owns the sheet until a quiz is started */
     box.innerHTML = '<h3>The count\u2019s plays</h3><ol>' + rows.join('') + '</ol>' +
