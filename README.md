@@ -458,8 +458,11 @@ answers with CORS headers.
   and 0.75s, the verdict telling the story ("cadence up → 0.28s",
   "eased to 0.32s", "at the floor/ceiling" at the bounds) and the stats
   line carrying the live pace; the Adaptive toggle (persisted,
-  `999.practice.speedadapt`) turns it off, and the pace buttons reset
-  the base the engine evolves from.
+  `999.practice.speedadapt`)  turns it off, and the pace buttons reset
+  the base the engine evolves from. The ♠ Count pill carries the drill's
+  progress onto the main floor — best time ("⚡0.2s") and the live
+  streak right beside the counting accuracy, refreshed the moment a
+  run locks in, visible even with counting toggled off.
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the

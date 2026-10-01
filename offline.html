@@ -1098,7 +1098,17 @@
       var base = runPct == null ? 'Count'
         : 'Count ' + runPct + '% \u00b7 \u00b1' + (countStats.offBy / countStats.guesses).toFixed(1);
       var tcPct = countStats.tGuesses ? Math.round(100 * countStats.tRight / countStats.tGuesses) : null;
-      sc.textContent = countingOn ? (base + (tcPct == null ? '' : ' \u00b7 TC ' + tcPct + '%')) : 'Count off';
+      /* the speed drill's progress rides the pill too: best time
+         and the live streak, so the main floor shows where the
+         ⚡ drill stands without opening it                  */
+      var sp = '';
+      if (speedScore.runs) {
+        if (speedScore.bestMs) sp += ' \u00b7 \u26a1' + (speedScore.bestMs / 1000).toFixed(1) + 's';
+        sp += ' \u00b7 streak ' + speedScore.streak;
+      }
+      sc.textContent = countingOn
+        ? (base + (tcPct == null ? '' : ' \u00b7 TC ' + tcPct + '%') + sp)
+        : ('Count off' + sp);
     }
     var bh = document.getElementById('betHint');
     if (bh) {
@@ -1919,6 +1929,8 @@
         ' (best ' + speedScore.bestStreak + ')'
       : 'count at table speed \u2014 no marks, just the running count';
     if (SPEED.adapt) st.textContent += ' \u00b7 pace ' + SPEED.pace.toFixed(2) + 's';
+    renderCount();                   /* the pill on the main floor carries
+                                        the drill's best time and streak */
     if (SPEED.phase === 'idle') speedIdleStage();
   }
   function speedStart() {
