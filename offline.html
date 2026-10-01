@@ -325,6 +325,12 @@
   .leaks b { color: #e2705f; }
   .leaks .drillnow { margin-top: 0.55em; }
   #btnLeaks.on { color: #d8b56a; border-color: rgba(216,181,106,0.5); }
+  .speedstage { min-height: 8em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4em; }
+  .speedstage .card { position: relative; width: 5.4em; height: 7.6em; margin: 0; animation: speedpop 0.16s ease-out; }
+  @keyframes speedpop { from { transform: scale(0.72); opacity: 0.15; } to { transform: scale(1); opacity: 1; } }
+  .sprow { display: flex; gap: 0.5em; justify-content: center; margin: 0.5em 0; }
+  .sp.on { border-color: rgba(216,181,106,0.65); color: #d8b56a; }
+  #speedClock { margin: 0; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -407,6 +413,21 @@
   <p class="dverdict" id="drillVerdict"></p>
 </div>
 
+<div class="drill" id="speedBox" hidden>
+  <p class="dq" id="speedTitle">Speed counting</p>
+  <div class="speedstage" id="speedStage"></div>
+  <p class="dverdict" id="speedVerdict"></p>
+  <button class="btn" id="speedLock" type="button" hidden>Lock it in</button>
+  <div class="sprow" id="speedPaces">
+    <button class="dbtn sp" data-pace="0.7" type="button">Slow</button>
+    <button class="dbtn sp" data-pace="0.45" type="button">Normal</button>
+    <button class="dbtn sp" data-pace="0.3" type="button">Fast</button>
+  </div>
+  <button class="btn" id="speedGo" type="button">Start</button>
+  <button class="btn ghost" id="speedBack" type="button">Back to the shoe</button>
+  <p class="coachhint" id="speedStats"></p>
+</div>
+
 <footer class="bar">
   <button class="chipbtn c25"  id="chip25"  type="button" aria-label="Bet 25">25</button>
   <button class="chipbtn c100" id="chip100" type="button" aria-label="Bet 100">100</button>
@@ -418,6 +439,7 @@
   <button class="btn ghost" id="btnDouble" type="button">Double</button>
   <button class="btn ghost" id="btnLeaks" type="button" hidden>🩹 Leaks</button>
   <button class="btn ghost" id="btnReview" type="button" hidden>⏪ Review</button>
+  <button class="btn ghost" id="btnSpeed" type="button">⚡ Speed</button>
   <button class="btn ghost" id="btnMute" type="button">🔊 Sound</button>
 </footer>
 
@@ -1413,6 +1435,7 @@
 
   function deal() {
     if (phase !== 'betting' || !bet) return;
+    if (SPEED.on && SPEED.phase !== 'idle') speedClose();   /* a deal kills a running drill */
     token++;
     doubled = false;
     you = []; dealerArr = [];
@@ -1595,6 +1618,148 @@
   document.getElementById('drillPlus').addEventListener('click', function () { drillStep(1); });
   document.getElementById('drillLock').addEventListener('click', drillLock);
   document.getElementById('drillTell').addEventListener('click', drillTell);
+
+  /* ---- the speed drill: cards flash, you count, the clock runs
+     A fresh single deck streams at a set cadence; you keep the
+     running count in your head and recall it against the clock.
+     The stream is independent of the table shoe — the session
+     meter stays honest and the runs repeat forever. Timing is
+     REAL time, outside the round machine's clock.            */
+  var SPEED = { on: false, pace: 0.45, N: 15, stream: [], idx: 0,
+                target: 0, val: 0, recallT0: 0, timer: 0, ticker: 0, phase: 'idle' };
+  try { SPEED.pace = parseFloat(localStorage.getItem('999.practice.speed')) || 0.45; } catch (e) { }
+  var speedScore = { runs: 0, right: 0, bestMs: 0, streak: 0, bestStreak: 0 };
+  try {
+    var sst = JSON.parse(localStorage.getItem('999.practice.speedstats') || 'null');
+    if (sst && typeof sst.runs === 'number') speedScore = sst;
+  } catch (e) { }
+  function speedTarget(stream) {
+    var t = 0;
+    for (var i = 0; i < stream.length; i++) t += (HILO[stream[i].rank] || 0);
+    return t;
+  }
+  function saveSpeed() {
+    try {
+      localStorage.setItem('999.practice.speedstats', JSON.stringify(speedScore));
+      localStorage.setItem('999.practice.speed', String(SPEED.pace));
+    } catch (e) { }
+  }
+  function speedIdleStage() {
+    document.getElementById('speedStage').innerHTML = '';
+    document.getElementById('speedStage').appendChild(cardEl(null, true));
+    document.getElementById('speedGo').hidden = false;
+    document.getElementById('speedGo').textContent = speedScore.runs ? 'Go again' : 'Start';
+    document.getElementById('speedLock').hidden = true;
+  }
+  function renderSpeed() {
+    var paces = document.querySelectorAll('#speedPaces .sp');
+    for (var i = 0; i < paces.length; i++) {
+      paces[i].classList.toggle('on', parseFloat(paces[i].getAttribute('data-pace')) === SPEED.pace);
+    }
+    document.getElementById('speedStats').textContent = speedScore.runs
+      ? 'runs ' + speedScore.runs + ' \u00b7 ' + speedScore.right + ' right \u00b7 best ' +
+        (speedScore.bestMs / 1000).toFixed(1) + 's \u00b7 streak ' + speedScore.streak +
+        ' (best ' + speedScore.bestStreak + ')'
+      : 'count at table speed \u2014 no marks, just the running count';
+    if (SPEED.phase === 'idle') speedIdleStage();
+  }
+  function speedStart() {
+    if (SPEED.phase !== 'idle') return;
+    var deck = SHOE999.build(1);
+    SPEED.stream = [];
+    for (var i = 0; i < SPEED.N; i++) SPEED.stream.push(deck.pop());
+    SPEED.target = speedTarget(SPEED.stream);
+    SPEED.idx = 0; SPEED.val = 0; SPEED.phase = 'flash';
+    document.getElementById('speedVerdict').textContent = '';
+    document.getElementById('speedVerdict').className = 'dverdict';
+    document.getElementById('speedGo').hidden = true;
+    speedFlash();
+  }
+  function speedFlash() {
+    if (SPEED.phase !== 'flash') return;
+    if (SPEED.idx >= SPEED.N) { speedRecall(); return; }
+    document.getElementById('speedTitle').textContent =
+      'Card ' + (SPEED.idx + 1) + ' of ' + SPEED.N + ' \u2014 keep the count';
+    var stage = document.getElementById('speedStage');
+    stage.innerHTML = '';
+    stage.appendChild(cardEl(SPEED.stream[SPEED.idx]));
+    SPEED.idx++;
+    SPEED.timer = setTimeout(speedFlash, SPEED.pace * 1000);   /* REAL time, not the round clock */
+  }
+  function speedRecall() {
+    SPEED.phase = 'recall';
+    SPEED.recallT0 = Date.now();
+    var stage = document.getElementById('speedStage');
+    stage.innerHTML = '<div class="stepper"><button class="dbtn" id="speedMinus" type="button">&minus;</button>' +
+      '<span class="dval" id="speedVal">0</span>' +
+      '<button class="dbtn" id="speedPlus" type="button">+</button></div>' +
+      '<p class="dq" id="speedClock">0.0s</p>';
+    document.getElementById('speedTitle').textContent = 'Lock the count';
+    document.getElementById('speedMinus').addEventListener('click', function () { speedStep(-1); });
+    document.getElementById('speedPlus').addEventListener('click', function () { speedStep(1); });
+    document.getElementById('speedLock').hidden = false;   /* the clock is running */
+    SPEED.ticker = setInterval(function () {
+      var el = document.getElementById('speedClock');
+      if (el) el.textContent = ((Date.now() - SPEED.recallT0) / 1000).toFixed(1) + 's';
+    }, 100);
+  }
+  function speedStep(d) {
+    if (SPEED.phase !== 'recall') return;
+    SPEED.val += d;
+    document.getElementById('speedVal').textContent = fmtCount(SPEED.val);
+  }
+  function speedLock() {
+    if (SPEED.phase !== 'recall') return;
+    clearInterval(SPEED.ticker);
+    var ms = Date.now() - SPEED.recallT0;
+    var ok = SPEED.val === SPEED.target;
+    speedScore.runs++;
+    var isBest = false;
+    if (ok) {
+      speedScore.right++;
+      speedScore.streak++;
+      if (speedScore.streak > speedScore.bestStreak) speedScore.bestStreak = speedScore.streak;
+      if (!speedScore.bestMs || ms < speedScore.bestMs) { speedScore.bestMs = ms; isBest = true; }
+    } else speedScore.streak = 0;
+    saveSpeed();
+    var v = document.getElementById('speedVerdict');
+    v.className = 'dverdict ' + (ok ? 'ok' : 'miss');
+    v.textContent = ok
+      ? '\u2713 ' + fmtCount(SPEED.target) + ' \u00b7 ' + (ms / 1000).toFixed(1) + 's' + (isBest ? ' \u2014 best!' : '')
+      : 'It was ' + fmtCount(SPEED.target) + ' \u2014 you said ' + fmtCount(SPEED.val) + ' \u00b7 ' + (ms / 1000).toFixed(1) + 's';
+    coachCue(ok);
+    SPEED.phase = 'idle';
+    speedIdleStage();
+    renderSpeed();
+  }
+  function toggleSpeed() {
+    if (inHand()) { setStatus('Finish the hand \u2014 the speed drill waits'); return; }
+    SPEED.on = !SPEED.on;
+    document.getElementById('speedBox').hidden = !SPEED.on;
+    if (SPEED.on) { renderSpeed(); setStatus('Speed counting \u2014 the deck flashes, you recall'); }
+    else if (phase === 'betting') setStatus('Place your bet');
+  }
+  function speedClose() {
+    if (SPEED.ticker) clearInterval(SPEED.ticker);
+    if (SPEED.timer) clearTimeout(SPEED.timer);
+    SPEED.on = false; SPEED.phase = 'idle';
+    document.getElementById('speedBox').hidden = true;
+    if (phase === 'betting') setStatus('Place your bet');
+  }
+  document.getElementById('btnSpeed').addEventListener('click', toggleSpeed);
+  document.getElementById('speedGo').addEventListener('click', speedStart);
+  document.getElementById('speedBack').addEventListener('click', speedClose);
+  document.getElementById('speedLock').addEventListener('click', speedLock);
+  (function () {
+    var paces = document.querySelectorAll('#speedPaces .sp');
+    for (var i = 0; i < paces.length; i++) {
+      paces[i].addEventListener('click', function (e) {
+        SPEED.pace = parseFloat(e.currentTarget.getAttribute('data-pace'));
+        saveSpeed();
+        renderSpeed();
+      });
+    }
+  })();
 
   /* ============================================================
      The line: probe our own origin; when it returns, offer the

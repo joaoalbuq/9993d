@@ -213,7 +213,12 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   RC +4 over 2.0 dk"), and while you bet a hint translates the count into
   money — "True +3 — the spread says 2 units" (the old count−1 rule,
   capped at 6, held at 1 until the edge shows). The pill splits the
-  scores: "Count 60% · ±0.8 · TC 13%".
+  scores: "Count 60% · ±0.8 · TC 13%". And the **⚡ Speed** drill trains
+  recall against the clock: a fresh single deck flashes at a set cadence
+  (Slow / Normal / Fast), you keep the running count in your head, then
+  step it in and lock it while a live timer runs — streak, best time and
+  runs persist, the stream is independent of the table shoe, and a deal
+  always kills a running drill.
 
 ## Play it
 
@@ -399,6 +404,14 @@ answers with CORS headers.
   separately from running stats, the meter carrying the deck readout, and
   the betting hint ladder sampled across its whole range from "True −4 —
   bet 1 unit" to "True +7 — the spread says 6 units".
+- **The speed-counting drill** — the full loop driven live both compressed
+  and in REAL time: the flash phase held its wall clock (4651ms for 15
+  cards at Fast ≈ 0.3s each), the recall timer ticked live (1.2s sampled),
+  a counted run locked the exact target ("✓ +5 — best!", streak 1), a
+  deliberate miss showed the honest two-sided verdict ("It was +4 — you
+  said +3 · 1.2s") and reset the streak, stats persisted across reloads,
+  and the session shoe never moved (100% · 2.0 dk before and after) — the
+  stream draws from its own fresh deck.
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the
