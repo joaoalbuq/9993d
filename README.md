@@ -513,7 +513,14 @@ answers with CORS headers.
   the divergence ("— the book's hit would have won +50"); the review
   panel files the hand under "Same hand, both plays: yours (stand) lost
   −25 · book ('hit') lost −25", with `forkYou`/`forkBook` persisted on
-  the entry so the both-ways verdict survives reloads.
+  the entry so the both-ways verdict survives reloads. **The review
+  ends on a scorecard**: the reel folds into the few cells behind
+  most of the loss — cells named exactly like the ledger so the
+  drills can aim at them, the walk stopping once it has passed
+  sixty percent of the money (at most three rows, an honest share
+  when the loss is spread thin) — and the panel closes on
+  "Scorecard: hard 16 v 10 ×2 −50 (59%) · hard 12 v 2 ×1 −25 (29%)
+  — 2 of 3 cells carry 88% of the −85. Drill these first."
 
 ## Layout
 

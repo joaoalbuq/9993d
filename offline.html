@@ -973,6 +973,32 @@
     }
     if (!findAndStack()) { buildShoe(); findAndStack(); }
   }
+  /* the scorecard: the review folds its reel into the few cells
+     behind most of the loss - Pareto's cut, at most three rows,
+     stopping once most of the money is accounted for, so the
+     session ends by naming what to fix first                 */
+  function reviewScorecard(reel) {
+    if (!reel || !reel.length) return null;
+    var by = {}, total = 0, i, k;
+    for (i = 0; i < reel.length; i++) {
+      var r = reel[i];
+      var cell = (r.soft ? 'soft ' : 'hard ') + r.t + ' v ' + r.up;
+      if (!by[cell]) by[cell] = { cell: cell, cost: 0, n: 0 };
+      by[cell].cost += r.cost;
+      by[cell].n++;
+      total += r.cost;
+    }
+    var cells = [];
+    for (k in by) cells.push(by[k]);
+    cells.sort(function (a, b) { return b.cost - a.cost; });
+    var rows = [], run = 0;
+    for (var j = 0; j < cells.length && rows.length < 3; j++) {
+      rows.push(cells[j]);
+      run += cells[j].cost;
+      if (total > 0 && run / total >= 0.6) break;
+    }
+    return { total: total, rows: rows, cells: cells.length, covered: total ? run / total : 0 };
+  }
   function renderLeaks() {
     var box = document.getElementById('leakBox');
     if (!box) return;
@@ -988,8 +1014,23 @@
         ? '<p class="drillnow">Same hand, both plays: yours (' + cur2.choice + ') ' + cur2.forkYou +
           ' \u00b7 book (\u2019' + cur2.book + '\u2019) ' + cur2.forkBook + '</p>'
         : '';
+      var sc = reviewScorecard(replay);
+      var scHtml = '';
+      if (sc && sc.rows.length) {
+        var scRows = sc.rows.map(function (r3) {
+          return '<b>' + r3.cell + '</b> \u00d7' + r3.n + ' \u2212' + Math.round(r3.cost) +
+            ' (' + Math.round(100 * r3.cost / sc.total) + '%)';
+        }).join(' \u00b7 ');
+        scHtml = '<p class="drillnow">Scorecard: ' + scRows +
+          (sc.rows.length === sc.cells
+            ? ' \u2014 the whole \u2212' + Math.round(sc.total) + ' sits in these ' + sc.cells + ' cells. Drill them.'
+            : ' \u2014 ' + sc.rows.length + ' of ' + sc.cells + ' cells carry ' +
+              Math.round(100 * sc.covered) + '% of the \u2212' + Math.round(sc.total) +
+              '. Drill these first.') + '</p>';
+      }
       box.innerHTML = '<h3>Session review</h3><ol>' + rows2 + '</ol>' + forkHtml +
-        '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.</p>';
+        '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.</p>' +
+        scHtml;
       box.hidden = false;
       return;
     }
