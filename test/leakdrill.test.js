@@ -29,6 +29,7 @@ const ldClose = src.indexOf('\n  }', tAt) + 4;
 const ldSrc = src.slice(ldStart, ldClose);
 if (ldSrc.split('{').length !== ldSrc.split('}').length) throw new Error('extraction unbalanced');
 const factory = new Function('leakMode', 'leakQueue', 'draw', 'shoeArr', 'leakCell', 'buildShoe',
+  'refillQueue = function () {}, gradWakeDue = function () { return 0; }, gradClock = 0, saveGrad = function () {}',   /* graduation stubs */
   ldSrc + '\nreturn leakDeal;');
 
 function run(cell, expectSoft, expectT, expectUp) {

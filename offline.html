@@ -322,6 +322,7 @@
   .leaks h3 { margin: 0 0 0.4em; font-size: 0.8em; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
   .leaks ol { margin: 0; padding-left: 1.2em; }
   .leaks li { margin: 0.15em 0; color: rgba(255,255,255,0.85); }
+  .leaks li.grad { opacity: 0.55; }
   .leaks b { color: #e2705f; }
   .leaks .drillnow { margin-top: 0.55em; }
   .evstrip {
@@ -691,9 +692,71 @@
   }
   function weakestCells() {
     var arr = [];
-    for (var k in leaks) if (leaks[k] && leaks[k].n) arr.push({ cell: k, n: leaks[k].n, cost: leaks[k].cost });
+    for (var k in leaks) if (leaks[k] && leaks[k].n) arr.push({
+      cell: k, n: leaks[k].n, cost: leaks[k].cost,
+      s: leaks[k].s || 0, r: leaks[k].r ? 1 : 0,
+      back: leaks[k].back || 0, g: leaks[k].g || 0
+    });
     arr.sort(function (a, b) { return b.cost - a.cost; });
     return arr;
+  }
+  /* graduation: a cell that answers with the book three times
+     running leaves the drill - retired with honours - and
+     returns with spacing (six drill hands, then double, capped
+     at twenty-four) for a refresher; any miss on the cell,
+     drill or felt, yanks a graduate straight back. The clock
+     counts drill hands served and persists, so spacing
+     survives reloads.                                     */
+  var GRAD_AT = 3, GRAD_GAP = 6, GRAD_GAP_MAX = 24;
+  var gradClock = 0;
+  try {
+    var gcRaw = JSON.parse(localStorage.getItem('999.practice.grad') || 'null');
+    if (gcRaw && typeof gcRaw.clock === 'number') gradClock = gcRaw.clock;
+  } catch (e) { }
+  function saveGrad() {
+    try { localStorage.setItem('999.practice.grad', JSON.stringify({ clock: gradClock })); } catch (e) { }
+  }
+  function saveLeaks() {
+    try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
+  }
+  function gradGap(g) {
+    var gap = GRAD_GAP;
+    while (--g > 0 && gap < GRAD_GAP_MAX) gap *= 2;
+    return Math.min(gap, GRAD_GAP_MAX);
+  }
+  function gradClean(cell) {
+    var e = leaks[cell];
+    if (!e || e.r) return;
+    e.s = (e.s || 0) + 1;
+    if (e.s >= GRAD_AT) {
+      e.g = (e.g || 0) + 1;
+      e.r = 1;
+      e.s = 0;
+      e.at = gradClock;
+      e.back = gradClock + gradGap(e.g);
+    }
+    saveLeaks();
+  }
+  function gradMiss(cell) {
+    var e = leaks[cell];
+    if (!e) return;
+    e.s = 0;
+    if (e.r) { e.r = 0; e.back = 0; }
+    saveLeaks();
+  }
+  function gradWakeDue() {
+    var woke = 0, k, e;
+    for (k in leaks) {
+      e = leaks[k];
+      if (e && e.r && gradClock >= (e.back || 0)) { e.r = 0; e.back = 0; e.s = 0; woke++; }
+    }
+    if (woke) saveLeaks();
+    return woke;
+  }
+  function refillQueue() {
+    gradWakeDue();
+    leakQueue = weakestCells().filter(function (c) { return !c.r; })
+      .map(function (c) { return c.cell; });
   }
   /* the replay reel: the last misses, EXACTLY as they happened —
      cards, suits, upcard, the click, the book's answer and the
@@ -880,6 +943,7 @@
       coachStats.book++;
       coachStats.streak++;
       if (coachStats.streak > coachStats.best) coachStats.best = coachStats.streak;
+      if (lastCell) gradClean(lastCell);     /* a clean answer counts toward graduation */
     } else {
       coachStats.streak = 0;
       coachStats.loss += cost;
@@ -890,6 +954,7 @@
         try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
         var lb = document.getElementById('btnLeaks');
         if (lb) lb.hidden = false;
+        gradMiss(lastCell);                  /* the miss undoes any graduation */
       }
       var entry = {                      /* ...and the replay reel keeps the hand */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
@@ -1085,11 +1150,22 @@
     var cells = weakestCells();
     if (!leakMode || !cells.length) { box.hidden = true; box.innerHTML = ''; return; }
     var rows = cells.slice(0, 5).map(function (c) {
-      return '<li>' + c.cell + ' \u00d7' + c.n + ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b></li>';
+      var st = '';
+      if (c.r) st = ' \u00b7 \uD83C\uDF93' + (c.g || 1) + ' \u00b7 back in ' + Math.max(0, c.back - gradClock);
+      else if (c.s) st = ' \u00b7 clean ' + c.s + '/' + GRAD_AT;
+      return '<li' + (c.r ? ' class="grad"' : '') + '>' + c.cell + ' \u00d7' + c.n +
+        ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + '</li>';
     }).join('');
-    var top = cells[0];
+    var next = null, retiredN = 0;
+    for (var ci = 0; ci < cells.length; ci++) {
+      if (cells[ci].r) retiredN++;
+      else if (!next) next = cells[ci];
+    }
     box.innerHTML = '<h3>Where the chips leak</h3><ol>' + rows + '</ol>' +
-      '<p class="drillnow">Next hand: ' + top.cell + ' \u2014 the shoe deals it to you.</p>';
+      '<p class="drillnow">' + (next
+        ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.' +
+          (retiredN ? ' \uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced.' : '')
+        : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>';
     box.hidden = false;
   }
   function toggleLeaks() {
@@ -1099,7 +1175,7 @@
     renderLeaks();
     if (leakMode) {
       setStatus('Leak drilling \u2014 your worst cells, dealt on purpose');
-      if (!leakQueue.length) leakQueue = weakestCells().map(function (c) { return c.cell; });
+      if (!leakQueue.length) refillQueue();
       if (phase === 'betting' && !bet) leakCell = leakQueue.shift() || null;
     }    else {
       leakCell = null;
@@ -1124,11 +1200,16 @@
   }
   function leakDeal() {
     if (!leakMode) return;
+    if (gradWakeDue()) leakQueue = [];   /* a graduate's rest is up: the queue rebuilds around it */
+    if (!leakQueue.length) refillQueue();
     if (!leakCell) leakCell = leakQueue.shift() || null;
-    if (!leakCell) {                              /* the ledger is empty: teach the classic */
+    if (!leakCell) {                              /* nothing active - all graduated, or
+                                                     an empty ledger: teach the classic */
       leakCell = 'hard 16 v 10';
       leakQueue.push(leakCell);                   /* and again after */
     }
+    gradClock++;                                  /* the drill's clock ticks per served hand */
+    saveGrad();
     var soft, t, up, first2, second, hole = null;
     if (leakCell === 'insurance v ace') {        /* the count's bet, drilled:
                                                     17 v A stands, and a ten
@@ -1859,6 +1940,7 @@
       coachStats.book++;
       coachStats.streak++;
       if (coachStats.streak > coachStats.best) coachStats.best = coachStats.streak;
+      gradClean('insurance v ace');          /* a clean answer counts toward graduation */
     } else {
       coachStats.streak = 0;
       coachStats.loss += cost;
@@ -1868,6 +1950,7 @@
       try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
       var lb = document.getElementById('btnLeaks');
       if (lb) lb.hidden = false;
+      gradMiss('insurance v ace');           /* the miss undoes any graduation */
       replay.push({                    /* the reel keeps it like any other miss */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
         up: 'A', us: dealerArr[0].suit,

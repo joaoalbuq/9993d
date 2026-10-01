@@ -1529,10 +1529,18 @@
   var tLedger = [];                 /* this round's misses, flushed at settle */
   function leakMerge(lk, miss) {    /* pure: the ledger after one miss lands */
     var out = {}, k;
-    for (k in lk) if (lk[k] && typeof lk[k].n === 'number') out[k] = { n: lk[k].n, cost: lk[k].cost };
+    for (k in lk) if (lk[k] && typeof lk[k].n === 'number') {
+      out[k] = { n: lk[k].n, cost: lk[k].cost };
+      if (typeof lk[k].s === 'number') out[k].s = lk[k].s;    /* graduation rides along */
+      if (lk[k].r) out[k].r = 1;
+      if (typeof lk[k].back === 'number') out[k].back = lk[k].back;
+      if (typeof lk[k].g === 'number') out[k].g = lk[k].g;
+    }
     if (!out[miss.cell]) out[miss.cell] = { n: 0, cost: 0 };
     out[miss.cell].n++;
     out[miss.cell].cost += miss.cost;
+    out[miss.cell].s = 0;                     /* a felt miss undoes any graduation */
+    if (out[miss.cell].r) { out[miss.cell].r = 0; out[miss.cell].back = 0; }
     return out;
   }
   function flushT() {

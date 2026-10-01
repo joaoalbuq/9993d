@@ -454,7 +454,20 @@ answers with CORS headers.
   all persisted. The leak drill now seeds its queue from the ledger's
   weakest cells, so "Next hand: <cell> — the shoe deals it to you" is
   a promise kept; insurance misses land in the ledger as "insurance v
-  ace" and replay from the reel like any other miss.
+  ace" and replay from the reel like any other miss. **The drill now
+  graduates its students**: a cell that answers with the book three
+  times running retires from the queue — shown muted on the panel with
+  its honours ("🎓1 · back in 6") — and returns with spacing for a
+  refresher (six served hands, doubling each re-graduation, capped at
+  twenty-four, the clock persisted in `999.practice.grad`); any miss on
+  the cell, at the drill or on the felt, yanks a graduate straight back
+  and zeroes its streak, the panel showing the live streak meanwhile
+  ("clean 1/3"), and an all-graduated ledger falls back to the classic
+  16 v 10 so the drill never runs dry. Live end to end: hard 12 v 2
+  retired at clock 3 ("back in 6"), the countdown ticked down on the
+  classic hands, and the woken cell was dealt again the moment its rest
+  was up — with the wake starving nothing when the classic loop held
+  the queue (found live, fixed at the serve).
 - **The speed-counting drill** — the full loop driven live both compressed
   and in REAL time: the flash phase held its wall clock (4651ms for 15
   cards at Fast ≈ 0.3s each), the recall timer ticked live (1.2s sampled),

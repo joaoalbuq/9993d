@@ -46,6 +46,22 @@ if (lk['hard 16 v 10'].n !== 1 || lk['hard 16 v 10'].cost !== 0)
   throw new Error('a costless miss still lands: ' + JSON.stringify(lk['hard 16 v 10']));
 console.log('accumulation: ×2 −5.2 across two rounds; a costless miss still counts once');
 
+/* --- graduation rides the merge: a graduate untouched by other
+       cells' misses keeps its honours; a felt miss on the
+       graduate itself yanks it back to the drill         --- */
+const gradLk = leakMerge(
+  { 'soft 13 v Q': { n: 1, cost: 10, s: 2, r: 1, back: 9, g: 2 } },
+  { cell: 'hard 16 v 10', cost: 2.6 });
+const kept = gradLk['soft 13 v Q'];
+if (!kept.r || kept.back !== 9 || kept.g !== 2 || kept.s !== 2)
+  throw new Error('a graduate must keep its honours through other misses: ' + JSON.stringify(kept));
+const yanked = leakMerge(
+  { 'soft 13 v Q': { n: 1, cost: 10, s: 0, r: 1, back: 9, g: 2 } },
+  { cell: 'soft 13 v Q', cost: 3 });
+if (yanked['soft 13 v Q'].r || yanked['soft 13 v Q'].back)
+  throw new Error('a felt miss on a graduate must yank it back: ' + JSON.stringify(yanked['soft 13 v Q']));
+console.log('graduation rides the merge: honours kept, felt misses yank graduates back');
+
 /* --- the cell vocabulary is byte-identical on both pages --- */
 const floorKey = floorSrc.match(/function leakKey\(soft, t, up\) \{\s*return \(soft \? 'soft ' : 'hard '\) \+ t \+ ' v ' \+ up;/);
 if (!floorKey) throw new Error('the floor\u2019s leakKey template drifted');
