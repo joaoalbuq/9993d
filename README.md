@@ -109,7 +109,16 @@ are additive screens kept beside it for side-by-side comparison.
   felt's own geometry, pans stop 0.85 short of the rail, and a missing
   panner API leaves the whoosh centered rather than broken. Live: the
   six seats landed at −0.57 · −0.34 · −0.11 · +0.11 · +0.34 · +0.57 with
-  the shoe opening at +0.48 and the dealer's card dead center. Gated by
+  the shoe opening at +0.48 and the dealer's card dead center. **The
+  floor has air**: a room reverb synthesized in the page — no samples,
+  no downloads — a 12ms pre-delay, three early reflections off the
+  tables and rails, then a damped tail that reaches −60dB in its 1.35s
+  RT and is normalized to 0.35 energy per channel; the main mix feeds
+  it through a 0.35 send into a ConvolverNode straight to the
+  destination, so the clacks, whooshes, riffle and stingers all share
+  one air (stereo IR, so a panned deal keeps its direction in the
+  reflections too). Live: the context build captured the IR at 67,776
+  samples (12ms of zeros, exactly), both channels pinned at 0.35. Gated by
   the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
 - **The shoe ceremony (spec 4.5)** — a four-deck shoe with a **cut card at

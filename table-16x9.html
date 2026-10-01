@@ -2273,7 +2273,34 @@
      lands it — impact, then sound. A push is silent apart from its returning chips.   */
   var audioOn = true;
   try { audioOn = localStorage.getItem('999.table.audio') !== 'off'; } catch (e) { }
-  var actx = null, master = null, noiseBuf = null;
+  var actx = null, master = null, noiseBuf = null, reverbBus = null;
+  function roomIR(c) {
+    /* the room, synthesized - no samples, no downloads: a dozen
+       milliseconds of air, then the first reflections off the
+       tables and rails around the felt, then a tail that loses
+       its top end as the cloth and air take it. Normalized so
+       the room sits quietly under the deal, never over it.   */
+    var rt = 1.35, pre = 0.012, taps = [0.021, 0.033, 0.047];
+    var len = Math.floor(c.sampleRate * (pre + rt + 0.05));
+    var buf = c.createBuffer(2, len, c.sampleRate);
+    for (var ch = 0; ch < 2; ch++) {
+      var d = buf.getChannelData(ch), last = 0, i;
+      for (i = 0; i < len; i++) {
+        var t = i / c.sampleRate;
+        var n = Math.random() * 2 - 1;
+        last = last * 0.78 + n * 0.22;                    /* the tail loses its shimmer */
+        d[i] = t < pre ? 0 : last * 0.35 * Math.exp(-6.9 * (t - pre) / rt);
+      }
+      for (i = 0; i < taps.length; i++) {                 /* the first reflections */
+        d[Math.floor((pre + taps[i]) * c.sampleRate)] += (i % 2 ? -1 : 1) * (0.5 - i * 0.13) * (ch ? 0.9 : 1);
+      }
+      var sum = 0;
+      for (i = 0; i < len; i++) sum += d[i] * d[i];       /* pin the room's loudness */
+      var k = sum > 0 ? 0.35 / Math.sqrt(sum) : 1;
+      for (i = 0; i < len; i++) d[i] *= k;
+    }
+    return buf;
+  }
   function ready() {
     /* null = silent: muted, gate up, hidden tab, no API, or no
        user gesture yet (the context is still suspended) */
@@ -2286,6 +2313,16 @@
         actx = new Ctor();
         master = actx.createGain();
         master.connect(actx.destination);
+        /* the room off the main mix: everything on the felt shares
+           one air - the dry feed never stops, the send just asks
+           the walls to answer                                    */
+        reverbBus = actx.createGain();
+        reverbBus.gain.value = 0.35;
+        master.connect(reverbBus);
+        var conv = actx.createConvolver();
+        conv.buffer = roomIR(actx);
+        reverbBus.connect(conv);
+        conv.connect(actx.destination);
       }
       if (actx.state !== 'running') {
         var r = actx.resume();
