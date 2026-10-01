@@ -491,7 +491,16 @@ answers with CORS headers.
   the settle line ("the spread wanted 4 units (true +5): −0.5
   unplayed") and accumulated into the ♠ pill's betting hint as a
   Spread % and a −unplayed total (`999.practice.spread`). Over-betting
-  is never punished; flat shoes cost nothing. **The replay reel keeps the
+  is never punished; flat shoes cost nothing. **The felt keeps the
+  engine's books too**: every decided round prices its expectation at
+  the first click (the chosen play's EV999 price × stake, the
+  insurance edge riding along when the ace shows) and the settle
+  commits both legs once — a strip under the status line reads "EV
+  −27.0 engine · −75 felt · −48.0 luck · 2 rounds", the gap being the
+  luck the shoe dealt. Naturals (no decision to price) stay out of
+  both sides, so the two always reconcile over the hands the engine
+  can see; the book is per-session — a reload starts a new one.
+  **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle
   with the card the dealer actually held, and the review stacks it

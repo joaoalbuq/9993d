@@ -324,6 +324,12 @@
   .leaks li { margin: 0.15em 0; color: rgba(255,255,255,0.85); }
   .leaks b { color: #e2705f; }
   .leaks .drillnow { margin-top: 0.55em; }
+  .evstrip {
+    margin: 0.55em auto 0; max-width: 30em; font-size: 0.7em;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+  }
+  .evstrip b { color: #d8b56a; font-variant-numeric: tabular-nums; }
   #btnLeaks.on { color: #d8b56a; border-color: rgba(216,181,106,0.5); }
   .speedstage { min-height: 8em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4em; }
   .speedstage .card { position: relative; width: 5.4em; height: 7.6em; margin: 0; animation: speedpop 0.16s ease-out; }
@@ -380,6 +386,7 @@
   <div class="mid">
     <p class="status"><span class="dot"></span><span id="statusTxt">Place your bet</span></p>
     <p class="coachhint" id="coachHint" hidden></p>
+    <p class="evstrip" id="evStrip" hidden></p>
     <div class="leaks" id="leakBox" hidden></div>
     <div class="shoe">
       <div class="shoebox" id="shoeBox"><div class="half a"></div><div class="half b"></div></div>
@@ -718,6 +725,47 @@
       localStorage.setItem('999.practice.coach', coachOn ? 'on' : 'off');
       localStorage.setItem('999.practice.coachstats', JSON.stringify(coachStats));
     } catch (e) { }
+  }
+  /* the EV strip: the engine prices every decided round at the
+     first click - the chosen play's expected chips - and the
+     felt reports what actually moved; the gap between them is
+     luck, per session, and it reads as one line. Naturals (no
+     decision to price) stay out of both sides of the ledger,
+     so the two always reconcile over the hands the engine
+     can see.                                               */
+  var evSession = { rounds: 0, ev: 0, felt: 0 };
+  var evRound = false;       /* this round counts (not a review replay) */
+  var evPriced = false;      /* its first decision has been priced */
+  var evRoundExp = 0;        /* the engine's expected chips for the round */
+  var evInsExp = 0;          /* the insurance leg's expected chips */
+  function evPrice(choice) {
+    if (!evRound || evPriced) return;
+    evPriced = true;
+    var upR = dealerArr[0] ? dealerArr[0].rank : '10';
+    var pr = EV999.prices(total(you), isSoft(you), upR, you.length === 2 && bank >= bet);
+    var p = pr ? (pr[choice] != null ? pr[choice] : pr.stand) : null;
+    if (p == null) { evRound = false; return; }   /* unpriced: the round stays out */
+    evRoundExp = p * bet;
+  }
+  function evInsPrice() {
+    if (!evRound) return;
+    evInsExp += INDEX999.insEdge(shoeArr) * insBet;
+  }
+  function evStripLine(s) {
+    if (!s || !s.rounds) return '';
+    function w(v, dec) {
+      return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmt(Math.abs(v)));
+    }
+    var luck = s.felt - s.ev;
+    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b>' +
+      w(luck, true) + '</b> luck \u00b7 ' + s.rounds + ' round' + (s.rounds === 1 ? '' : 's');
+  }
+  function renderEvStrip() {
+    var el = document.getElementById('evStrip');
+    if (!el) return;
+    var line = evStripLine(evSession);
+    el.hidden = !line;
+    el.innerHTML = line;
   }
   function isSoft(hand) {
     return SHOE999.value(hand).soft;   /* the canon's soft flag: one counting rule everywhere */
@@ -1702,6 +1750,7 @@
     doubled = false;
     insBet = 0; insOpen = false;
     roundNo++;
+    evRound = !reviewMode; evPriced = false; evRoundExp = 0; evInsExp = 0;
     spreadUnitsStake = { units: bet / 25, tc: trueCount() };   /* the stake rides the count it was laid at */
     you = []; dealerArr = [];
     leakDeal();                                   /* leaks mode stacks the shoe here */
@@ -1734,6 +1783,7 @@
   }
   function hit() {
     if (phase !== 'acting') return;
+    evPrice('hit');
     coachVerdict('hit');
     phase = 'dealing';
     syncUI();
@@ -1746,11 +1796,13 @@
   }
   function stand() {
     if (phase !== 'acting') return;
+    evPrice('stand');
     coachVerdict('stand');
     dealerTurn();
   }
   function doubleDown() {
     if (phase !== 'acting' || you.length !== 2 || bank < bet) return;
+    evPrice('double');
     coachVerdict('double');
     bank -= bet; bet *= 2;
     renderBank(); renderBet();
@@ -1860,6 +1912,7 @@
     coachInsuranceVerdict(yes ? 'insure' : 'decline');
     if (yes) {
       insBet = Math.floor(bet / 2);
+      evInsPrice();
       bank -= insBet;
       saveBank();
       renderBank();
@@ -1908,6 +1961,7 @@
      blackjack 3:2, win 1:1, push returns the stake.           */
   function settle() {
     phase = 'settle';
+    var insStake = insBet;        /* the strip prices the side bet's movement too */
     /* insurance resolves first: the count's side bet pays 2:1
        when the hole card completes the dealer's natural        */
     var insWin = 0;
@@ -1920,6 +1974,14 @@
       renderBet();                     /* the tray drops the side bet */
     }
     var st = SHOE999.settle(you, dealerArr, bet);   /* the canon settles — one rule for both pages */
+    /* the strip's own arithmetic: the engine's expectation against
+       the felt's movement - one round, committed once             */
+    if (evRound && evPriced) {
+      evSession.rounds++;
+      evSession.ev += evRoundExp + evInsExp;
+      evSession.felt += st.net + insWin - insStake;
+      renderEvStrip();
+    }
     /* the reel learns the hole card only now: the European deal
        keeps it in the shoe through the player's decision, so every
        miss recorded this round is back-filled with the card the
