@@ -26,6 +26,18 @@ const a = block(A, 'offline.html'), b = block(B, 'table-16x9.html');
 if (a !== b) throw new Error('INDEX999 canon drifts between pages');
 console.log('canon byte-identical across both pages (' + a.length + ' bytes)');
 
+/* --- EV999 drift guard: the pricing engine is a canon too --- */
+const EB = '  /* ==== EV999 canon', EE = '/* ==== EV999 end ==== */\n';
+function eblock(s, name) {
+  const i = s.indexOf(EB);
+  if (i < 0) throw new Error(name + ': EV999 begin marker missing');
+  const j = s.indexOf(EE, i);
+  if (j < 0) throw new Error(name + ': EV999 end marker missing');
+  return s.slice(i, j + EE.length);
+}
+if (eblock(A, 'offline.html') !== eblock(B, 'table-16x9.html')) throw new Error('EV999 canon drifts between pages');
+console.log('EV999 canon byte-identical across both pages (' + eblock(A, 'offline.html').length + ' bytes)');
+
 /* --- the canon itself, evaluated --- */
 const body = a.slice(a.indexOf('var INDEX999 = (function () {'), a.indexOf('})();', a.indexOf('var INDEX999 = (function () {')) + 5);
 const INDEX999 = (0, eval)('(' + body.replace('var INDEX999 = ', '').replace(/;\s*$/, '') + ')');

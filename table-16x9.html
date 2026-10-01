@@ -1324,6 +1324,106 @@
     if (b) b.textContent = on ? '🎬 Cinema' : '◻ Normal';
   }
 
+  /* ==== EV999 canon - one pricing engine for both floors ====
+     The practice floor's engine prices the live table's misses
+     too. The block must stay byte-identical in table-16x9.html
+     and offline.html; test/index999.test.js fails if the
+     copies drift.                                              */
+  /* ---- EV999: what a deviation costs ---------------------- */
+  /* An infinite-deck engine in the floor's own flavor (S17,
+     European no-peek: a dealer natural takes everything): from
+     the upcard it builds the dealer's final distribution, then
+     prices every play as the chips it expects back per unit
+     staked. The gap between the book play and the click is
+     the price of the mistake — accuracy alone never showed
+     that. The engine shares the canon's rules; it only ever
+     judges, never deals.                                     */
+  var EV999 = (function () {
+    var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    function val(r) {
+      return r === 'A' ? 11 : (r === '10' || r === 'J' || r === 'Q' || r === 'K') ? 10 : parseInt(r, 10);
+    }
+    var dists = {};                      /* up rank -> dealer final distribution */
+    function dealerDist(up) {
+      if (dists[up]) return dists[up];
+      var d = {};
+      function step(t, aces, nc, p) {    /* aces = live aces still counting 11 */
+        if (t >= 17) {                   /* S17: every 17 stands */
+          var k = t + '|' + (nc === 2 ? 2 : 3);
+          d[k] = (d[k] || 0) + p;
+          return;
+        }
+        for (var i = 0; i < RANKS.length; i++) {
+          var r = RANKS[i], t2 = t + val(r), a2 = aces;
+          if (r === 'A') a2++;
+          while (t2 > 21 && a2) { t2 -= 10; a2--; }
+          if (t2 > 21) d.bust = (d.bust || 0) + p / 13;
+          else step(t2, a2, nc + 1, p / 13);
+        }
+      }
+      step(val(up), up === 'A' ? 1 : 0, 1, 1);
+      dists[up] = d;
+      return d;
+    }
+    var tables = {};                     /* up rank -> the stand/hit return tables */
+    function tbl(up) {
+      if (tables[up]) return tables[up];
+      var d = dealerDist(up), S = {}, W = {};
+      function pay(t, f) {
+        if (f === 'bust') return 2;
+        var fv = parseInt(f, 10);
+        return t > fv ? 2 : t === fv ? 1 : 0;
+      }
+      /* stand: every final but the dealer's two-card natural
+         pays — the natural itself returns zero (European)     */
+      for (var t = 4; t <= 21; t++) {
+        var s = 0;
+        for (var k in d) if (k !== '21|2') s += d[k] * pay(t, k);
+        S[t] = s;
+      }
+      function hitCont(t, aces) {        /* the return of drawing, then playing on */
+        var key = t + '|' + aces;
+        if (W[key] != null) return W[key];
+        var h = 0;
+        for (var i = 0; i < RANKS.length; i++) {
+          var r = RANKS[i], t2 = t + val(r), a2 = aces;
+          if (r === 'A') a2++;
+          while (t2 > 21 && a2) { t2 -= 10; a2--; }
+          if (t2 > 21) continue;         /* the draw busts: zero back */
+          h += (1 / 13) * Math.max(S[t2], hitCont(t2, a2));
+        }
+        W[key] = h;
+        return h;
+      }
+      tables[up] = { S: S, hit: hitCont };
+      return tables[up];
+    }
+    function prices(t, soft, up, canDouble) {
+      /* every price is the expected PROFIT per unit staked —
+         the stake itself is netted out, so stand, hit and double
+         are comparable in the chips they actually make or lose  */
+      var aces = soft ? 1 : 0;           /* two aces can never both count 11 (22>21):
+                                            a non-bust hand holds 0 or 1 live ace   */
+      var T = tbl(up);
+      var dbl = null;
+      if (canDouble) {
+        var e = 0;
+        for (var i = 0; i < RANKS.length; i++) {
+          var r = RANKS[i], t2 = t + val(r), a2 = aces;
+          if (r === 'A') a2++;
+          while (t2 > 21 && a2) { t2 -= 10; a2--; }
+          if (t2 > 21) continue;
+          e += (1 / 13) * T.S[t2];
+        }
+        dbl = 2 * e - 2;             /* two units STAKED: the price is the
+                                        PROFIT, never the raw return — the
+                                        extra unit is real money out        */
+      }
+      return { stand: T.S[t] - 1, hit: T.hit(t, aces) - 1, double: dbl };
+    }
+    return { prices: prices, dealerDist: dealerDist };
+  })();
+  /* ==== EV999 end ==== */
   /* ==== INDEX999 canon - the count's corrections, both floors ====
      Hi-Lo's true count re-prices the shoe: as small cards leave,
      tens and aces crowd what remains, and a few of the chart's
@@ -1386,7 +1486,28 @@
      is still exact.                                          */
   var HILO = { '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 0, '8': 0, '9': 0, '10': -1, 'J': -1, 'Q': -1, 'K': -1, 'A': -1 };
   var hiLo = 0, coachOn = false, trainBook = null, trainMsg = '', trainFlip = null;
+  var trainPrices = null;              /* the mark's own prices: what each play costs */
   try { coachOn = localStorage.getItem('999.table.coach') === 'on'; } catch (e) { }
+  /* the overlay's own session score: the practice floor's coach
+     rides the live table, so it keeps its OWN books — accuracy
+     and the chips each deviation threw away, priced by EV999 at
+     the moment the book was marked. Persisted separately from
+     the practice shoe (999.table.trainstats vs the practice
+     keys), so a night at the felt never muddies the drills.  */
+  var trainStats = { decisions: 0, book: 0, loss: 0, lossBase: 0 };
+  try {
+    var tsRaw = JSON.parse(localStorage.getItem('999.table.trainstats') || 'null');
+    if (tsRaw && typeof tsRaw.decisions === 'number' && typeof tsRaw.book === 'number') {
+      trainStats = tsRaw;
+      if (typeof trainStats.loss !== 'number') {
+        trainStats.loss = 0;
+        trainStats.lossBase = Math.max(0, (tsRaw.decisions - tsRaw.book) || 0);
+      }
+    }
+  } catch (e) { }
+  function saveT() {
+    try { localStorage.setItem('999.table.trainstats', JSON.stringify(trainStats)); } catch (e) { }
+  }
   function fmtT(n) { return n > 0 ? '+' + n : String(n); }
   function capT(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function bookT(cards, canD) {
@@ -1429,6 +1550,7 @@
     });
     trainBook = null;
     trainFlip = null;
+    trainPrices = null;
   }
   function renderTrain() {
     var b = document.getElementById('trainBox');
@@ -1445,6 +1567,13 @@
         ' · now ' + fmtT(trainFlip.tc) + ')';
     }
     else if (trainMsg) html += '<br>' + trainMsg;
+    /* the session score rides under the count: accuracy, the
+       decisions behind it, and the chips per deviation */
+    var tPct = trainStats.decisions ? Math.round(100 * trainStats.book / trainStats.decisions) : null;
+    var tMiss = Math.max(0, (trainStats.decisions - trainStats.book) - (trainStats.lossBase || 0));
+    var tPer = tMiss ? ' \u00b7 \u2212' + (trainStats.loss / tMiss).toFixed(1) + '/dev' : '';
+    html += '<br>' + (tPct == null ? 'Coach'
+      : 'Coach ' + tPct + '% \u00b7 ' + trainStats.book + '/' + trainStats.decisions + tPer);
     if (game.dealer.cards.length === 1 && game.dealer.cards[0] && game.dealer.cards[0].rank === 'A') {
       var insTc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
       html += '<br>Insurance turns at true +' + INDEX999.INSURE_AT + ' (now ' + fmtT(insTc) + ')';
@@ -1463,6 +1592,10 @@
     var tcT = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
     var ixD = INDEX999.INDICES[INDEX999.cell(vT.total, vT.soft, up)];
     if (ixD && tcT >= ixD.at) trainFlip = { cell: INDEX999.cell(vT.total, vT.soft, up), at: ixD.at, tc: tcT };
+    /* the mark prices itself: EV999's expected profit per unit for
+       stand, hit and the legal double — the raw material of the
+       miss's cost when the click comes */
+    trainPrices = EV999.prices(vT.total, vT.soft, up, h.cards.length === 2);
     var el = btnForT(trainBook);
     if (el) el.classList.add('book');
     renderTrain();
@@ -1470,9 +1603,21 @@
   function verdictT(choice) {
     if (!coachOn || !trainBook) return;
     var ok = choice === trainBook;
+    trainStats.decisions++;
+    var cost = 0;
+    if (!ok && trainPrices && trainPrices[trainBook] != null && trainPrices[choice] != null) {
+      var du = trainPrices[trainBook] - trainPrices[choice];
+      if (du > 0) {
+        cost = du * (game.hands[YOUR].stake || UNIT_BET);   /* chips the deviation throws away */
+        trainStats.loss += cost;
+      }
+    }
+    if (ok) trainStats.book++;
+    saveT();
     trainMsg = ok ? '\u2713 book play' + (trainFlip ? ' \u2014 the count play' : '')
       : 'book says ' + capT(trainBook) + (trainFlip
-          ? ' \u2014 the count flipped it (now true ' + fmtT(trainFlip.tc) + ')' : '');
+          ? ' \u2014 the count flipped it (now true ' + fmtT(trainFlip.tc) + ')'
+          : (cost > 0 ? ' \u00b7 \u2212' + cost.toFixed(1) : ''));
     clearT();
     renderTrain();
     setTimeout(function () { trainMsg = ''; renderTrain(); }, 2200);
@@ -1482,7 +1627,12 @@
     try { localStorage.setItem('999.table.coach', on ? 'on' : 'off'); } catch (e) { }
     if (!on) { clearT(); trainMsg = ''; }
     var b = document.getElementById('coachBtn');
-    if (b) b.classList.toggle('on', on);
+    if (b) {
+      b.classList.toggle('on', on);
+      b.title = on
+        ? 'Training overlay — Hi-Lo, the book, and your session score'
+        : 'Training overlay: book marks and the Hi-Lo count';
+    }
     renderTrain();
   }
   function makeCard(isDealer, box, idx) {

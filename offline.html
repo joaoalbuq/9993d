@@ -493,6 +493,11 @@
   }
   function fmt(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }
 
+  /* ==== EV999 canon - one pricing engine for both floors ====
+     The practice floor's engine prices the live table's misses
+     too. The block must stay byte-identical in table-16x9.html
+     and offline.html; test/index999.test.js fails if the
+     copies drift.                                              */
   /* ---- EV999: what a deviation costs ---------------------- */
   /* An infinite-deck engine in the floor's own flavor (S17,
      European no-peek: a dealer natural takes everything): from
@@ -587,6 +592,7 @@
     }
     return { prices: prices, dealerDist: dealerDist };
   })();
+  /* ==== EV999 end ==== */
 
   /* ==== INDEX999 canon - the count's corrections, both floors ====
      Hi-Lo's true count re-prices the shoe: as small cards leave,

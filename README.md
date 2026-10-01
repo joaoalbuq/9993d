@@ -425,16 +425,23 @@ answers with CORS headers.
   a fresh shoe at 30.77% and 300-shoe Monte-Carlo holding 16/52; the
   chart extracted from the page and composed exactly as bookPlay does —
   flips land above the indices, charts survive below, 13 v 2 running
-  both ways. Live on the practice floor: the stacked "insurance v ace"
+  both ways. **The live table's overlay keeps its own session score** —
+  accuracy and the chips each deviation threw away, priced by EV999 at
+  the moment the book is marked and costed at the box's own stake;
+  persisted separately from the practice shoe (`999.table.trainstats`
+  vs the practice keys), so a night at the felt never muddies the
+  drills. Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
   "Book: Decline — insurance turns at true +3 (now true −1)", decline
   "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray
   and the honest miss verdict; the settle line paying insurance 2:1
   exactly (bank 999 = 1000 − 25 − 12 + 36). Live on the table: a
-  restored 16 v 10 at true +1 showing "Book: Stand — the count play
-  (hard 16 v 10 flips at +1 · now +1)", the stand judged "✓ book play —
+  restored 16 v 10 at true +1 showing "Book: Stand —  the count play (hard 16 v 10 flips at +1 · now +1)", the stand judged "✓ book play —
   the count play", and the book line re-marking the hand after the
-  insurance beat. The leak drill now seeds its queue from the ledger's
+  insurance beat. Live scoring: a deliberate stand against the book's
+  Hit showed "book says Hit · −6.0" and the score line "Coach 64% ·
+  7/11 · −12.0/dev" — accuracy, decisions, and chips per deviation,
+  all persisted. The leak drill now seeds its queue from the ledger's
   weakest cells, so "Next hand: <cell> — the shoe deals it to you" is
   a promise kept; insurance misses land in the ledger as "insurance v
   ace" and replay from the reel like any other miss.
