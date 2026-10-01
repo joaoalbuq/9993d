@@ -117,8 +117,13 @@ are additive screens kept beside it for side-by-side comparison.
   it through a 0.35 send into a ConvolverNode straight to the
   destination, so the clacks, whooshes, riffle and stingers all share
   one air (stereo IR, so a panned deal keeps its direction in the
-  reflections too). Live: the context build captured the IR at 67,776
-  samples (12ms of zeros, exactly), both channels pinned at 0.35. Gated by
+  reflections too). **The payout walk speaks the cards' model too**:
+  every clack measures its chips' tray-to-box flight — the tray sits
+  left of center, so the ladder runs bright at the center seat to the
+  1.75kHz floor at the far rail, deeper and quieter with every unit of
+  cloth — while clacks without a flight keep the plain voice they have
+  always had. Live: the walk's ticks landed at 2819 · 2636 · 2627 ·
+  2285 · 1832Hz across the seats. Gated by
   the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
 - **The shoe ceremony (spec 4.5)** — a four-deck shoe with a **cut card at
