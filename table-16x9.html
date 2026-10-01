@@ -724,7 +724,7 @@
           /* the felt keeps the ledger: a chip lands at the box
              when — and only when — the debit actually lands   */
           h.chipT0 = (h.chipT0 || []).concat(performance.now());
-          chipClack(0.42);               /* ...and the chip clacks as it lands */
+          chipClack(0.42 * pace);        /* ...and the chip clacks as it lands (its fall stretched with it) */
         }
         return bal;
       });
@@ -1962,7 +1962,7 @@
       ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : ''));
     var beat = 0;
     game.walk.forEach(function (b) {
-      var h = game.hands[b], at = CHIP_DELAY + beat * WALK_BEAT;
+      var h = game.hands[b], at = (CHIP_DELAY + beat * WALK_BEAT) * pace;   /* the cinematic stretches the whole walk */
       h.flyT0 = performance.now() + at;  /* its chips wait for their beat */
       later(at, function () {
         game.payoutBox = b;
@@ -1976,9 +1976,9 @@
        to YOUR hand regardless (spec 4.5)                          */
     var youHand = game.hands[YOUR];
     if (game.walk.indexOf(YOUR) < 0 && youHand && youHand.result) {
-      later(CHIP_DELAY, function () { stinger(youHand.result); });
+      later(CHIP_DELAY * pace, function () { stinger(youHand.result); });
     }
-    var walkEnd = CHIP_DELAY + Math.max(beat, 1) * WALK_BEAT;
+    var walkEnd = (CHIP_DELAY + Math.max(beat, 1) * WALK_BEAT) * pace;
     var take = game.walk.filter(function (b) { return game.hands[b].result === 'lose' || game.hands[b].result === 'bust'; }).length;
     var give = game.walk.reduce(function (acc, b) { return acc + (game.hands[b].flyPay || 0); }, 0);
     trayChips = clamp(trayChips + take - give, 0, TRAY_SLOTS * TRAY_STACK_H);  /* the house ledger moves */
@@ -2198,8 +2198,9 @@
   }
   function payFloatDrawn(f, ts) {
     /* the plank rises from the box's total, then fades at the
-       top — alpha holds to 0.6 of its life and falls after    */
-    var age = clamp((ts - f.t0) / PAY_LIFE, 0, 1);
+       top — alpha holds to 0.6 of its life and falls after.
+       Under the cinematic it rides the stretched beat too   */
+    var age = clamp((ts - f.t0) / (PAY_LIFE * pace), 0, 1);
     return {
       y: 0.12 + age * 0.52,
       a: age <= 0.6 ? 1 : 1 - (age - 0.6) / 0.4,
@@ -2209,7 +2210,7 @@
   }
   function drawPayFloats(ts) {
     for (var i = payFloats.length - 1; i >= 0; i--) {
-      var f = payFloats[i], age = (ts - f.t0) / PAY_LIFE;
+      var f = payFloats[i], age = (ts - f.t0) / (PAY_LIFE * pace);
       if (age >= 1) { payFloats.splice(i, 1); continue; }
       var d = payFloatDrawn(f, ts);
       drawQuad(f.tex, 1, [1, 1, 1, d.a], boxX(f.box), d.y, d.z, 0, d.w, d.w * 0.375, false);
@@ -2265,16 +2266,20 @@
     }
   }
   function chipDrop(b, slot, t0, ts) {
-    /* the drop-in: a chip lands the moment its stake does */
-    var p = clamp((ts - t0) / CHIP_POP, 0, 1), e = 1 - Math.pow(1 - p, 3);
+    /* the drop-in: a chip lands the moment its stake does —
+       under the cinematic the fall stretches with its clack */
+    var p = clamp((ts - t0) / (CHIP_POP * pace), 0, 1), e = 1 - Math.pow(1 - p, 3);
     var sp = chipSpot(b, slot), s = lerp(CHIP_D * 0.72, CHIP_D, e);
     drawQuad(chipTex, 1, hexTint(CHIP_TINTS[b % CHIP_TINTS.length], clamp(p * 5, 0, 1)),
       sp[0], lerp(0.62, 0.012 + slot * CHIP_H, e), sp[1], 0, s, s, false);
   }
   function chipFly(b, slot, k, t0, ts, toDealer) {
     /* the settle flight: chips arc over the cloth between the
-       box and the house tray, staggered so a stack unwinds   */
-    var q = clamp((ts - (t0 + k * CHIP_STAG + (toDealer ? 0 : PAY_LAG))) / CHIP_FLY, 0, 1);
+       box and the house tray, staggered so a stack unwinds —
+       under the cinematic the flight stretches with its clack,
+       the deal's own one-knob rule: stretch the flight and the
+       sound stretched with it                              */
+    var q = clamp((ts - (t0 + k * CHIP_STAG * pace + (toDealer ? 0 : PAY_LAG * pace))) / (CHIP_FLY * pace), 0, 1);
     if (q <= 0 && !toDealer) return;            /* the payout waits its turn */
     var e = 1 - Math.pow(1 - q, 2.6);
     var from = toDealer ? chipSpot(b, slot) : traySpot(k);
@@ -2529,13 +2534,16 @@
        and the flight's SEAT: the fan pans from where the
        chips leave to where they land, projected by the same
        camera as the deal's whooshes, so the walk moves across
-       the channels as the eye follows the chips            */
+       the channels as the eye follows the chips. Under the
+       cinematic the clacks stretch WITH the flights - the
+       same pace multiplier on both, so impact stays on the
+       landing, just later                                  */
     var toDealer = h.result === 'lose' || h.result === 'bust';
     var n = toDealer ? (h.chipT0 || []).length : (h.flyPay || 0);
     var from = toDealer ? chipSpot(b, 0) : traySpot(0);
     var to = toDealer ? traySpot(0) : chipSpot(b, 0);
     var dist = Math.hypot(to[0] - from[0], to[1] - from[1]);
-    chipFan(n, CHIP_FLY + (toDealer ? 0 : PAY_LAG), CHIP_STAG, dist,
+    chipFan(n, CHIP_FLY * pace + (toDealer ? 0 : PAY_LAG * pace), CHIP_STAG * pace, dist,
       panFor({ x: from[0], y: 0.12, z: from[1] }),
       panFor({ x: to[0], y: 0.12, z: to[1] }));
     if (b === YOUR) stinger(h.result);

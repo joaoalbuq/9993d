@@ -203,8 +203,11 @@ are additive screens kept beside it for side-by-side comparison.
   card flights and their sounds stretch **together**: the flight duration
   is the one knob, so the whoosh swells over the stretched flight, the
   snap lands at its end, and the gaps between cards breathe in the same
-  tempo. The shoe ceremony, the betting window and the payout walk keep
-  real time.
+  tempo. The **payout walk breathes in that tempo too**: the walk beats,
+  the chip flights and their clacks all read the same `pace` — a clack
+  lands when its chip lands, just later — so a cinematic settle takes
+  ~12s instead of ~5s, and the +delta plank rides the stretched beat.
+  The shoe ceremony keeps real time.
 - **Thumb action bar** — Hit / Stand / Double / Split above the safe area,
   `H`/`S`/`D` keys on desktop. The 3D zoom control's label reflects the next
   action and user zoom survives every shot change.
@@ -348,7 +351,9 @@ answers with CORS headers.
   lands at 1.065s (exactly (flight−30ms)/1000 and (flight−10ms)/1000 for
   the 1075ms flight), inter-card gaps stretch 700→1750ms (85–92ms measured
   under test compression), and toggling mid-round snaps the sound back at
-  once while the in-flight cascade keeps its own tempo.
+  once while the in-flight cascade keeps its own tempo. The payout walk
+  stretches the same way — beats 760→1900ms, flights 560→1400ms, clacks
+  at the stretched landings: the same multiplier on render and audio.
 - **The shoe ceremony** — live-sampled across 40+ ceremonies on the running
   page: the cut card surfacing mid-final-round and the round playing out
   (cards-before-final-round < cut ≤ cards-dealt verified on every measured

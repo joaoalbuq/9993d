@@ -90,8 +90,8 @@ console.log('the felt: tray\u2192box flights \u2014 center ' + d2.toFixed(2) + '
 const cue = grab('  function walkCue(b, h) {', 'stinger(h.result);');
 if (!/var dist = Math\.hypot\(to\[0\] - from\[0\], to\[1\] - from\[1\]\);/.test(cue))
   throw new Error('walkCue must measure the tray-to-box flight');
-if (!/chipFan\(n, CHIP_FLY \+ \(toDealer \? 0 : PAY_LAG\), CHIP_STAG, dist,\s*panFor\(/.test(cue))
-  throw new Error('the payout fan must carry the distance and the seats');
+if (!/chipFan\(n, CHIP_FLY \* pace \+ \(toDealer \? 0 : PAY_LAG \* pace\), CHIP_STAG \* pace, dist,\s*panFor\(/.test(cue))
+  throw new Error('the payout fan must carry the distance, the seats, and the pace');
 const fan = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
 if (!fan.includes('dist') || !/chipClack\(delay0 \+ k \* step, Math\.max\(1 - k \* 0\.06, 0\.5\), dist, pk\)/.test(fan))
   throw new Error('every clack in the fan must carry the distance and its seat');
@@ -111,5 +111,54 @@ const noApi = makeClack(false);
 noApi.clack(0, 1, 4.33, -0.4);
 if (noApi.rec.bursts[0].out !== null) throw new Error('without createStereoPanner the clack stays centered');
 console.log('the seat: a panned clack rides its own panner to the master, wild seats clamp, no API stays centered');
+
+/* --- the cinematic stretches the flight AND its clack together ---
+   The deal's one-knob rule, applied to the walk: the same pace
+   multiplier sits on the render flight (chipFly) and on the clack
+   schedule (chipFan via walkCue), so impact stays on the landing. */
+const flyFull = grab('  function chipFly(b, slot, k, t0, ts, toDealer) {', '\n  }');
+const flyBody = flyFull.slice(flyFull.indexOf('{') + 1, flyFull.lastIndexOf('}'));
+function makeFly(p) {
+  const rec = { drawn: [] };
+  const fly = new Function('clamp', 'lerp', 'CHIP_STAG', 'pace', 'PAY_LAG', 'CHIP_FLY',
+    'chipSpot', 'traySpot', 'CHIP_H', 'CHIP_D', 'drawQuad', 'chipTex', 'hexTint', 'CHIP_TINTS',
+    'return function chipFly(' + flyFull.slice(flyFull.indexOf('(') + 1, flyFull.indexOf(')')) + ') {' + flyBody + '\n}') (
+    clamp, (a, b, t) => a + (b - a) * t, 90, p, 90, 560,
+    () => [-2.85, 1.28], () => [-1.18, -2.17], 0.024, 0.56,
+    (tex, useTex, tint, x, y, z, ry, sx, sz, add) => rec.drawn.push({ x, y, z }),
+    {}, () => [1, 1, 1, 1], ['#fff']);
+  return { fly, rec };
+}
+const fN = makeFly(1), fC = makeFly(2.5), fS = makeFly(2.5);
+fN.fly(2, 0, 0, 1000, 1180, false);                       /* pace 1: airborne just after its launch  */
+if (!fN.rec.drawn.length) throw new Error('at pace 1 the payout chip must be airborne by 180ms');
+fC.fly(2, 0, 0, 1000, 1180, false);                       /* the same instant at pace 2.5: launch itself waits */
+if (fC.rec.drawn.length) throw new Error('under the cinematic the same instant must still be on the tray');
+fN.fly(2, 0, 0, 1000, 1370, false);                       /* pace 1: mid-flight at half a flight     */
+fC.fly(2, 0, 0, 1000, 1370, false);                       /* the same instant at pace 2.5: barely off */
+const yN = fN.rec.drawn[fN.rec.drawn.length - 1].y, yC = fC.rec.drawn[fC.rec.drawn.length - 1].y;
+if (!(yC < yN - 0.3))
+  throw new Error('at the same instant the cinematic chip must sit far lower on the arc: ' + yC + ' vs ' + yN);
+fS.fly(2, 0, 0, 1000, 1000 + (90 + 280) * 2.5, false);    /* the same progress, 2.5x later           */
+if (!fS.rec.drawn.length) throw new Error('the stretched flight must fly, just later');
+if (Math.abs(yN - fS.rec.drawn[0].y) > 1e-9)
+  throw new Error('the same flight progress must sit at the same height, whatever the pace: ' +
+    yN + ' vs ' + fS.rec.drawn[0].y);
+console.log('the cinematic: pace 2.5 holds the launch, stretches the arc, and lands the identical curve 2.5x later');
+
+/* --- the wiring: every walk timing carries the same pace --- */
+if (!/at = \(CHIP_DELAY \+ beat \* WALK_BEAT\) \* pace;/.test(src))
+  throw new Error('the walk beats must stretch with the flights');
+if (!/var walkEnd = \(CHIP_DELAY \+ Math\.max\(beat, 1\) \* WALK_BEAT\) \* pace;/.test(src))
+  throw new Error('the walk end must stretch with the flights');
+if (!/later\(CHIP_DELAY \* pace, function \(\) \{ stinger\(youHand\.result\); \}\);/.test(src))
+  throw new Error('the unstaked verdict must wait the stretched beat too');
+if (!/\(CHIP_POP \* pace\)/.test(src))
+  throw new Error('the bet drop must stretch with its clack');
+if (!/chipClack\(0\.42 \* pace\)/.test(src))
+  throw new Error('the drop clack must stretch with the fall');
+if (!/\(PAY_LIFE \* pace\)/.test(src))
+  throw new Error('the +delta plank must ride the stretched beat');
+console.log('wiring: beats, walk end, flights, drops, clacks and the plank all read the same pace');
 
 console.log('\nchip distance verified');

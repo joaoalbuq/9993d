@@ -143,7 +143,7 @@ const walk = grab('  function walkCue(b, h) {', 'stinger(h.result);');
 if (!walk.includes('panFor({ x: from[0], y: 0.12, z: from[1] })') ||
     !walk.includes('panFor({ x: to[0], y: 0.12, z: to[1] })'))
   throw new Error('walkCue must seat the fan at the chip lane\u2019s own ends');
-if (!/chipFan\(n, CHIP_FLY \+ \(toDealer \? 0 : PAY_LAG\), CHIP_STAG, dist,\s*\n\s*panFor/.test(walk))
+if (!/chipFan\(n, CHIP_FLY \* pace \+ \(toDealer \? 0 : PAY_LAG \* pace\), CHIP_STAG \* pace, dist,\s*\n\s*panFor/.test(walk))
   throw new Error('the walk\u2019s fan must carry both seats');
 console.log('wiring: walkCue projects both ends of the flight through panFor \u2014 the walk moves with the eye');
 

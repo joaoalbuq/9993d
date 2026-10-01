@@ -89,8 +89,8 @@ console.log('stacks: shoe ' + full + '\u2192' + dealt + '\u2192' + low + ' as it
 
 /* --- the +delta: 3D plank, rising, fading --- */
 const payFn = grab('  function payFloatDrawn(f, ts) {', '\n  }');
-const payFloatDrawn = new Function('clamp', 'PAY_LIFE', 'BOX_Z',
-  'return function payFloatDrawn(f, ts) {' + payFn.slice(payFn.indexOf('{') + 1, payFn.lastIndexOf('}')) + '\n}')(clamp, 1500, 1.28);
+const payFloatDrawn = new Function('clamp', 'PAY_LIFE', 'BOX_Z', 'pace',
+  'return function payFloatDrawn(f, ts) {' + payFn.slice(payFn.indexOf('{') + 1, payFn.lastIndexOf('}')) + '\n}')(clamp, 1500, 1.28, 1);
 const d0 = payFloatDrawn({ t0: 5000 }, 5000), dHalf = payFloatDrawn({ t0: 5000 }, 5750), dEnd = payFloatDrawn({ t0: 5000 }, 6500);
 if (d0.y !== 0.12) throw new Error('the float starts at the total: ' + d0.y);
 if (!(dHalf.y > d0.y && dEnd.y > dHalf.y)) throw new Error('the plank must rise through its life: ' + d0.y + ' ' + dHalf.y + ' ' + dEnd.y);
@@ -98,6 +98,17 @@ if (d0.a !== 1 || dHalf.a !== 1) throw new Error('alpha holds while it rises: ' 
 if (!(dEnd.a >= 0 && dEnd.a < dHalf.a)) throw new Error('the plank fades after 0.6 of its life: ' + dEnd.a);
 if (Math.abs(dEnd.z - (1.28 + 1.12)) > 1e-9) throw new Error('the plank rides the total lane (BOX_Z + 1.12)');
 console.log('pay float: rises 0.12 \u2192 ' + dEnd.y.toFixed(2) + ', alpha 1 \u2192 ' + dEnd.a.toFixed(2) + ', on the total lane');
+
+/* --- under the cinematic the plank rides the stretched beat --- */
+const paySlow = new Function('clamp', 'PAY_LIFE', 'BOX_Z', 'pace',
+  'return function payFloatDrawn(f, ts) {' + payFn.slice(payFn.indexOf('{') + 1, payFn.lastIndexOf('}')) + '\n}')(clamp, 1500, 1.28, 2.5);
+const slowHalf = paySlow({ t0: 5000 }, 5750);
+if (!(slowHalf.y < dHalf.y) || slowHalf.a !== 1)
+  throw new Error('at pace 2.5 the same instant is only a fifth up the rise, still full alpha');
+const slowStart = paySlow({ t0: 5000 }, 5000);
+if (Math.abs(slowStart.y - d0.y) > 1e-9)
+  throw new Error('the stretched plank must start where the plain one does');
+console.log('cinematic: the plank rises 2.5x slower, holding full alpha \u2014 the walk\u2019s own clock');
 
 /* --- the DOM pill is gone: the float is drawn by the camera --- */
 if (/labelsWrap\.appendChild\(el\);\s*\n\s*payEls/.test(src) || /var payEls/.test(src))
@@ -111,7 +122,7 @@ if (/classList\.add\('pay'\)|className = 'pay'/.test(src))
 console.log('wiring: spawnPay feeds payFloats, drawScene draws them \u2014 no DOM pill, projection by the camera');
 
 /* --- the ledger moves with the walk: losers pay in, winners pay out --- */
-const settle = grab('var walkEnd = CHIP_DELAY + Math.max(beat, 1) * WALK_BEAT;', 'the house ledger moves');
+const settle = grab('var walkEnd = (CHIP_DELAY + Math.max(beat, 1) * WALK_BEAT) * pace;', 'the house ledger moves');
 if (!/trayChips = clamp\(trayChips \+ take - give, 0, TRAY_SLOTS \* TRAY_STACK_H\);/.test(settle))
   throw new Error('the tray ledger must clamp-tracked take-minus-give');
 if (!/result === 'lose' \|\| .*result === 'bust'/.test(settle))
