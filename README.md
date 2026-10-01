@@ -101,7 +101,16 @@ are additive screens kept beside it for side-by-side comparison.
   flight — carrying its DISTANCE, so a card to the dealer's fan is close
   and bright while one to the far box is deeper and quieter — and its snap
   lands it, and one stinger per round marks **your**
-  verdict only. Gated by the 🔊 tool toggle (a mute
+  verdict only. **Every whoosh carries its SEAT too**: the whoosh pans
+  from the shoe to the box it lands in (a StereoPannerNode ramping
+  across the flight), and the box's pan is where the SCREEN puts it —
+  the camera holds boxes close when it holds them, so the pan tracks
+  what the player sees, not the felt alone; off-frame falls back to the
+  felt's own geometry, pans stop 0.85 short of the rail, and a missing
+  panner API leaves the whoosh centered rather than broken. Live: the
+  six seats landed at −0.57 · −0.34 · −0.11 · +0.11 · +0.34 · +0.57 with
+  the shoe opening at +0.48 and the dealer's card dead center. Gated by
+  the 🔊 tool toggle (a mute
   that persists), and quiet behind the rotate gate and in a hidden tab.
 - **The shoe ceremony (spec 4.5)** — a four-deck shoe with a **cut card at
   75–85% penetration**, drawn fresh every shoe: cards are counted as they
