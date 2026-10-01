@@ -68,10 +68,32 @@ console.log('normalization: each channel pinned at 0.35 energy, decorrelated \u2
 if (!/var actx = null, master = null, noiseBuf = null, reverbBus = null;/.test(src))
   throw new Error('the bus must live beside the master');
 const chain = grab('        reverbBus = actx.createGain();', 'conv.connect(actx.destination);');
-if (!/master\.connect\(reverbBus\);/.test(chain)) throw new Error('the send must tap the main mix');
 if (!/conv\.buffer = roomIR\(actx\);/.test(chain)) throw new Error('the convolver must carry the synthesized room');
 if (!/reverbBus\.connect\(conv\);/.test(chain)) throw new Error('the bus must feed the convolver');
-if (!/reverbBus\.gain\.value = 0\.35;/.test(chain)) throw new Error('the send sits at 0.35 \u2014 under the deal, never over it');
-console.log('wiring: mix \u2192 send 0.35 \u2192 convolver(roomIR) \u2192 destination \u2014 one air for everything');
+if (!/reverbBus\.gain\.value = 0\.35;/.test(chain)) throw new Error('the bus trims the shared share at 0.35 — under the deal, never over it');
+if (/master\.connect\(reverbBus\)/.test(src))
+  throw new Error('the send must come from the voices — a mix-bus send would double every room');
+console.log('wiring: voices → their own send → bus 0.35 → convolver(roomIR) → destination — no mix-bus double-send');
+
+/* --- the room answers the mute too --- */
+if (!/reverbBus\.gain\.value = audioOn \? 0\.35 : 0;/.test(src))
+  throw new Error('muting the felt must mute the walls as well');
+
+/* --- per-voice levels: default share, riffle and stinger lean in --- */
+if (!/function toRoom\(node, room\) \{/.test(src)) throw new Error('voices must send through toRoom');
+if (!/w\.gain\.value = room == null \? 1 : room;/.test(src)) throw new Error('a voice without a level keeps the plain share');
+if (!/toRoom\(g, room\);/.test(src)) throw new Error('tone and burst must send their own level');
+if (!/toRoom\(out\);/.test(src)) throw new Error('the panned clack must send after its pan');
+if (!/toRoom\(p\);/.test(src)) throw new Error('the whoosh must send after its pan');
+const riffle = grab('  function riffleShuffle(delay0) {', '\n  }');
+const sting = grab('  function stinger(result) {', '\n  }');
+const rSends = (riffle.match(/RIFFLE_ROOM/g) || []).length, sSends = (sting.match(/STINGER_ROOM/g) || []).length;
+if (rSends < 7) throw new Error('every riffle voice must lean into the room: ' + rSends);
+if (sSends < 6) throw new Error('every stinger voice must lean into the room: ' + sSends);
+const lvl = src.match(/var RIFFLE_ROOM = ([\d.]+), STINGER_ROOM = ([\d.]+);/);
+if (!lvl) throw new Error('the two levels must be named constants');
+if (!(Number(lvl[1]) > Number(lvl[2]) && Number(lvl[2]) > 1))
+  throw new Error('the ceremony swells biggest, the verdict next, the felt plain: ' + lvl[0]);
+console.log('the swell: riffle ' + lvl[1] + '\u00d7, stinger ' + lvl[2] + '\u00d7, the felt at its plain 1\u00d7 — the room answers where it belongs');
 
 console.log('\nroom reverb verified');

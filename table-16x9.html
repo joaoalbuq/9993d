@@ -2346,12 +2346,11 @@
         actx = new Ctor();
         master = actx.createGain();
         master.connect(actx.destination);
-        /* the room off the main mix: everything on the felt shares
-           one air - the dry feed never stops, the send just asks
-           the walls to answer                                    */
+        /* the room: every voice sends to it at its own level (toRoom
+           below) - the bus trims the shared share, the walls answer
+           where the sound belongs, not everywhere the same       */
         reverbBus = actx.createGain();
         reverbBus.gain.value = 0.35;
-        master.connect(reverbBus);
         var conv = actx.createConvolver();
         conv.buffer = roomIR(actx);
         reverbBus.connect(conv);
@@ -2369,7 +2368,20 @@
   document.addEventListener('pointerdown', wakeAudio);
   document.addEventListener('keydown', wakeAudio);
 
-  function tone(c, freq, t, dur, type, gain, slideTo, out) {
+  var RIFFLE_ROOM = 1.7, STINGER_ROOM = 1.4;   /* the ceremony and the verdict lean into the room */
+  function toRoom(node, room) {
+    /* every voice answers the room at its own level: the shared
+       bus trims 0.35, a voice leans in or out with its send -
+       the riffle is four decks filling the air, the stinger is
+       the verdict blooming over it, and everything else keeps
+       the plain share it has always had. Sends sit AFTER the
+       panner, so the reflections keep the sound's direction. */
+    var w = actx.createGain();
+    w.gain.value = room == null ? 1 : room;
+    node.connect(w);
+    w.connect(reverbBus);
+  }
+  function tone(c, freq, t, dur, type, gain, slideTo, out, room) {
     var o = c.createOscillator(), g = c.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
@@ -2377,7 +2389,9 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(out || master);
+    o.connect(g);
+    if (out) { g.connect(out); }                    /* a custom tail (the panner) sends at its own end */
+    else { g.connect(master); toRoom(g, room); }
     o.start(t); o.stop(t + dur + 0.03);
   }
   function noise(c) {
@@ -2389,7 +2403,7 @@
     }
     return noiseBuf;
   }
-  function burst(c, t, dur, type, freq, q, gain, out) {
+  function burst(c, t, dur, type, freq, q, gain, out, room) {
     /* a shaped noise burst — the whole percussive vocabulary */
     var s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
     s.buffer = noise(c);
@@ -2398,7 +2412,9 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(gain, t + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(out || master);
+    s.connect(f); f.connect(g);
+    if (out) { g.connect(out); }                    /* a custom tail (the panner) sends at its own end */
+    else { g.connect(master); toRoom(g, room); }
     s.start(t); s.stop(t + dur + 0.03);
   }
   function chipClack(delay, gain, dist, pan) {
@@ -2419,6 +2435,7 @@
       out = c.createStereoPanner();     /* the chip's stereo seat */
       out.pan.setValueAtTime(clamp(pan, -1, 1), t);
       out.connect(master);
+      toRoom(out);                      /* the send sits after the pan: the room keeps the direction */
     }
     burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out);
     tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out);
@@ -2457,9 +2474,9 @@
       var p = c.createStereoPanner();   /* the card's stereo seat: shoe to box */
       p.pan.setValueAtTime(clamp(panFrom == null ? pan : panFrom, -1, 1), t);
       if (panFrom != null) p.pan.linearRampToValueAtTime(clamp(pan, -1, 1), t + D);
-      g.connect(p); p.connect(master);
+      g.connect(p); p.connect(master); toRoom(p);   /* the send sits after the pan */
     } else {
-      g.connect(master);                /* no panning API: the whoosh stays centered */
+      g.connect(master); toRoom(g);     /* no panning API: the whoosh stays centered */
     }
     s.start(t); s.stop(t + D + 0.03);
   }
@@ -2481,17 +2498,17 @@
        the animation it belongs to                          */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay0 || 0);
-    burst(c, t + 0.06, 0.34, 'bandpass', 850, 0.7, 0.09);   /* the halves lift apart */
+    burst(c, t + 0.06, 0.34, 'bandpass', 850, 0.7, 0.09, null, RIFFLE_ROOM);   /* the halves lift apart */
     for (var k = 0; k < 14; k++) {
       /* the riffle: a rapid run of shaped snaps, one per card */
       var at = t + 0.55 + k * 0.062;
-      burst(c, at, 0.055, 'bandpass', 1500 + Math.random() * 1400, 2.6, 0.11);
-      if (k % 3 === 0) tone(c, 240 + Math.random() * 60, at, 0.05, 'triangle', 0.035, 170);
+      burst(c, at, 0.055, 'bandpass', 1500 + Math.random() * 1400, 2.6, 0.11, null, RIFFLE_ROOM);
+      if (k % 3 === 0) tone(c, 240 + Math.random() * 60, at, 0.05, 'triangle', 0.035, 170, null, RIFFLE_ROOM);
     }
-    burst(c, t + 1.58, 0.05, 'bandpass', 1900, 1.2, 0.12);  /* squaring up: two taps */
-    tone(c, 190, t + 1.58, 0.09, 'triangle', 0.15, 120);
-    burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11);
-    tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105);
+    burst(c, t + 1.58, 0.05, 'bandpass', 1900, 1.2, 0.12, null, RIFFLE_ROOM);  /* squaring up: two taps */
+    tone(c, 190, t + 1.58, 0.09, 'triangle', 0.15, 120, null, RIFFLE_ROOM);
+    burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11, null, RIFFLE_ROOM);
+    tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105, null, RIFFLE_ROOM);
   }
   /* the new-shoe chime: two soft notes over "place your bets",
      quiet enough to sit under the room (spec 4.5 vocabulary)  */
@@ -2515,15 +2532,16 @@
     var c = ready(); if (!c) return;
     var t = c.currentTime + 0.02;
     if (result === 'win') {
-      /* a bright rising triad — C5 E5 G5 with an octave shimmer */
-      tone(c, 523.25, t, 0.32, 'triangle', 0.18);
-      tone(c, 659.25, t + 0.09, 0.32, 'triangle', 0.18);
-      tone(c, 783.99, t + 0.18, 0.55, 'triangle', 0.20);
-      tone(c, 1567.98, t + 0.18, 0.5, 'sine', 0.07);
+      /* a bright rising triad — C5 E5 G5 with an octave shimmer,
+         leaning into the room: the verdict is allowed to bloom */
+      tone(c, 523.25, t, 0.32, 'triangle', 0.18, null, null, STINGER_ROOM);
+      tone(c, 659.25, t + 0.09, 0.32, 'triangle', 0.18, null, null, STINGER_ROOM);
+      tone(c, 783.99, t + 0.18, 0.55, 'triangle', 0.20, null, null, STINGER_ROOM);
+      tone(c, 1567.98, t + 0.18, 0.5, 'sine', 0.07, null, null, STINGER_ROOM);
     } else {
       /* lose / bust: a short sigh falling to the felt */
-      tone(c, 392, t, 0.22, 'triangle', 0.15, 262);
-      tone(c, 196, t + 0.13, 0.42, 'sine', 0.13, 147);
+      tone(c, 392, t, 0.22, 'triangle', 0.15, 262, null, null, STINGER_ROOM);
+      tone(c, 196, t + 0.13, 0.42, 'sine', 0.13, 147, null, null, STINGER_ROOM);
     }
   }
   function walkCue(b, h) {
@@ -2818,6 +2836,7 @@
     audioOn = !audioOn;
     try { localStorage.setItem('999.table.audio', audioOn ? 'on' : 'off'); } catch (e) { }
     if (master) master.gain.value = audioOn ? 1 : 0;   /* instant mute */
+    if (reverbBus) reverbBus.gain.value = audioOn ? 0.35 : 0;   /* the room answers the mute too */
     syncAudioBtn();
     wakeAudio();               /* this click IS the gesture */
   });

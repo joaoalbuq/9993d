@@ -68,9 +68,9 @@ function mockCtx(withPanner) {
 }
 function makeWhoosh(withPanner) {
   const m = mockCtx(withPanner);
-  const whoosh = new Function('ready', 'noise', 'master', 'clamp', 'lerp',
+  const whoosh = new Function('ready', 'noise', 'master', 'clamp', 'lerp', 'toRoom',
     'return function cardWhoosh(' + cwFull.slice(cwFull.indexOf('(') + 1, cwFull.indexOf(')')) + ') {' + cwBody + '}')(
-    () => m.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, (a, b, t) => a + (b - a) * t);
+    () => m.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, (a, b, t) => a + (b - a) * t, () => {});
   return { whoosh, rec: m.rec };
 }
 
@@ -109,7 +109,9 @@ for (const fn of ['dealTo(box)', 'dealToDealer()']) {
 }
 if (!/if \(pan != null && c\.createStereoPanner\) \{/.test(src))
   throw new Error('the panner must be gated on the API and a pan actually given');
-console.log('wiring: both deal paths pan shoe \u2192 box, gated on the API');
+if (!cwFull.includes('toRoom(p);') || !cwFull.includes('toRoom(g);'))
+  throw new Error('the whoosh must send to the room after its pan \u2014 the reflections keep the direction');
+console.log('wiring: both deal paths pan shoe \u2192 box, gated on the API, the room seated after the pan');
 
 /* --- the payout walk crosses the channels the way the deal does --- */
 const cfFull = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');

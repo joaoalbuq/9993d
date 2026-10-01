@@ -113,11 +113,15 @@ are additive screens kept beside it for side-by-side comparison.
   floor has air**: a room reverb synthesized in the page — no samples,
   no downloads — a 12ms pre-delay, three early reflections off the
   tables and rails, then a damped tail that reaches −60dB in its 1.35s
-  RT and is normalized to 0.35 energy per channel; the main mix feeds
-  it through a 0.35 send into a ConvolverNode straight to the
-  destination, so the clacks, whooshes, riffle and stingers all share
-  one air (stereo IR, so a panned deal keeps its direction in the
-  reflections too). **The payout walk speaks the cards' model too**:
+  RT and is normalized to 0.35 energy per channel; every voice sends
+  to the room at its own level through the same 0.35-trimmed bus into
+  a ConvolverNode straight to the destination — the riffle leans in at
+  **1.7×** (four decks filling the air) and the stinger at **1.4×**
+  (the verdict allowed to bloom), while the clacks, snaps and whooshes
+  keep their plain share, so the room swells only where it belongs
+  (stereo IR, and every send sits after its panner, so a panned deal
+  keeps its direction in the reflections too; muting gates the walls
+  as well as the felt). **The payout walk speaks the cards' model too**:
   every clack measures its chips' tray-to-box flight — the tray sits
   left of center, so the ladder runs bright at the center seat to the
   1.75kHz floor at the far rail, deeper and quieter with every unit of
