@@ -122,7 +122,14 @@ are additive screens kept beside it for side-by-side comparison.
   true and decks left — and at your decision the book play badges its
   button and the click is judged in one line ("book says Hit"). The
   count tags every card regardless, so switching on mid-shoe is exact;
-  a fresh shoe resets the count.
+  a fresh shoe resets the count. **Index plays ride both floors**: the
+  true count flips the chart where composition pays — hard 16 v 10 stands
+  at +1, 15 v 10 at +4, 12 v 2 at +1, 12 v 3 at +2, 11 v A doubles at +1,
+  10 v 10 at +4, 9 v 2 at +1, and 13 v 2 runs the other way (a chart
+  stand that turns into a hit once the shoe goes cold at −1) — with the
+  coach naming the flip ("the count play (hard 16 v 10 flips at +1 ·
+  now +1)", "✓ book play — the count play") and insurance, the count's
+  own bet, explained at the felt when an ace shows.
 - **The betting interlude, every round** — the floor opens for the oldest
   ritual there is before every deal, not only when the shoe changes: the
   status line reads **"New shoe — place your bets"** when the shoe is fresh
@@ -410,6 +417,27 @@ answers with CORS headers.
   separately from running stats, the meter carrying the deck readout, and
   the betting hint ladder sampled across its whole range from "True −4 —
   bet 1 unit" to "True +7 — the spread says 6 units".
+- **The index plays (INDEX999)** — the canon shared byte-identical across
+  both pages (drift guard) and driven at every exact threshold: each
+  index silent below, firing at its number, doubles gated by canDouble,
+  soft hands and non-index cells never firing; ten-density exact on
+  built stacks, insurance edge positive only past 33.3% ten-density with
+  a fresh shoe at 30.77% and 300-shoe Monte-Carlo holding 16/52; the
+  chart extracted from the page and composed exactly as bookPlay does —
+  flips land above the indices, charts survive below, 13 v 2 running
+  both ways. Live on the practice floor: the stacked "insurance v ace"
+  cell dealt 10,7 v A with a ten waiting as the hole card — offer
+  "Book: Decline — insurance turns at true +3 (now true −1)", decline
+  "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray
+  and the honest miss verdict; the settle line paying insurance 2:1
+  exactly (bank 999 = 1000 − 25 − 12 + 36). Live on the table: a
+  restored 16 v 10 at true +1 showing "Book: Stand — the count play
+  (hard 16 v 10 flips at +1 · now +1)", the stand judged "✓ book play —
+  the count play", and the book line re-marking the hand after the
+  insurance beat. The leak drill now seeds its queue from the ledger's
+  weakest cells, so "Next hand: <cell> — the shoe deals it to you" is
+  a promise kept; insurance misses land in the ledger as "insurance v
+  ace" and replay from the reel like any other miss.
 - **The speed-counting drill** — the full loop driven live both compressed
   and in REAL time: the flash phase held its wall clock (4651ms for 15
   cards at Fast ≈ 0.3s each), the recall timer ticked live (1.2s sampled),

@@ -23,7 +23,14 @@ const cEnd = src.indexOf('})();', cStart) + 5;
 const SHOE999 = eval(src.slice(cStart, cEnd) + '\nSHOE999;');
 
 const bookPlay = eval('(' + src.slice(bpStart, bpEnd)
-  .replace('function bookPlay() {', 'function (dealerArr, you, bank, bet, total, isSoft) {') + ')');
+  .replace('function bookPlay() {',
+    'function (dealerArr, you, bank, bet, total, isSoft) {' +
+    '\n    var lastFlip = null;' +
+    '\n    var trueCount = function () { return 0; };' +   /* no count flips: this check is engine vs chart */
+    '\n    ' + src.slice(src.indexOf('  function chartPlay(t, soft, up, canD) {'),
+                          src.indexOf('\n  }', src.indexOf('  function chartPlay(t, soft, up, canD) {')) + 4) +
+    '\n    var INDEX999 = { INDICES: {}, cell: function () { return ""; }, flip: function () { return null; } };'
+  ) + ')');
 function book(youCards, upRank, canDouble) {
   return bookPlay(
     [{ rank: upRank, suit: 0 }], youCards,

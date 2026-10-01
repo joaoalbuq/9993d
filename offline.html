@@ -435,8 +435,9 @@
   <button class="btn ghost" id="btnClear" type="button">Clear</button>
   <button class="btn" id="btnDeal" type="button">Deal</button>
   <button class="btn ghost" id="btnHit" type="button">Hit</button>
-  <button class="btn ghost" id="btnStand" type="button">Stand</button>
-  <button class="btn ghost" id="btnDouble" type="button">Double</button>
+  <button class="btn ghost" id="btnStand" type="button">Stand</button>    <button class="btn ghost" id="btnDouble" type="button">Double</button>
+    <button class="btn ghost" id="btnInsYes" type="button" hidden>Insure</button>
+    <button class="btn ghost" id="btnInsNo" type="button" hidden>Decline</button>
   <button class="btn ghost" id="btnLeaks" type="button" hidden>🩹 Leaks</button>
   <button class="btn ghost" id="btnReview" type="button" hidden>⏪ Review</button>
   <button class="btn ghost" id="btnSpeed" type="button">⚡ Speed</button>
@@ -586,6 +587,58 @@
     return { prices: prices, dealerDist: dealerDist };
   })();
 
+  /* ==== INDEX999 canon - the count's corrections, both floors ====
+     Hi-Lo's true count re-prices the shoe: as small cards leave,
+     tens and aces crowd what remains, and a few of the chart's
+     losing plays turn into winners. These are the corrections
+     this floor teaches — the famous indices: hard 16 v 10 stands
+     at +1, 15 v 10 at +4, 12 v 2 at +1 and 12 v 3 at +2 stand,
+     11 v A doubles at +1, 10 v 10 at +4, 9 v 2 at +1 — and one
+     runs the other way: 13 v 2 is a chart stand that the count
+     turns into a hit once the shoe goes cold (true −1 or
+     lower). Insurance, the count's own bet, turns at +3.
+     Below the threshold the chart rules. The block must stay
+     byte-identical in table-16x9.html and offline.html;
+     test/index999.test.js fails if the copies drift.            */
+  var INDEX999 = (function () {
+    var INDICES = {
+      'hard 16 v 10': { play: 'stand', at: 1 },
+      'hard 15 v 10': { play: 'stand', at: 4 },
+      'hard 13 v 2': { play: 'hit', at: -1, below: true },
+      'hard 12 v 2': { play: 'stand', at: 1 },
+      'hard 12 v 3': { play: 'stand', at: 2 },
+      'hard 11 v A': { play: 'double', at: 1 },
+      'hard 10 v 10': { play: 'double', at: 4 },
+      'hard 9 v 2': { play: 'double', at: 1 }
+    };
+    var INSURE_AT = 3;                 /* the count's own bet: insurance turns at +3 */
+    function cell(t, soft, up) {
+      return (soft ? 'soft ' : 'hard ') + t + ' v ' + (up === 11 ? 'A' : up);
+    }
+    function flip(t, soft, up, tc, canD) {
+      var ix = INDICES[cell(t, soft, up)];
+      if (!ix) return null;
+      if (ix.play === 'double' && !canD) return null;   /* a double that isn't legal
+                                                           is the chart's stand-in  */
+      return (ix.below ? tc <= ix.at : tc >= ix.at) ? ix.play : null;
+    }
+    function tenDensity(stack) {       /* the exact share of ten-valued cards left */
+      var tens = 0, i;
+      for (i = 0; i < stack.length; i++) {
+        var r = stack[i].rank;
+        if (r === '10' || r === 'J' || r === 'Q' || r === 'K') tens++;
+      }
+      return stack.length ? tens / stack.length : 0;
+    }
+    function insEdge(stack) {          /* insurance pays 2:1: EV per unit = 3p − 1,
+                                          breakeven at p = 1/3, near true +3       */
+      return 3 * tenDensity(stack) - 1;
+    }
+    return { INDICES: INDICES, INSURE_AT: INSURE_AT, cell: cell,
+             flip: flip, tenDensity: tenDensity, insEdge: insEdge };
+  })();
+  /* ==== INDEX999 end ==== */
+
   /* ---- the coach: basic strategy + the session score ------ */
   /* The book for THIS shoe: two decks, S17, no split. The
      coach marks the book play at every decision, judges the
@@ -644,13 +697,10 @@
   function isSoft(hand) {
     return SHOE999.value(hand).soft;   /* the canon's soft flag: one counting rule everywhere */
   }
-  function bookPlay() {
-    /* the standing book: 2 decks / S17 / no split. A double
+  function chartPlay(t, soft, up, canD) {
+    /* the standing chart: 2 decks / S17 / no split. A double
        that isn't legal degrades to its hit/stand stand-in.   */
-    var upR = dealerArr[0] ? dealerArr[0].rank : '10';
-    var up = upR === 'A' ? 11 : (upR === 'J' || upR === 'Q' || upR === 'K' ? 10 : parseInt(upR, 10));
-    var canD = you.length === 2 && bank >= bet;
-    var t = total(you), soft = isSoft(you), play;
+    var play;
     if (soft) {
       if (t >= 19) play = 'stand';
       else if (t === 18) {
@@ -669,6 +719,14 @@
       else if (t === 9) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
       else play = 'hit';
     }
+    return play;
+  }
+  function bookPlay() {
+    var upR = dealerArr[0] ? dealerArr[0].rank : '10';
+    var up = upR === 'A' ? 11 : (upR === 'J' || upR === 'Q' || upR === 'K' ? 10 : parseInt(upR, 10));
+    var canD = you.length === 2 && bank >= bet;
+    var t = total(you), soft = isSoft(you);
+    var play = chartPlay(t, soft, up, canD);
     /* the floor's own odds have the last word: where THIS floor's
        flavor (no peek, no splits) makes the chart's play cost
        expected chips, the engine's conviction flips the book —
@@ -678,18 +736,30 @@
       if (pr.hit != null && pr.hit - cur > 0.004) { play = 'hit'; cur = pr.hit; }
       if (canD && pr.double != null && pr.double - cur > 0.004) play = 'double';
     }
+    /* and the count speaks over the engine: the indices price
+       the ACTUAL shoe — composition the infinite deck cannot
+       see. Where the true count crosses a threshold the play
+       flips, and the coach says so by name.                    */
+    lastFlip = null;
+    var ix = INDEX999.flip(t, soft, up, trueCount(), canD);
+    if (ix && ix !== play) {
+      lastFlip = { cell: INDEX999.cell(t, soft, up), tc: trueCount(),
+                   at: INDEX999.INDICES[INDEX999.cell(t, soft, up)].at, play: ix };
+      play = ix;
+    }
     return play;
   }
   var coachHint = document.getElementById('coachHint');
   var lastBook = null;
   var lastPrices = null;                 /* what each play costs, from the mark */
   var lastCell = null;                   /* the book cell this decision belongs to */
+  var lastFlip = null;                   /* set when the count, not the chart, made the play */
   function capWord(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function coachBtnFor(p) {
     return document.getElementById(p === 'hit' ? 'btnHit' : p === 'stand' ? 'btnStand' : 'btnDouble');
   }
   function clearCoachMarks() {
-    ['btnHit', 'btnStand', 'btnDouble'].forEach(function (id) {
+    ['btnHit', 'btnStand', 'btnDouble', 'btnInsYes', 'btnInsNo'].forEach(function (id) {
       var b = document.getElementById(id);
       if (b) b.classList.remove('book', 'miss', 'hit-ok');
     });
@@ -699,6 +769,7 @@
     lastBook = null;
     lastPrices = null;
     lastCell = null;
+    lastFlip = null;
     if (coachHint) coachHint.hidden = true;
   }
   function coachMark() {
@@ -716,7 +787,11 @@
     if (b) b.classList.add('book');
     coachHint.hidden = false;
     coachHint.className = 'coachhint';
-    coachHint.textContent = 'Book: ' + capWord(lastBook);
+    coachHint.textContent = lastFlip
+      ? 'Book: ' + capWord(lastBook) + ' \u2014 the count play (' + lastFlip.cell +
+        ' flips at ' + (lastFlip.at < 0 ? '\u2212' : '+') + Math.abs(lastFlip.at) +
+        ' \u00b7 now ' + fmtCount(lastFlip.tc) + ')'
+      : 'Book: ' + capWord(lastBook);
   }
   function coachVerdict(choice) {
     if (!coachOn || !lastBook) return;
@@ -759,12 +834,16 @@
     if (b) { b.classList.remove('book'); b.classList.add(ok ? 'hit-ok' : 'miss'); }
     coachHint.hidden = false;
     coachHint.className = 'coachhint ' + (ok ? 'ok' : 'miss');
-    coachHint.textContent = ok ? '\u2713 Book play'
-      : 'Book says ' + capWord(lastBook) + (cost > 0 ? ' \u00b7 \u2212' + cost.toFixed(1) : '');
+    coachHint.textContent = ok
+      ? '\u2713 Book play' + (lastFlip ? ' \u2014 the count play' : '')
+      : 'Book says ' + capWord(lastBook) + (lastFlip
+          ? ' \u2014 the count flipped it (now true ' + fmtCount(lastFlip.tc) + ')'
+          : (cost > 0 ? ' \u00b7 \u2212' + cost.toFixed(1) : ''));
     coachCue(ok);
     lastBook = null;
     lastPrices = null;
     lastCell = null;
+    lastFlip = null;
     /* clear only the VERDICT's own flash — a newer decision may
        have already re-marked the book, and its badge is not ours
        to take (the hint goes only if nothing replaced it)        */
@@ -869,6 +948,7 @@
     renderLeaks();
     if (leakMode) {
       setStatus('Leak drilling \u2014 your worst cells, dealt on purpose');
+      if (!leakQueue.length) leakQueue = weakestCells().map(function (c) { return c.cell; });
       if (phase === 'betting' && !bet) leakCell = leakQueue.shift() || null;
     }    else {
       leakCell = null;
@@ -898,45 +978,58 @@
       leakCell = 'hard 16 v 10';
       leakQueue.push(leakCell);                   /* and again after */
     }
-    var m = leakCell.match(/^(soft|hard) (\d+) v (\w+)$/);
-    if (!m) { leakCell = null; return; }
-    var soft = m[1] === 'soft', t = parseInt(m[2], 10), up = m[3];
-    /* any two-card class has a clean pair: soft t = A + (t−11);
-       hard 12–20 = (t−10) + 10; hard ≤11 = two smalls — and a
-       hard 11 is 5+6, never A+10 (that's a natural, not a cell) */
-    var first2, second;
-    if (t === 12 && soft) { leakCell = null; return; }   /* soft 12 = A+A, a pair:
-                                                              no clean two-card build */
-    if (soft) { first2 = 'A'; second = String(Math.max(2, Math.min(9, t - 11))); }
-    else if (t >= 12) { first2 = String(t - 10); second = '10'; }
-    else {
-      var a2 = 0, b2 = 0, r;
-      for (r = 2; r <= t - 2; r++) if (t - r !== r && t - r <= 9) { a2 = r; b2 = t - r; }
-      if (!a2) { a2 = 2; b2 = t - 2; }            /* hard 4: only a pair can make it */
-      first2 = String(a2); second = String(b2);
+    var soft, t, up, first2, second, hole = null;
+    if (leakCell === 'insurance v ace') {        /* the count's bet, drilled:
+                                                    17 v A stands, and a ten
+                                                    waits as the hole card so
+                                                    the insurance actually pays */
+      soft = false; t = 17; up = 'A'; first2 = '10'; second = '7'; hole = '10';
+    } else {
+      var m = leakCell.match(/^(soft|hard) (\d+) v (\w+)$/);
+      if (!m) { leakCell = null; return; }
+      soft = m[1] === 'soft'; t = parseInt(m[2], 10); up = m[3];
+      /* any two-card class has a clean pair: soft t = A + (t−11);
+         hard 12–20 = (t−10) + 10; hard ≤11 = two smalls — and a
+         hard 11 is 5+6, never A+10 (that's a natural, not a cell) */
+      if (t === 12 && soft) { leakCell = null; return; }   /* soft 12 = A+A, a pair:
+                                                            no clean two-card build */
+      if (soft) { first2 = 'A'; second = String(Math.max(2, Math.min(9, t - 11))); }
+      else if (t >= 12) { first2 = String(t - 10); second = '10'; }
+      else {
+        var a2 = 0, b2 = 0, r;
+        for (r = 2; r <= t - 2; r++) if (t - r !== r && t - r <= 9) { a2 = r; b2 = t - r; }
+        if (!a2) { a2 = 2; b2 = t - 2; }          /* hard 4: only a pair can make it */
+        first2 = String(a2); second = String(b2);
+      }
     }
-    /* the shoe is STACKED IN PLACE: find the three cards it owes
-       — hand, hand, upcard — lift them out, and set the top so
-       deal() pops first, up, second. No draws are churned. A
-       shoe that has already spent those ranks earns a fresh
-       shuffle, which always serves.                          */
+    /* the shoe is STACKED IN PLACE: find the cards it owes —
+       hand, hand, upcard (and, for the insurance drill, the
+       hole card the side bet rides on) — lift them out, and set
+       the top so deal() pops first, up, second. No draws are
+       churned. A shoe that has already spent those ranks earns
+       a fresh shuffle, which always serves.                     */
+    var need = hole ? [first2, second, up, hole] : [first2, second, up];
+    var popOrder = [0, 2, 1];                    /* deal() pops: first, up, second */
+    if (hole) popOrder.push(3);                  /* ...and the hole card at the turn */
     function findAndStack() {
-      var need = [first2, second, up], at = [-1, -1, -1], i, k, j;
+      var at = [], i, k, j;
+      for (i = 0; i < need.length; i++) at.push(-1);
       for (i = shoeArr.length - 1; i >= 0; i--) {
         var rk = shoeArr[i].rank;
-        for (k = 0; k < 3; k++) {
+        for (k = 0; k < need.length; k++) {
           if (at[k] < 0 && rk === need[k]) {
             var taken = false;
-            for (j = 0; j < 3; j++) if (j !== k && at[j] === i) taken = true;
+            for (j = 0; j < need.length; j++) if (j !== k && at[j] === i) taken = true;
             if (!taken) { at[k] = i; break; }
           }
         }
       }
-      if (at[0] < 0 || at[1] < 0 || at[2] < 0) return false;
-      var c1 = shoeArr[at[0]], c2 = shoeArr[at[1]], cu = shoeArr[at[2]];
-      var rm = [at[0], at[1], at[2]].sort(function (x, y) { return y - x; });
-      for (i = 0; i < 3; i++) shoeArr.splice(rm[i], 1);
-      shoeArr.push(c2, cu, c1);     /* deal() pops: first, up, second */
+      for (i = 0; i < need.length; i++) if (at[i] < 0) return false;
+      var cards = [];
+      for (i = 0; i < need.length; i++) cards.push(shoeArr[at[i]]);
+      var rm = at.slice().sort(function (x, y) { return y - x; });
+      for (i = 0; i < need.length; i++) shoeArr.splice(rm[i], 1);
+      for (i = popOrder.length - 1; i >= 0; i--) shoeArr.push(cards[popOrder[i]]);
       return true;
     }
     if (!findAndStack()) { buildShoe(); findAndStack(); }
@@ -1358,7 +1451,7 @@
     } else elDealerTotal.textContent = '—';
   }
   function renderBet() {
-    elBet.textContent = 'Bet ' + fmt(bet);
+    elBet.textContent = 'Bet ' + fmt(bet) + (insBet ? ' + ' + fmt(insBet) + ' ins' : '');
     elStack.innerHTML = '';
     /* the felt keeps the chips: one chevron per denomination     */
     var left = bet, slot = 0;
@@ -1392,6 +1485,9 @@
     document.getElementById('btnHit').disabled = !acting;
     document.getElementById('btnStand').disabled = !acting;
     document.getElementById('btnDouble').disabled = !acting || you.length !== 2 || bank < bet;
+    var insuring = phase === 'insurance';
+    document.getElementById('btnInsYes').hidden = !insuring;
+    document.getElementById('btnInsNo').hidden = !insuring;
     renderCount();                 /* the hint follows the phase */
     syncMuteBtn();
   }
@@ -1438,6 +1534,7 @@
     if (SPEED.on && SPEED.phase !== 'idle') speedClose();   /* a deal kills a running drill */
     token++;
     doubled = false;
+    insBet = 0; insOpen = false;
     you = []; dealerArr = [];
     leakDeal();                                   /* leaks mode stacks the shoe here */
     reviewDeal();                                 /* review mode reals the reel here */
@@ -1456,7 +1553,7 @@
     later(250, function () { dealCard('you'); });
     later(250 + DEAL_BEAT, function () { dealCard('dealer'); });
     later(250 + DEAL_BEAT * 2, function () { dealCard('you'); });
-    later(250 + DEAL_BEAT * 3 + 300, beginTurn);
+    later(250 + DEAL_BEAT * 3 + 300, maybeInsurance);
   }
 
   function beginTurn() {
@@ -1491,6 +1588,128 @@
     later(650, dealerTurn);          /* one card, then it stands — the double's price */
   }
 
+  /* ---- insurance: the count's own bet ----------------------
+     No chart row — insurance is pure composition. Half the
+     stake pays 2:1 when the dealer's hole card is a ten, so
+     the bet turns when tens fill the shoe: true +3 by the
+     index, or sooner where the exact density already says so.
+     The house shows the ace, the player answers, and the
+     coach explains whichever way the count points.           */
+  var insBet = 0, insOpen = false, insBook = null;
+  function bookInsurance() {
+    var tc = trueCount(), edge = INDEX999.insEdge(shoeArr);
+    return { play: (tc >= INDEX999.INSURE_AT || edge > 0) ? 'insure' : 'no', tc: tc, edge: edge };
+  }
+  function coachInsuranceMark() {
+    insBook = null;
+    clearCoachMarks();
+    if (!coachOn) return;
+    insBook = bookInsurance();
+    var b = document.getElementById(insBook.play === 'insure' ? 'btnInsYes' : 'btnInsNo');
+    if (b) b.classList.add('book');
+    coachHint.hidden = false;
+    coachHint.className = 'coachhint';
+    coachHint.textContent = insBook.play === 'insure'
+      ? 'Book: Insure \u2014 true ' + fmtCount(insBook.tc) + ': the tens are coming (edge ' +
+        (insBook.edge >= 0 ? '+' : '\u2212') + Math.abs(insBook.edge * 100).toFixed(1) + '%)'
+      : 'Book: Decline \u2014 insurance turns at true +' + INDEX999.INSURE_AT +
+        ' (now true ' + fmtCount(insBook.tc) + ')';
+  }
+  function coachInsuranceVerdict(choice) {
+    if (!coachOn || !insBook) return;
+    var pick = choice === 'insure' ? 'insure' : 'no';   /* the click's word vs
+                                    the book's word — same bet, one name */
+    var ok = pick === insBook.play;
+    var cost = 0;
+    if (!ok) cost = Math.abs(insBook.edge) * Math.max(1, Math.floor(bet / 2));
+    coachStats.decisions++;
+    if (ok) {
+      coachStats.book++;
+      coachStats.streak++;
+      if (coachStats.streak > coachStats.best) coachStats.best = coachStats.streak;
+    } else {
+      coachStats.streak = 0;
+      coachStats.loss += cost;
+      if (!leaks['insurance v ace']) leaks['insurance v ace'] = { n: 0, cost: 0 };
+      leaks['insurance v ace'].n++;
+      leaks['insurance v ace'].cost += cost;
+      try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
+      var lb = document.getElementById('btnLeaks');
+      if (lb) lb.hidden = false;
+      replay.push({                    /* the reel keeps it like any other miss */
+        yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
+        up: 'A', us: dealerArr[0].suit,
+        t: total(you), soft: isSoft(you),
+        choice: pick === 'no' ? 'decline' : 'insure',
+        book: insBook.play === 'no' ? 'decline' : 'insure',
+        cost: Math.round(cost * 100) / 100
+      });
+      if (replay.length > 12) replay.shift();
+      saveReplay();
+      var rb = document.getElementById('btnReview');
+      if (rb) rb.hidden = false;
+    }
+    saveCoach();
+    renderCoach();
+    ['btnInsYes', 'btnInsNo'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('book');
+    });
+    var b = document.getElementById(choice === 'insure' ? 'btnInsYes' : 'btnInsNo');
+    if (b) b.classList.add(ok ? 'hit-ok' : 'miss');
+    coachHint.hidden = false;
+    coachHint.className = 'coachhint ' + (ok ? 'ok' : 'miss');
+    coachHint.textContent = ok ? '\u2713 Book play'
+      : 'Book says ' + (insBook.play === 'insure' ? 'Insure' : 'Decline') +
+        (insBook.play === 'insure'
+          ? ' \u2014 true ' + fmtCount(insBook.tc) + ' flips it at +' + INDEX999.INSURE_AT
+          : ' \u2014 it turns at true +' + INDEX999.INSURE_AT +
+            ' (now true ' + fmtCount(insBook.tc) + ')');
+    coachCue(ok);
+    insBook = null;
+    later(2400, function () {
+      ['btnInsYes', 'btnInsNo'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('miss', 'hit-ok');
+      });
+      if (coachHint && lastBook === null) coachHint.hidden = true;   /* a newer
+        mark (the hand's own book badge) is not ours to take */
+    });
+  }
+  function takeInsurance(yes) {
+    if (!insOpen) return;
+    insOpen = false;
+    coachInsuranceVerdict(yes ? 'insure' : 'decline');
+    if (yes) {
+      insBet = Math.floor(bet / 2);
+      bank -= insBet;
+      saveBank();
+      renderBank();
+      renderBet();                     /* the tray shows the side bet */
+      chipClack(0.03);
+    }
+    if (yes) setStatus('Insured for ' + fmt(insBet));
+    else setStatus('No insurance — play the hand');
+    if (coachOn) later(1400, beginTurn);   /* the verdict gets its beat before
+                                              the book re-marks the hand    */
+    else beginTurn();
+  }
+
+  /* insurance is offered the moment the ace shows, before the
+     hand is played out — the European hole card is still in the
+     shoe, so the answer is a genuine bet on its density        */
+  function maybeInsurance() {
+    if (dealerArr[0] && dealerArr[0].rank === 'A') {
+      insOpen = true;
+      phase = 'insurance';
+      syncUI();
+      setStatus('Dealer shows an ace \u2014 insure the hand?');
+      coachInsuranceMark();
+      return;
+    }
+    beginTurn();
+  }
+
   /* the dealer ALWAYS draws to 17 (S17) — even against a bust */
   function dealerTurn() {
     phase = 'dealer';
@@ -1511,6 +1730,17 @@
      blackjack 3:2, win 1:1, push returns the stake.           */
   function settle() {
     phase = 'settle';
+    /* insurance resolves first: the count's side bet pays 2:1
+       when the hole card completes the dealer's natural        */
+    var insWin = 0;
+    if (insBet) {
+      if (dealerArr.length === 2 && SHOE999.total(dealerArr) === 21) insWin = insBet * 3;
+      bank += insWin;
+      insBet = 0;
+      saveBank();
+      renderBank();
+      renderBet();                     /* the tray drops the side bet */
+    }
     var st = SHOE999.settle(you, dealerArr, bet);   /* the canon settles — one rule for both pages */
     var kind = { 'bust': 'Bust — the house takes it', 'blackjack': 'Blackjack! Pays 3 to 2',
                  'win': 'You win', 'push': 'Push — the stake comes back', 'lose': 'Dealer takes it' }[st.kind];
@@ -1520,7 +1750,7 @@
     renderBank();
     var net = delta - bet;
     if (net > 0) elYouTotal.className = 'total win';
-    setStatus(kind);
+    setStatus(kind + (insWin ? ' \u2014 insurance pays ' + fmt(insWin) : ''));
     /* the +delta floats at the total — the settlement's own number */
     if (net !== 0) {
       var pay = document.createElement('div');
@@ -1541,6 +1771,7 @@
   function newRound() {
     token++;
     bet = 0;
+    insBet = 0; insOpen = false;
     you = []; dealerArr = [];
     renderHand(elYou, you); renderHand(elDealer, dealerArr); renderTotals();
     renderBet();
@@ -1572,10 +1803,14 @@
   document.getElementById('btnHit').addEventListener('click', hit);
   document.getElementById('btnStand').addEventListener('click', stand);
   document.getElementById('btnDouble').addEventListener('click', doubleDown);
+  document.getElementById('btnInsYes').addEventListener('click', function () { takeInsurance(true); });
+  document.getElementById('btnInsNo').addEventListener('click', function () { takeInsurance(false); });
   window.addEventListener('keydown', function (e) {
     if (e.key === 'h' || e.key === 'H') hit();
     else if (e.key === 's' || e.key === 'S') stand();
     else if (e.key === 'd' || e.key === 'D') doubleDown();
+    else if (e.key === 'i' || e.key === 'I') takeInsurance(true);
+    else if (e.key === 'n' || e.key === 'N') takeInsurance(false);
   });
 
   /* the audio toggle — the app's own switch (999.table.audio):
@@ -1778,6 +2013,9 @@
   } catch (e) { }
 
   var back = false, retryTimer = 0, goTimer = 0, stayed = false;
+  try {
+    if (new URL(location.href).searchParams.get('stay') === '1') stayed = true;   /* the player (or a link) asked to stay */
+  } catch (e) { }
   function go() { location.replace(dest); }
   function inHand() {
     return bet > 0 || phase === 'dealing' || phase === 'acting' || phase === 'dealer' || phase === 'settle';

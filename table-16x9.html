@@ -1324,6 +1324,58 @@
     if (b) b.textContent = on ? '🎬 Cinema' : '◻ Normal';
   }
 
+  /* ==== INDEX999 canon - the count's corrections, both floors ====
+     Hi-Lo's true count re-prices the shoe: as small cards leave,
+     tens and aces crowd what remains, and a few of the chart's
+     losing plays turn into winners. These are the corrections
+     this floor teaches — the famous indices: hard 16 v 10 stands
+     at +1, 15 v 10 at +4, 12 v 2 at +1 and 12 v 3 at +2 stand,
+     11 v A doubles at +1, 10 v 10 at +4, 9 v 2 at +1 — and one
+     runs the other way: 13 v 2 is a chart stand that the count
+     turns into a hit once the shoe goes cold (true −1 or
+     lower). Insurance, the count's own bet, turns at +3.
+     Below the threshold the chart rules. The block must stay
+     byte-identical in table-16x9.html and offline.html;
+     test/index999.test.js fails if the copies drift.            */
+  var INDEX999 = (function () {
+    var INDICES = {
+      'hard 16 v 10': { play: 'stand', at: 1 },
+      'hard 15 v 10': { play: 'stand', at: 4 },
+      'hard 13 v 2': { play: 'hit', at: -1, below: true },
+      'hard 12 v 2': { play: 'stand', at: 1 },
+      'hard 12 v 3': { play: 'stand', at: 2 },
+      'hard 11 v A': { play: 'double', at: 1 },
+      'hard 10 v 10': { play: 'double', at: 4 },
+      'hard 9 v 2': { play: 'double', at: 1 }
+    };
+    var INSURE_AT = 3;                 /* the count's own bet: insurance turns at +3 */
+    function cell(t, soft, up) {
+      return (soft ? 'soft ' : 'hard ') + t + ' v ' + (up === 11 ? 'A' : up);
+    }
+    function flip(t, soft, up, tc, canD) {
+      var ix = INDICES[cell(t, soft, up)];
+      if (!ix) return null;
+      if (ix.play === 'double' && !canD) return null;   /* a double that isn't legal
+                                                           is the chart's stand-in  */
+      return (ix.below ? tc <= ix.at : tc >= ix.at) ? ix.play : null;
+    }
+    function tenDensity(stack) {       /* the exact share of ten-valued cards left */
+      var tens = 0, i;
+      for (i = 0; i < stack.length; i++) {
+        var r = stack[i].rank;
+        if (r === '10' || r === 'J' || r === 'Q' || r === 'K') tens++;
+      }
+      return stack.length ? tens / stack.length : 0;
+    }
+    function insEdge(stack) {          /* insurance pays 2:1: EV per unit = 3p − 1,
+                                          breakeven at p = 1/3, near true +3       */
+      return 3 * tenDensity(stack) - 1;
+    }
+    return { INDICES: INDICES, INSURE_AT: INSURE_AT, cell: cell,
+             flip: flip, tenDensity: tenDensity, insEdge: insEdge };
+  })();
+  /* ==== INDEX999 end ==== */
+
   /* ---- the training overlay (optional, 🎓) -----------------
      The practice shoe's two quiet tutors ride the live table:
      the Hi-Lo meter counts EVERY card the shoe releases — the
@@ -1333,7 +1385,7 @@
      count tags every card regardless, so switching on mid-shoe
      is still exact.                                          */
   var HILO = { '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 0, '8': 0, '9': 0, '10': -1, 'J': -1, 'Q': -1, 'K': -1, 'A': -1 };
-  var hiLo = 0, coachOn = false, trainBook = null, trainMsg = '';
+  var hiLo = 0, coachOn = false, trainBook = null, trainMsg = '', trainFlip = null;
   try { coachOn = localStorage.getItem('999.table.coach') === 'on'; } catch (e) { }
   function fmtT(n) { return n > 0 ? '+' + n : String(n); }
   function capT(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -1359,6 +1411,12 @@
       else if (t === 9) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
       else play = 'hit';
     }
+    /* the count's corrections: the indices price the ACTUAL
+       shoe — where the true count crosses a threshold the
+       chart's play flips, and the panel says so by name.     */
+    var tc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
+    var ix = INDEX999.flip(t, soft, up, tc, canD);
+    if (ix) play = ix;
     return play;
   }
   function btnForT(p) {
@@ -1370,6 +1428,7 @@
       if (el) el.classList.remove('book');
     });
     trainBook = null;
+    trainFlip = null;
   }
   function renderTrain() {
     var b = document.getElementById('trainBox');
@@ -1379,8 +1438,17 @@
     var dk = shoeArr.length / 52;
     var tc = Math.round(hiLo / Math.max(dk, 0.25));
     var html = 'Hi-Lo ' + fmtT(hiLo) + ' · True ' + fmtT(tc) + ' · ' + dk.toFixed(1) + ' dk';
-    if (game.phase === 'acting' && game.acting === YOUR && trainBook) html += '<br>Book: ' + capT(trainBook);
+    if (game.phase === 'acting' && game.acting === YOUR && trainBook) {
+      html += '<br>Book: ' + capT(trainBook);
+      if (trainFlip) html += ' — the count play (' + trainFlip.cell + ' flips at ' +
+        (trainFlip.at < 0 ? '\u2212' : '+') + Math.abs(trainFlip.at) +
+        ' · now ' + fmtT(trainFlip.tc) + ')';
+    }
     else if (trainMsg) html += '<br>' + trainMsg;
+    if (game.dealer.cards.length === 1 && game.dealer.cards[0] && game.dealer.cards[0].rank === 'A') {
+      var insTc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
+      html += '<br>Insurance turns at true +' + INDEX999.INSURE_AT + ' (now ' + fmtT(insTc) + ')';
+    }
     b.innerHTML = html;
   }
   function markT() {
@@ -1388,6 +1456,13 @@
     var h = game.hands[YOUR];
     if (!h || !h.cards.length) return;
     trainBook = bookT(h.cards, h.cards.length === 2);
+    trainFlip = null;
+    var upR = game.dealer.cards[0] ? game.dealer.cards[0].rank : '10';
+    var up = upR === 'A' ? 11 : (upR === 'J' || upR === 'Q' || upR === 'K' ? 10 : parseInt(upR, 10));
+    var vT = SHOE999.value(h.cards);
+    var tcT = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
+    var ixD = INDEX999.INDICES[INDEX999.cell(vT.total, vT.soft, up)];
+    if (ixD && tcT >= ixD.at) trainFlip = { cell: INDEX999.cell(vT.total, vT.soft, up), at: ixD.at, tc: tcT };
     var el = btnForT(trainBook);
     if (el) el.classList.add('book');
     renderTrain();
@@ -1395,7 +1470,9 @@
   function verdictT(choice) {
     if (!coachOn || !trainBook) return;
     var ok = choice === trainBook;
-    trainMsg = ok ? '\u2713 book play' : 'book says ' + capT(trainBook);
+    trainMsg = ok ? '\u2713 book play' + (trainFlip ? ' \u2014 the count play' : '')
+      : 'book says ' + capT(trainBook) + (trainFlip
+          ? ' \u2014 the count flipped it (now true ' + fmtT(trainFlip.tc) + ')' : '');
     clearT();
     renderTrain();
     setTimeout(function () { trainMsg = ''; renderTrain(); }, 2200);
