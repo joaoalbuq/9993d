@@ -1754,8 +1754,10 @@
      of the stack with a whisper, and stands at the shoe through
      the shoe's last round until the riffle takes the shoe back. */
   var CUT_NEAR = 20, cutT0 = 0;
+  var discarded = 0;                    /* the rack's ledger: cards that played */
   function newShoe() {
     shoeDealt = 0;
+    discarded = 0;           /* a fresh shoe empties the discard rack */
     shoeCut = SHOE999.cutBetween(SHOE_CARDS, 0.75, 0.85);
     cutT0 = 0;               /* a new shoe takes its cut card back */
     shoeFresh = true;        /* its first betting window says so */
@@ -1977,6 +1979,9 @@
       later(CHIP_DELAY, function () { stinger(youHand.result); });
     }
     var walkEnd = CHIP_DELAY + Math.max(beat, 1) * WALK_BEAT;
+    var take = game.walk.filter(function (b) { return game.hands[b].result === 'lose' || game.hands[b].result === 'bust'; }).length;
+    var give = game.walk.reduce(function (acc, b) { return acc + (game.hands[b].flyPay || 0); }, 0);
+    trayChips = clamp(trayChips + take - give, 0, TRAY_SLOTS * TRAY_STACK_H);  /* the house ledger moves */
     later(walkEnd, function () {
       /* spec 4.4: a round ENDS on the dealer's hand — the walk
          never parks on the last paid box                       */
@@ -1989,6 +1994,8 @@
   function clearRound() {
     game.token++;
     game.phase = 'pause';
+    for (var i2 = 0; i2 < BOX_N; i2++) discarded += (game.hands[i2] || { cards: [] }).cards.length;
+    discarded += game.dealer.cards.length;
     game.dealer = { cards: [] };
     game.hands = [];
     for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null });
@@ -2165,39 +2172,47 @@
   /* ---- the +delta riding the payout walk ------------------
      The number is the settlement's own — what the wallet just
      moved (2:1 on a win, the stake back on a push), never
-     re-derived here (spec 5). It floats at the box's total
-     while its chips arrive, then fades.                        */
-  var payEls = [];
+     re-derived here (spec 5). It lives IN the scene now: a
+     plank rising from the box's total while its chips arrive,
+     then fading — projected by the same camera as the cards.   */
+  var payFloats = [];
   var PAY_LIFE = 1500;
-  function spawnPay(b, delta) {
-    var el = document.createElement('div');
-    el.className = 'pay';
-    el.textContent = '+' + delta;
-    labelsWrap.appendChild(el);
-    payEls.push({ el: el, box: b, t0: performance.now() });
+  function paySign(delta) { return '+' + delta; }
+  function payFloatTex(delta) {
+    return canvasTexture('pay' + delta, 512, 192, function (c, W, H) {
+      c.clearRect(0, 0, W, H);
+      var g = c.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, 'rgba(6,8,10,0)'); g.addColorStop(0.45, 'rgba(6,8,10,0.55)'); g.addColorStop(1, 'rgba(6,8,10,0)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, W, H);
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = '800 118px Georgia, serif';
+      c.strokeStyle = 'rgba(0,0,0,0.85)'; c.lineWidth = 14; c.lineJoin = 'round';
+      c.strokeText(paySign(delta), W / 2, H / 2);
+      c.fillStyle = rgba(current.accent, 0.96);
+      c.fillText(paySign(delta), W / 2, H / 2);
+    });
   }
-  function updatePay() {
-    var barTop = document.querySelector('.bar').getBoundingClientRect().top;
-    var held = game.phase === 'settle' ? game.payoutBox : game.acting;
-    for (var i = payEls.length - 1; i >= 0; i--) {
-      var pe = payEls[i], age = (performance.now() - pe.t0) / PAY_LIFE;
-      if (age >= 1) {
-        if (pe.el.parentNode) pe.el.parentNode.removeChild(pe.el);
-        payEls.splice(i, 1);
-        continue;
-      }
-      var p = project([boxX(pe.box), 0.12, BOX_Z + 1.12]);
-      if (!p) { pe.el.style.opacity = 0; continue; }
-      /* the same inward dodge as the held total: a +delta at an
-         edge box must never half-crop — while its own box is
-         paid it climbs inboard and stays readable               */
-      if (p.x < 60 || p.x > VW - 60) {
-        if (pe.box !== held) { pe.el.style.opacity = 0; continue; }
-        p.x = clamp(p.x, 60, VW - 60);
-      }
-      pe.el.style.opacity = age > 0.6 ? 1 - (age - 0.6) / 0.4 : 1;
-      pe.el.style.left = p.x + 'px';
-      pe.el.style.top = (Math.min(p.y, barTop - 34) - 46 - age * 30) + 'px';
+  function spawnPay(b, delta) {
+    payFloats.push({ box: b, delta: delta, tex: payFloatTex(delta), t0: performance.now() });
+  }
+  function payFloatDrawn(f, ts) {
+    /* the plank rises from the box's total, then fades at the
+       top — alpha holds to 0.6 of its life and falls after    */
+    var age = clamp((ts - f.t0) / PAY_LIFE, 0, 1);
+    return {
+      y: 0.12 + age * 0.52,
+      a: age <= 0.6 ? 1 : 1 - (age - 0.6) / 0.4,
+      z: BOX_Z + 1.12,
+      w: 1.32
+    };
+  }
+  function drawPayFloats(ts) {
+    for (var i = payFloats.length - 1; i >= 0; i--) {
+      var f = payFloats[i], age = (ts - f.t0) / PAY_LIFE;
+      if (age >= 1) { payFloats.splice(i, 1); continue; }
+      var d = payFloatDrawn(f, ts);
+      drawQuad(f.tex, 1, [1, 1, 1, d.a], boxX(f.box), d.y, d.z, 0, d.w, d.w * 0.375, false);
     }
   }
 
@@ -2214,6 +2229,14 @@
   var CHIP_DELAY = 200;               /* settle: the verdict lands first    */
   var CHIP_FLY = 560, CHIP_STAG = 90; /* a flight lands inside its beat     */
   var PAY_LAG = 90;                   /* the payout launches a beat behind  */
+  var TRAY_SLOTS = 5, TRAY_STACK_H = 5, TRAY_SINK = 0.012;
+  var trayChips = TRAY_SLOTS * 2;     /* the house's working float          */
+  function trayFill(t) {              /* 0 empty .. TRAY_STACK_H a full column */
+    return clamp(Math.round(t / TRAY_SLOTS), 0, TRAY_STACK_H);
+  }
+  function trayShift(t) {             /* the tray rides the money: heavy rides right, paid down eases left */
+    return clamp((t - TRAY_SLOTS * 2) / (TRAY_SLOTS * TRAY_STACK_H + 5) * 0.13, -0.055, 0.065);
+  }
 
   function chipSpot(b, slot) {
     return [boxX(b) + (slot % 2 ? 0.022 : -0.022), BOX_Z + 0.86 + ((slot % 3) - 1) * 0.018];
@@ -2221,6 +2244,11 @@
   function traySpot(k) {
     /* lands IN FRONT of the tray row — never coincident quads */
     return [-1.18 + (k % 5) * 0.64, DEALER_Z - 0.62];
+  }
+  function traySlotX(k) {
+    /* the tray's own columns — the floats only ever move to
+       these x positions, so the flight lane stays empty      */
+    return -1.18 + (k % TRAY_SLOTS) * 0.64;
   }
   function drawBetStack(b, ts) {
     var h = game.hands[b];
@@ -2493,6 +2521,60 @@
     if (b === YOUR) stinger(h.result);
   }
 
+  /* ---- the shoe, the rack, the tray — real furniture ------
+     The shoe is a STACK of card backs that sinks as it deals
+     and refills whole at the riffle; the discard rack is its
+     mirror, growing with every card that played; the tray's
+     five columns rise when the house takes a stack and sink
+     when it pays one out. Between the shoe and the rack the
+     dealer reads the print: DISCARD · TRAY · SHOE.            */
+  var FURNI_STEP = 0.011;
+  var FURNI_WHITE = [1, 1, 1, 1];
+  function furniLean(k) { return ((k * 37) % 5 - 2) * 0.007; }   /* a real stack never squares up */
+  function stackRange(count, cap, base) {
+    return Math.max(base, Math.round((count / cap) * 10));
+  }
+  function trayCols(t) {              /* per-slot fills, empty slots first */
+    var fill = trayFill(t), cols = [];
+    for (var k = 0; k < TRAY_SLOTS; k++) cols.push(k < fill ? TRAY_STACK_H : 0);
+    return cols;
+  }
+  function drawFurniture(ts) {
+    var y = 0.012;
+    /* the SHOE: a base + a stack of backs sinking as it deals,
+       stilled mid-shuffle (the riffle owns the cards then)   */
+    drawQuad(feltTex, 0, hexTint(current.deep, 1), SHOE[0], y, SHOE[2], -0.18, 1.25, 0.9, false);
+    drawQuad(chipTex, 0, hexTint(current.rail, 1), SHOE[0], y + 0.004, SHOE[2], -0.18, 1.13, 0.78, false);
+    if (game.phase !== 'shuffle') {
+      var inShoe = Math.max(0, SHOE_CARDS - shoeDealt);
+      for (var k = 0; k < stackRange(inShoe, SHOE_CARDS, 3); k++) {
+        drawQuad(getBackTex(), 1, FURNI_WHITE, SHOE[0] + furniLean(k), y + 0.006 + k * FURNI_STEP, SHOE[2] + furniLean(k + 2), -0.18 + (k % 3) * 0.008, CARD_W, CARD_L, false);
+      }
+    }
+    /* the DISCARD RACK: the shoe's mirror, growing as cards return */
+    drawQuad(feltTex, 0, hexTint(current.deep, 1), -SHOE[0], y, SHOE[2], 0.18, 1.25, 0.9, false);
+    drawQuad(chipTex, 0, hexTint(current.rail, 1), -SHOE[0], y + 0.004, SHOE[2], 0.18, 1.13, 0.78, false);
+    for (var j = 0; j < stackRange(discarded, SHOE_CARDS, 0); j++) {
+      drawQuad(getBackTex(), 1, FURNI_WHITE, -SHOE[0] + furniLean(j), y + 0.006 + j * FURNI_STEP, SHOE[2] + furniLean(j + 1), 0.18 + (j % 3) * 0.008, CARD_W, CARD_L, false);
+    }
+    /* the TRAY: five stacked columns that ride the ledger */
+    var cols = trayCols(trayChips), shift = trayShift(trayChips);
+    drawQuad(feltTex, 0, hexTint(current.deep, 1), -0.54 + shift, y, DEALER_Z - 0.78, 0, 3.62, 0.62, false);
+    drawQuad(chipTex, 0, hexTint(current.rail, 1), -0.54 + shift, y + 0.004, DEALER_Z - 0.78, 0, 3.5, 0.5, false);
+    for (var tc = 0; tc < TRAY_SLOTS; tc++) {
+      var sx = traySlotX(tc) + shift;
+      for (var tk = 0; tk < cols[tc]; tk++) {
+        drawQuad(chipTex, 1, hexTint(CHIP_TINTS[tc], 1), sx + (tk % 2 ? 0.016 : -0.014), y + 0.006 + tk * CHIP_H, DEALER_Z - 0.78 + (tk % 3 - 1) * 0.012, 0, 0.5, 0.5, false);
+      }
+    }
+    /* the felt print between them, theme-coloured (spec 4.2) */
+    gl.depthMask(false);
+    drawQuad(chipTex, 0, hexTint(current.print, 0.13), SHOE[0], y + 0.005, SHOE[2] + 0.62, -0.18, 0.58, 0.26, false);
+    drawQuad(chipTex, 0, hexTint(current.print, 0.13), -SHOE[0], y + 0.005, SHOE[2] + 0.62, 0.18, 0.58, 0.26, false);
+    drawQuad(chipTex, 0, hexTint(current.print, 0.13), -0.54 + shift, y + 0.005, DEALER_Z - 0.78 + 0.44, 0, 0.58, 0.26, false);
+    gl.depthMask(true);
+  }
+
   /* ---- the riffle at the shoe (spec 4.5) -----------------
      Twelve card backs at the shoe and nothing else moving:
      the deck splits into two halves, the halves lean together
@@ -2554,12 +2636,11 @@
     drawQuad(feltTex, 0, hexTint(current.rail, 1), 0, 0, 0, 0, FELT_RX * 2 + 1.15, FELT_RZ * 2 + 1.15, false);
     drawQuad(feltTex, 1, white, 0, 0.004, 0, 0, FELT_RX * 2, FELT_RZ * 2, false);
 
-    /* shoe / discard rack / chip tray — the live set (spec 4.2) */
-    drawQuad(feltTex, 0, hexTint(current.deep, 1), SHOE[0], 0.012, SHOE[2], -0.18, 1.25, 0.9, false);
-    drawQuad(feltTex, 0, hexTint(current.deep, 1), -SHOE[0], 0.012, SHOE[2], 0.18, 1.25, 0.9, false);
-    for (var tc = 0; tc < 5; tc++) {
-      drawQuad(chipTex, 1, hexTint(CHIP_TINTS[tc], 1), -1.28 + tc * 0.64, 0.012, DEALER_Z - 0.78, 0, 0.5, 0.5, false);
-    }
+    /* shoe / discard rack / chip tray — the live set (spec 4.2),
+       built as stacked geometry: the shoe's stack shrinks as it
+       deals, the rack grows as cards come back, and the tray's
+       columns rise and sink with the money the walk moves      */
+    drawFurniture(ts);
 
     /* the shoe ceremony (spec 4.5): the deck riffles where the
        shoe sits — split, interleave, square up */
@@ -2619,7 +2700,7 @@
     for (var j = 0; j < game.dealer.cards.length; j++) drawCardMesh(game.dealer.cards[j]);
 
     updateLabels();
-    updatePay();
+    drawPayFloats(ts);
   }
 
   function frame(ts) {

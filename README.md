@@ -155,6 +155,25 @@ are additive screens kept beside it for side-by-side comparison.
   play — the count play") and insurance, the count's own bet, taught
   at the felt when an ace shows — both the turn ("it pays only past a
   third tens — true +3 is that rich") and the decline.
+- **Furniture in 3D (spec 4.2)** — the shoe, the discard rack and the
+  chip tray are stacked geometry on the dealer's side, not flat quads:
+  the shoe is a stack of card backs on an inner mat that SINKS as the
+  shoe deals and refills whole at the riffle (stilled mid-ceremony —
+  the riffle owns the cards then); the discard rack is its mirror on
+  the left, GROWING with every card that played, emptied by the next
+  shoe; the tray is five chip columns on a plate behind the payout
+  lane that RISE when the house takes a stack and SINK when it pays
+  one out — and the whole tray drifts a whisper along the money's
+  direction (heavy rides right, paid down eases left) so the furniture
+  breathes with the ledger. The chip flights still land exactly on the
+  lane the distance model measures (traySpot untouched), and the dealer
+  reads the print between the pieces: DISCARD · TRAY · SHOE. The +delta
+  lives in the scene now too: at settle a plank of light bearing the
+  settlement's own number rises from the box's total, projected by the
+  same camera as the cards — the DOM pill is retired. Stack heights,
+  the tray ledger (take − give, clamped to 25 chips) and the float's
+  rise-and-fade are the properties under test in
+  `test/furniture3d.test.js`.
 - **The betting interlude, every round** — the floor opens for the oldest
   ritual there is before every deal, not only when the shoe changes: the
   status line reads **"New shoe — place your bets"** when the shoe is fresh
