@@ -1512,7 +1512,7 @@
      the moment the book was marked. Persisted separately from
      the practice shoe (999.table.trainstats vs the practice
      keys), so a night at the felt never muddies the drills.  */
-  var trainStats = { decisions: 0, book: 0, loss: 0, lossBase: 0 };
+  var trainStats = { decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0 };
   try {
     var tsRaw = JSON.parse(localStorage.getItem('999.table.trainstats') || 'null');
     if (tsRaw && typeof tsRaw.decisions === 'number' && typeof tsRaw.book === 'number') {
@@ -1521,8 +1521,32 @@
         trainStats.loss = 0;
         trainStats.lossBase = Math.max(0, (tsRaw.decisions - tsRaw.book) || 0);
       }
+      if (typeof trainStats.ev !== 'number' || typeof trainStats.rounds !== 'number') {
+        trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0;   /* a score from
+                                            before the luck: the old book stays honest */
+      }
     }
   } catch (e) { }
+  /* the luck: the first decision's chosen play, priced by the same
+     EV999 the book marks with, against what the felt actually moved
+     for the player's box — the same gap the practice pill reads. */
+  var evRoundT = false, evPricedT = false, evBookT = 0;
+  function priceT(choice) {
+    if (!evRoundT || evPricedT) return;
+    evPricedT = true;
+    var h = game.hands[YOUR];
+    if (!(h.stake || 0)) { evRoundT = false; return; }   /* no stakes: no book */
+    var upR = game.dealer.cards[0] ? game.dealer.cards[0].rank : '10';
+    var vP = SHOE999.value(h.cards);
+    var pr = EV999.prices(vP.total, vP.soft, upR, h.cards.length === 2);
+    var p = pr ? (pr[choice] != null ? pr[choice] : pr.stand) : null;
+    if (p == null) { evRoundT = false; return; }         /* unpriced: the round stays out */
+    evBookT = p * (h.stake || UNIT_BET);
+  }
+  function luckT() {
+    var luck = trainStats.felt - trainStats.ev;
+    return (luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1);
+  }
   function saveT() {
     try { localStorage.setItem('999.table.trainstats', JSON.stringify(trainStats)); } catch (e) { }
   }
@@ -1627,8 +1651,10 @@
     var tPct = trainStats.decisions ? Math.round(100 * trainStats.book / trainStats.decisions) : null;
     var tMiss = Math.max(0, (trainStats.decisions - trainStats.book) - (trainStats.lossBase || 0));
     var tPer = tMiss ? ' \u00b7 \u2212' + (trainStats.loss / tMiss).toFixed(1) + '/dev' : '';
+    var tLuck = trainStats.rounds ? ' \u00b7 ' + luckT() + ' luck' : '';   /* the gap rides the score,
+                                              the same word the practice pill reads */
     html += '<br>' + (tPct == null ? 'Coach'
-      : 'Coach ' + tPct + '% \u00b7 ' + trainStats.book + '/' + trainStats.decisions + tPer);
+      : 'Coach ' + tPct + '% \u00b7 ' + trainStats.book + '/' + trainStats.decisions + tPer + tLuck);
     if (game.dealer.cards.length === 1 && game.dealer.cards[0] && game.dealer.cards[0].rank === 'A') {
       var insTc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
       html += '<br>Insurance turns at true +' + INDEX999.INSURE_AT + ' (now ' + fmtT(insTc) + ')';
@@ -1657,6 +1683,7 @@
   }
   function verdictT(choice) {
     if (!coachOn || !trainBook) return;
+    priceT(choice);                  /* the first decision prices the round's book */
     var ok = choice === trainBook;
     trainStats.decisions++;
     var cost = 0;
@@ -1776,6 +1803,7 @@
     game.token++;
     game.phase = 'dealing';
     game.acting = -1;
+    evRoundT = true; evPricedT = false; evBookT = 0;   /* every round opens its own book */
     game.hands = [];
     for (var i = 0; i < BOX_N; i++) game.hands.push({ cards: [], done: false, doubled: false, result: null, stake: 0, betChain: null, chipT0: [] });
     game.dealer = { cards: [] };
@@ -1951,10 +1979,12 @@
        the dealer — and the frame returns to the dealer after. */
     game.payoutBox = -2;                 /* the verdict landed; the walk hasn't */
     game.walk = [];
+    var myNet = 0;
     for (var i = 0; i < BOX_N; i++) {
       var h = game.hands[i];
       /* the canon settles every hand — one rule for both pages */
       var st = SHOE999.settle(h.cards, game.dealer.cards, h.stake || (h.chipT0 || []).length * UNIT_BET);
+      if (i === YOUR) myNet = st.net;    /* the player box's felt movement */
       h.result = st.kind === 'blackjack' ? 'win' : st.kind;
       h.natural = st.kind === 'blackjack';   /* the felt shows its 3:2 at the money edge */
       var n = (h.chipT0 || []).length;
@@ -1964,6 +1994,14 @@
          3:2 in whole chips (25 -> 63), a win 2:1, a push its stake */
       h.payDelta = h.result === 'win' ? SHOE999.chips(st.prize) : h.result === 'push' ? st.prize : 0;
       if (n) game.walk.push(i);          /* a beat only where a stake sits */
+    }
+    if (evRoundT && evPricedT) {         /* the same books the practice floor keeps:
+                                            the engine's price against the felt's move */
+      trainStats.rounds++;
+      trainStats.ev += evBookT;
+      trainStats.felt += myNet;
+      saveT();
+      renderTrain();
     }
     setStatus('Round settles — the payout walk' + (tHanded ? ' · ' + tHanded +
       ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : ''));

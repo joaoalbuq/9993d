@@ -554,11 +554,17 @@ answers with CORS headers.
   the practice shoe.** At every settled round the overlay's misses
   ride into the practice floor's leak ledger (`999.practice.leaks`),
   cell for cell with the same names ("hard 20 v 10"), each priced at
-  the box's own stake; the ledger is read-merge-written one settle at
+  the  box's own stake; the ledger is read-merge-written one settle at
   a time so the floor's own entries are never clobbered, a hand
   abandoned mid-round teaches nothing, and the settle line says what
   crossed over ("· 1 miss to the practice shoe") — the drills there
-  then deal the felt's worst cell on purpose. Live on the practice floor: the stacked "insurance v ace"
+  then deal the felt's worst cell on purpose. The overlay's score
+  line carries the luck gap too — the first decision prices the
+  round's book with the same EV999 (at the box's own stake), the
+  settle banks it against the player box's felt movement, and the
+  score line reads "Coach 83% · 19/23 · −2.9/dev · −13.1 luck" —
+  the same word the practice pill reads, persisted in the trainstats
+  and silent on a stakeless round. Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
   "Book: Decline — insurance turns at true +3 (now true −1)", decline
   "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray

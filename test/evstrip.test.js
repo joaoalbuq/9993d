@@ -144,4 +144,37 @@ if (!/\\u00b7 ' \+ luckWord\(evSession\) \+ ' luck \\u00b7 ' \+ luckBand\(evSess
   throw new Error('the pill must name the gap AND its band');
 console.log('wiring: the spread banks with the legs at settle \u2014 pill and strip read the same band');
 
+/* --- the live table keeps the same books, from the same engine --- */
+const tsrc = fs.readFileSync(path.join(__dirname, '..', 'table-16x9.html'), 'utf8');
+function tgrab(a, b) {
+  const i = tsrc.indexOf(a), j = tsrc.indexOf(b, i);
+  if (i < 0 || j < 0) throw new Error('table anchor miss: ' + a);
+  return tsrc.slice(i, j + b.length);
+}
+if (!/var trainStats = \{ decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0 \};/.test(tsrc))
+  throw new Error('the table score must carry the book in its own stats');
+if (!/typeof trainStats\.ev !== 'number' \|\| typeof trainStats\.rounds !== 'number'/.test(tsrc))
+  throw new Error('an old stored score must migrate, not NaN');
+if (!/var evRoundT = false, evPricedT = false, evBookT = 0;/.test(tsrc))
+  throw new Error('the round book must start closed');
+if (!/evRoundT = true; evPricedT = false; evBookT = 0;/.test(tsrc))
+  throw new Error('every round must open its own book');
+if (!/if \(!\(h\.stake \|\| 0\)\) \{ evRoundT = false; return; \}/.test(tsrc))
+  throw new Error('a stakeless round stays out of the book');
+if (!/evBookT = p \* \(h\.stake \|\| UNIT_BET\);/.test(tsrc))
+  throw new Error('the price rides the box\u2019s own stake');
+if (!tgrab('  function verdictT(choice) {', 'trainStats.decisions++;').includes('priceT(choice);'))
+  throw new Error('the first decision must price the round\u2019s book');
+if (!tgrab('game.walk = [];', 'if (i === YOUR) myNet = st.net;').includes('var myNet = 0;'))
+  throw new Error('the settle must capture the player box\u2019s felt movement');
+const tCommit = tgrab('if (evRoundT && evPricedT) {', 'renderTrain();\n    }');
+if (!/trainStats\.rounds\+\+;/.test(tCommit) || !/trainStats\.ev \+= evBookT;/.test(tCommit) ||
+    !/trainStats\.felt \+= myNet;/.test(tCommit) || !/saveT\(\);/.test(tCommit))
+  throw new Error('settle must commit both legs and save, like the practice floor');
+if (!/var tLuck = trainStats\.rounds \? ' \\u00b7 ' \+ luckT\(\) \+ ' luck' : '';/.test(tsrc))
+  throw new Error('the score line must carry the gap only once a round is booked');
+if (!/function luckT\(\) \{[\s\S]{0,60}trainStats\.felt - trainStats\.ev/.test(tsrc))
+  throw new Error('the table\u2019s luck is the same gap: felt minus engine');
+console.log('the live table: the score line carries the luck \u2014 same engine, same gap, persisted in the trainstats');
+
 console.log('\nev strip verified');
