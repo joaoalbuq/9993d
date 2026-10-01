@@ -483,7 +483,15 @@ answers with CORS headers.
   against the precise two-decimal divisor shown in the question
   ("count ÷ 1.73 dk"), answered on a ±0.1 stepper beside the ±1s and
   graded on the exact tenth, with its own TCp accuracy on the ♠ pill
-  and a legacy-safe slot in the persisted counting score.
+  and a legacy-safe slot in the persisted counting score. **The bet
+  spread is scored too**: at every settle the stake laid is judged
+  against the count's advice — spreadUnits at the DEAL-time true count
+  — and a shortfall is priced like a strategy miss (half a percent of
+  the stake per unplayed unit, capped where the spread caps), shown in
+  the settle line ("the spread wanted 4 units (true +5): −0.5
+  unplayed") and accumulated into the ♠ pill's betting hint as a
+  Spread % and a −unplayed total (`999.practice.spread`). Over-betting
+  is never punished; flat shoes cost nothing.
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the

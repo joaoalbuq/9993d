@@ -1087,6 +1087,27 @@
        held at the table minimum until the edge shows up      */
     return tc <= 1 ? 1 : Math.min(6, tc - 1);
   }
+  /* the bet-spread score: after each round the stake the player
+     laid is judged against the count's advice — spreadUnits at
+     the DEAL-time true count — and a shortfall is priced like
+     the coach prices a strategy miss: the edge the bigger stake
+     would have bought, half a percent per unit of count above
+     one, times the chips behind it. Under-betting the count is
+     the money leak no chart can show.                        */
+  var spreadStats = { judged: 0, onCount: 0, cost: 0 };
+  try {
+    var ssRaw = JSON.parse(localStorage.getItem('999.practice.spread') || 'null');
+    if (ssRaw && typeof ssRaw.judged === 'number') spreadStats = ssRaw;
+  } catch (e) { }
+  function saveSpread() {
+    try { localStorage.setItem('999.practice.spread', JSON.stringify(spreadStats)); } catch (e) { }
+  }
+  function spreadCost(units, tc, stake) {
+    if (tc <= 1 || units >= tc - 1) return 0;   /* flat stakes cost nothing below the edge */
+    var gap = Math.min(6, tc - 1) - units;      /* the units of edge left unplayed */
+    return gap * 0.005 * stake;                 /* half a percent per unit, in chips */
+  }
+  var spreadUnitsStake = null;       /* the stake and the count it was laid at */
   var countStats = { guesses: 0, right: 0, offBy: 0, tGuesses: 0, tRight: 0, tOffBy: 0, pGuesses: 0, pRight: 0, pOffBy: 0 };
   try {
     countingOn = localStorage.getItem('999.practice.counting') !== 'off';
@@ -1150,6 +1171,9 @@
         bh.textContent = tc >= 2
           ? 'True ' + fmtCount(tc) + ' \u2014 the spread says ' + u + ' unit' + (u > 1 ? 's' : '')
           : 'True ' + fmtCount(tc) + ' \u2014 bet 1 unit, the edge is not here yet';
+        var spPct = spreadStats.judged ? Math.round(100 * spreadStats.onCount / spreadStats.judged) : null;
+        if (spPct != null) bh.textContent += ' \u00b7 Spread ' + spPct + '%';
+        if (spreadStats.cost > 0) bh.textContent += ' \u00b7 \u2212' + Math.round(spreadStats.cost) + ' unplayed';
         bh.hidden = false;
       }
     }
@@ -1600,6 +1624,7 @@
     token++;
     doubled = false;
     insBet = 0; insOpen = false;
+    spreadUnitsStake = { units: bet / 25, tc: trueCount() };   /* the stake rides the count it was laid at */
     you = []; dealerArr = [];
     leakDeal();                                   /* leaks mode stacks the shoe here */
     reviewDeal();                                 /* review mode reals the reel here */
@@ -1813,7 +1838,24 @@
     renderBank();
     var net = delta - bet;
     if (net > 0) elYouTotal.className = 'total win';
-    setStatus(kind + (insWin ? ' \u2014 insurance pays ' + fmt(insWin) : ''));
+    /* the spread judge: was the stake the count's advice? A
+       shortfall is priced like a strategy miss — the edge the
+       bigger stake would have bought, in chips               */
+    var spNote = '';
+    if (spreadUnitsStake && countingOn && bet > 0) {
+      var laidUnits = Math.round(spreadUnitsStake.units * 10) / 10;
+      var wantUnits = spreadUnits(spreadUnitsStake.tc);
+      var gapCost = spreadCost(laidUnits, spreadUnitsStake.tc, bet);
+      spreadStats.judged++;
+      if (gapCost <= 0) spreadStats.onCount++;
+      else spreadStats.cost += gapCost;
+      saveSpread();
+      if (gapCost > 0) {
+        spNote = ' \u2014 the spread wanted ' + wantUnits + ' unit' + (wantUnits > 1 ? 's' : '') +
+          ' (true ' + fmtCount(spreadUnitsStake.tc) + '): \u2212' + gapCost.toFixed(1) + ' unplayed';
+      }
+    }
+    setStatus(kind + (insWin ? ' \u2014 insurance pays ' + fmt(insWin) : '') + spNote);
     /* the +delta floats at the total — the settlement's own number */
     if (net !== 0) {
       var pay = document.createElement('div');
