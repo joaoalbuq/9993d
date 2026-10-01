@@ -324,6 +324,7 @@
   .leaks li { margin: 0.15em 0; color: rgba(255,255,255,0.85); }
   .leaks li.grad { opacity: 0.55; }
   .leaks b { color: #e2705f; }
+  .idx b { color: #d8b56a; }
   .leaks .drillnow { margin-top: 0.55em; }
   .evstrip {
     margin: 0.55em auto 0; max-width: 30em; font-size: 0.7em;
@@ -389,6 +390,7 @@
     <p class="coachhint" id="coachHint" hidden></p>
     <p class="evstrip" id="evStrip" hidden></p>
     <div class="leaks" id="leakBox" hidden></div>
+    <div class="leaks idx" id="indexBox" hidden></div>
     <div class="shoe">
       <div class="shoebox" id="shoeBox"><div class="half a"></div><div class="half b"></div></div>
       <div class="meter"><i id="meterFill" style="width: 100%"></i></div>
@@ -454,6 +456,7 @@
   <button class="btn ghost" id="btnStand" type="button">Stand</button>    <button class="btn ghost" id="btnDouble" type="button">Double</button>
     <button class="btn ghost" id="btnInsYes" type="button" hidden>Insure</button>
     <button class="btn ghost" id="btnInsNo" type="button" hidden>Decline</button>
+  <button class="btn ghost" id="btnIndex" type="button">📖 Index</button>
   <button class="btn ghost" id="btnLeaks" type="button" hidden>🩹 Leaks</button>
   <button class="btn ghost" id="btnReview" type="button" hidden>⏪ Review</button>
   <button class="btn ghost" id="btnSpeed" type="button">⚡ Speed</button>
@@ -882,12 +885,21 @@
        see. Where the true count crosses a threshold the play
        flips, and the coach says so by name.                    */
     lastFlip = null;
+    lastNear = null;
     var ix = INDEX999.flip(t, soft, up, trueCount(), canD);
     if (ix && ix !== play) {
       lastFlip = { cell: INDEX999.cell(t, soft, up), tc: trueCount(),
                    at: INDEX999.INDICES[INDEX999.cell(t, soft, up)].at, play: ix,
                    why: INDEX999.INDICES[INDEX999.cell(t, soft, up)].why };
       play = ix;
+    }
+    /* the not-yet-crossed index teaches too: a hand whose cell has
+       a number gets told where it flips even while the chart holds */
+    if (!lastFlip) {
+      var ixn = INDEX999.INDICES[INDEX999.cell(t, soft, up)];
+      if (ixn && !(ixn.play === 'double' && !canD))
+        lastNear = { cell: INDEX999.cell(t, soft, up), tc: trueCount(),
+                     at: ixn.at, below: !!ixn.below, play: ixn.play };
     }
     return play;
   }
@@ -896,6 +908,7 @@
   var lastPrices = null;                 /* what each play costs, from the mark */
   var lastCell = null;                   /* the book cell this decision belongs to */
   var lastFlip = null;                   /* set when the count, not the chart, made the play */
+  var lastNear = null;                   /* the cell's own index, not yet crossed */
   function capWord(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function coachBtnFor(p) {
     return document.getElementById(p === 'hit' ? 'btnHit' : p === 'stand' ? 'btnStand' : 'btnDouble');
@@ -912,6 +925,7 @@
     lastPrices = null;
     lastCell = null;
     lastFlip = null;
+    lastNear = null;
     if (coachHint) coachHint.hidden = true;
   }
   function coachMark() {
@@ -933,7 +947,11 @@
       ? 'Book: ' + capWord(lastBook) + ' \u2014 the count play (' + lastFlip.cell +
         ' flips at ' + (lastFlip.at < 0 ? '\u2212' : '+') + Math.abs(lastFlip.at) +
         ' \u00b7 now ' + fmtCount(lastFlip.tc) + ') \u2014 ' + lastFlip.why
-      : 'Book: ' + capWord(lastBook);
+      : 'Book: ' + capWord(lastBook) + (lastNear
+          ? ' \u2014 its index ' + lastNear.play + 's at true ' +
+            (lastNear.below ? fmtCount(lastNear.at) + ' or lower' : fmtCount(lastNear.at)) +
+            ' (now ' + fmtCount(lastNear.tc) + ')'
+          : '');
   }
   function coachVerdict(choice) {
     if (!coachOn || !lastBook) return;
@@ -990,6 +1008,7 @@
     lastPrices = null;
     lastCell = null;
     lastFlip = null;
+    lastNear = null;
     /* clear only the VERDICT's own flash — a newer decision may
        have already re-marked the book, and its badge is not ours
        to take (the hint goes only if nothing replaced it)        */
@@ -1035,6 +1054,7 @@
      the target upcard — so the exact decision returns, not
      one like it.                                         */
   var leakMode = false, leakQueue = [], leakCell = null;
+  var indexMode = false;             /* the index sheet: the count's plays, taught in the open */
   /* ---- the session review: your misses, replayed whole ----
      The reel holds the last misses exactly as they happened.
      Review mode replays them costliest-first: the shoe is
@@ -1175,6 +1195,49 @@
           (retiredN ? ' \uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced.' : '')
         : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>';
     box.hidden = false;
+  }
+  /* the index sheet: the count's plays taught in the open — every
+     flip the coach can make, where it flips and why, the spread
+     the count is willing to stake, and which of them are LIVE at
+     this very count. A reference, not a mode: it never takes
+     the felt's hand.                                        */
+  function indexLiveLine(tc) {
+    var live = [], k;
+    for (k in INDEX999.INDICES) {
+      var ix = INDEX999.INDICES[k];
+      if (ix.below ? tc <= ix.at : tc >= ix.at) live.push(k + ' \u2192 ' + ix.play);
+    }
+    var u = spreadUnits(tc);
+    return 'True ' + fmtCount(tc) + ' now \u2014 bet ' + u + ' unit' + (u > 1 ? 's' : '') +
+      (live.length ? ' \u00b7 live: ' + live.join(' \u00b7 ') : ' \u00b7 no index is live \u2014 the chart rules') +
+      (tc >= INDEX999.INSURE_AT ? ' \u00b7 insurance on' : ' \u00b7 insurance off');
+  }
+  function renderIndexSheet() {
+    var box = document.getElementById('indexBox');
+    if (!box) return;
+    if (!indexMode) { box.hidden = true; return; }
+    var rows = [], c;
+    for (c in INDEX999.INDICES) {
+      var ix = INDEX999.INDICES[c];
+      rows.push('<li><b>' + c + '</b> \u2014 ' + ix.play + ' at true ' +
+        (ix.below ? fmtCount(ix.at) + ' or lower' : fmtCount(ix.at)) +
+        ' \u00b7 ' + ix.why + '</li>');
+    }
+    rows.push('<li><b>insurance v ace</b> \u2014 insure at true +' + INDEX999.INSURE_AT +
+      ' \u00b7 ' + INDEX999.INS_WHY_IN + '</li>');
+    box.innerHTML = '<h3>The count\u2019s plays</h3><ol>' + rows.join('') + '</ol>' +
+      '<p class="drillnow">' + (countingOn ? indexLiveLine(trueCount())
+        : 'Counting is off \u2014 the sheet still teaches; the \u2660 Count pill turns it live.') + '</p>' +
+      '<p class="drillnow">The running count \u00f7 decks left is the true count \u2014 that is what flips these plays. ' +
+      'The spread: 1 unit until the true count passes +1, then the count minus one, six at the top.</p>';
+    box.hidden = false;
+  }
+  function toggleIndex() {
+    indexMode = !indexMode;
+    renderIndexSheet();
+    var b = document.getElementById('btnIndex');
+    if (b) b.classList.toggle('on', indexMode);
+    if (phase === 'betting') setStatus(indexMode ? 'The count\u2019s plays \u2014 the sheet the coach marks by' : 'Place your bet');
   }
   function toggleLeaks() {
     leakMode = !leakMode;
@@ -1392,6 +1455,7 @@
       }
     }
     document.getElementById('countPill').classList.toggle('off', !countingOn);
+    renderIndexSheet();              /* the teach sheet follows the live count */
   }
   function openDrill() {
     if (!countingOn) return;
@@ -2220,6 +2284,7 @@
   });
 
   /* the leaks: the ledger, the panel, the targeted rounds   */
+  document.getElementById('btnIndex').addEventListener('click', toggleIndex);
   document.getElementById('btnLeaks').addEventListener('click', toggleLeaks);
 
   /* the session review: the reel, replayed on the felt       */

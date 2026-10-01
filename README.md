@@ -427,7 +427,19 @@ answers with CORS headers.
   a fresh shoe at 30.77% and 300-shoe Monte-Carlo holding 16/52; the
   chart extracted from the page and composed exactly as bookPlay does —
   flips land above the indices, charts survive below, 13 v 2 running
-  both ways. **The live table's overlay keeps its own session score** —
+  both ways. **The coach now teaches the indices in the open**: the
+  📖 Index pill opens the count's sheet — every flip with its number
+  and its why ("hard 16 v 10 — stand at true +1 · tens left make a
+  draw bust too often to chase"), the insurance turn, the running→true
+  conversion and the spread ladder spelled out, and a live line that
+  follows the shoe ("True +4 now — bet 3 units · live: hard 16 v 10 →
+  stand · hard 15 v 10 → stand · hard 11 v A → double · hard 9 v 2 →
+  double · insurance on") — liveness matching the canon at both edges
+  in the suite. And before a flip ever fires, the mark teaches it: a
+  hand whose cell has an index says so in the hint ("Book: Hit — its
+  index stands at true +4 (now +2)"), non-index cells staying plain,
+  so the numbers are learned long before they're needed. **The live
+  table's overlay keeps its own session score** —
   accuracy and the chips each deviation threw away, priced by EV999 at
   the moment the book is marked and costed at the box's own stake;
   persisted separately from the practice shoe (`999.table.trainstats`
