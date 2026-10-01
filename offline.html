@@ -315,6 +315,7 @@
   .dverdict.ok { color: #43c98a; }
   .dverdict.miss { color: #e2705f; }
   .leaks {
+    position: relative; z-index: 1;   /* the panels read and take taps above the shoe */
     margin: 0.7em auto 0; max-width: 30em; text-align: left;
     background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px; padding: 0.6em 0.9em; font-size: 0.78em;
@@ -329,6 +330,10 @@
   .leaks .drilltap { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; white-space: nowrap; }
   .leaks b { color: #e2705f; }
   .idx b { color: #d8b56a; }
+  .idx .quizcount { color: #d8b56a; }
+  .idx .quizpicks span { cursor: pointer; color: rgba(255,255,255,0.5); text-decoration: underline dotted; }
+  .idx .quizpicks span.on { color: #d8b56a; text-decoration: none; font-weight: bold; }
+  .idx .quiznew { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; white-space: nowrap; }
   .leaks .drillnow { margin-top: 0.55em; }
   .evstrip {
     margin: 0.55em auto 0; max-width: 30em; font-size: 0.7em;
@@ -1257,6 +1262,81 @@
      the count is willing to stake, and which of them are LIVE at
      this very count. A reference, not a mode: it never takes
      the felt's hand.                                        */
+  /* the sheet's quiz: recall, not recognition. A count is shown,
+     the player taps every play they believe is LIVE at it, and
+     the sheet grades the card against the canon — the stake the
+     spread would have laid rides on it, so a rich shoe with a
+     missed 15 v 10 is a wrong spread at the felt too. Taps stay
+     open after the grade: change your mind, re-lock.        */
+  var indexQuiz = null;
+  function indexLiveSet(tc) {
+    var live = {}, k;
+    for (k in INDEX999.INDICES) {
+      var ix = INDEX999.INDICES[k];
+      if (ix.below ? tc <= ix.at : tc >= ix.at) live[k] = 1;
+    }
+    return live;
+  }
+  function indexQuizScore(picked, live, tc, answered, correct) {
+    var wrong = [], k;
+    for (k in INDEX999.INDICES) {
+      var on = !!picked[k], should = !!live[k];
+      if (on !== should) wrong.push((on ? '+ ' : '') + k);
+    }
+    var insShould = tc >= INDEX999.INSURE_AT;
+    if (!!picked['insurance v ace'] !== insShould) wrong.push((insShould ? '+ ' : '') + 'insurance v ace');
+    var split = wrong.length
+      ? 'missed: ' + wrong.join(' \u00b7 ')
+      : 'a clean card \u2014 every live play named, nothing else';
+    return { answered: answered, correct: correct,
+             all: answered === correct && !wrong.length, split: split };
+  }
+  function indexQuizNew() {
+    var tc = Math.floor(Math.random() * 17) - 6;   /* −6 … +10: the whole ladder,
+                                                      cold below-index to the cap */
+    indexQuiz = { tc: tc, picks: {}, graded: null, stake: spreadUnits(tc),   /* the stake
+                                                      the spread would lay at this count */
+                  score: { asked: 0, clean: 0 } };   /* clean cards / cards graded */
+    setStatus('The count\u2019s quiz \u2014 true ' + fmtCount(tc) +
+      ' on the card; name the live plays');
+    if (indexMode) renderIndexSheet();
+  }
+  function indexQuizPick(cell, on) {
+    if (!indexQuiz) return;
+    if (cell === 'insurance v ace') {
+      indexQuiz.picks[cell] = on ? 1 : 0;          /* a side bet can be named off, too */
+    } else if (on) {
+      if (indexQuiz.picks[cell]) delete indexQuiz.picks[cell];   /* tap again: unname it */
+      else indexQuiz.picks[cell] = 1;
+    } else {
+      delete indexQuiz.picks[cell];
+    }
+    if (indexMode) renderIndexSheet();
+  }
+  function indexQuizGrade() {
+    if (!indexQuiz) return;
+    var live = indexLiveSet(indexQuiz.tc);
+    var picked = {}, k;
+    for (k in indexQuiz.picks) if (indexQuiz.picks[k]) picked[k] = 1;
+    var answered = 0, correct = 0, k2;
+    for (k2 in INDEX999.INDICES) {
+      var on = !!picked[k2], should = !!live[k2];
+      if (on) answered++;
+      if (on && should) correct++;
+    }
+    if (picked['insurance v ace']) answered++;
+    if (picked['insurance v ace'] && indexQuiz.tc >= INDEX999.INSURE_AT) correct++;
+    var graded = indexQuizScore(picked, live, indexQuiz.tc, answered, correct);
+    if (!indexQuiz.counted) {            /* the card scores once, however often it is locked */
+      indexQuiz.counted = true;
+      indexQuiz.score.asked++;
+    } else if (indexQuiz.graded) {       /* a re-lock replaces its earlier grade */
+      if (indexQuiz.graded.all && !graded.all) indexQuiz.score.clean--;
+      else if (!indexQuiz.graded.all && graded.all) indexQuiz.score.clean++;
+    }
+    indexQuiz.graded = graded;
+    if (indexMode) renderIndexSheet();
+  }
   function indexLiveLine(tc) {
     var live = [], k;
     for (k in INDEX999.INDICES) {
@@ -1272,6 +1352,36 @@
     var box = document.getElementById('indexBox');
     if (!box) return;
     if (!indexMode) { box.hidden = true; return; }
+    if (indexQuiz) {                              /* the quiz owns the sheet while it runs */
+      var tc = indexQuiz.tc, live = indexLiveSet(tc);
+      var liveKeys = [], k;
+      for (k in INDEX999.INDICES) if (live[k]) liveKeys.push(k);
+      var qs = [], k2;
+      for (k2 in INDEX999.INDICES) {
+        var on = !!indexQuiz.picks[k2];
+        qs.push('<span class="pick' + (on ? ' on" data-on="1' : '') + '" data-cell="' + k2 + '">' + k2 + '</span>');
+      }
+      var insOn = !!indexQuiz.picks['insurance v ace'];
+      box.innerHTML = '<h3>The count\u2019s quiz</h3>' +
+        '<p class="quizcount">True ' + fmtCount(tc) + ' on the card \u2014 which plays are LIVE?' +
+        ' \u00b7 ' + indexQuiz.stake + ' unit' + (indexQuiz.stake > 1 ? 's' : '') + ' riding on it.</p>' +
+        '<p class="quizpicks">' + qs.join(' \u00b7 ') + ' \u00b7 ' +
+          '<span class="pick' + (insOn ? ' on" data-on="1' : '') + '" data-cell="insurance v ace">insurance v ace</span></p>' +
+        (indexQuiz.graded
+          ? '<p class="drillnow">The answers: ' + (liveKeys.length ? liveKeys.join(' \u00b7 ') : 'none \u2014 the chart rules') +
+            ' \u00b7 insurance ' + (tc >= INDEX999.INSURE_AT ? 'on' : 'off') +
+            ' \u00b7 ' + indexQuiz.graded.split + '</p>'
+          : '') +
+        '<p class="drillnow">Score: ' + indexQuiz.score.clean + '/' + indexQuiz.score.asked +
+        (indexQuiz.graded
+          ? ' \u00b7 a card can change its mind \u2014 tap to fix a pick, ' +
+            '<span class="quiznew" data-act="grade">lock it in again</span> \u00b7 ' +
+            '<span class="quiznew" data-act="new">a fresh count</span>'
+          : ' \u00b7 tap every play you believe is live, then ' +
+            '<span class="quiznew" data-act="grade">lock it in</span>') + '</p>';
+      box.hidden = false;
+      return;
+    }
     var rows = [], c;
     for (c in INDEX999.INDICES) {
       var ix = INDEX999.INDICES[c];
@@ -1281,9 +1391,11 @@
     }
     rows.push('<li><b>insurance v ace</b> \u2014 insure at true +' + INDEX999.INSURE_AT +
       ' \u00b7 ' + INDEX999.INS_WHY_IN + '</li>');
+    indexQuiz = null;                    /* teaching owns the sheet until a quiz is started */
     box.innerHTML = '<h3>The count\u2019s plays</h3><ol>' + rows.join('') + '</ol>' +
       '<p class="drillnow">' + (countingOn ? indexLiveLine(trueCount())
-        : 'Counting is off \u2014 the sheet still teaches; the \u2660 Count pill turns it live.') + '</p>' +
+        : 'Counting is off \u2014 the sheet still teaches; the \u2660 Count pill turns it live.') +
+      ' <span class="quiznew" data-act="new">quiz me \u2014 a fresh count</span>' + '</p>' +
       '<p class="drillnow">The running count \u00f7 decks left is the true count \u2014 that is what flips these plays. ' +
       'The spread: 1 unit until the true count passes +1, then the count minus one, six at the top.</p>';
     box.hidden = false;
@@ -2410,6 +2522,16 @@
 
   /* the leaks: the ledger, the panel, the targeted rounds   */
   document.getElementById('btnIndex').addEventListener('click', toggleIndex);
+  /* the sheet's quiz: pick, grade, fresh — the card answers to taps */
+  document.getElementById('indexBox').addEventListener('click', function (e) {
+    if (!e.target || !e.target.classList) return;
+    if (e.target.classList.contains('pick')) {
+      indexQuizPick(e.target.getAttribute('data-cell'), !e.target.getAttribute('data-on'));
+    } else if (e.target.classList.contains('quiznew')) {
+      if (e.target.getAttribute('data-act') === 'new') indexQuizNew();
+      else indexQuizGrade();
+    }
+  });
   /* the panel's tabs: this sitting's ranking beside the whole ledger */
   var leakBoxEl = document.getElementById('leakBox');
   if (leakBoxEl) leakBoxEl.addEventListener('click', function (e) {

@@ -308,7 +308,16 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   rounds a **count drill** holds the deal until the player steps the count
   in and locks it — recall, never recognition — or asks for it outright;
   the ♠ pill keeps the score (right % and the average miss) and turns the
-  whole drill off. The drill teaches the **true count** too: the meter
+  whole drill off.  The **Index sheet quizzes too**: the sheet's live line carries a
+  "quiz me — a fresh count" tap that deals a random true count (−6 to +10,
+  spread riding on the card), the player taps every play they believe is
+  LIVE at it — nine classes plus insurance by name — and the lock grades
+  against the canon both ways ("missed: hard 10 v 10" or "a clean card").
+  A card can be fixed and re-locked (the card scores once, the re-lock
+  replaces its grade), the score rides the sheet as clean cards over
+  cards graded, and "a fresh count" deals again. The panels read and
+  take taps above the shoe's right edge, which used to swallow clicks.
+  The drill teaches the **true count** too: the meter
   reads out decks left ("Shoe 99% · 2.0 dk"), questions ALTERNATE running →
   true → running, the true verdict shows its own division ("✓ True +2 ·
   RC +4 over 2.0 dk"), and while you bet a hint translates the count into
