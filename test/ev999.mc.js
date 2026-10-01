@@ -189,5 +189,9 @@ for (const c of cases) {
   );
 }
 console.log('worst |sim - engine|:', worst.toFixed(4), `(${N} trials/action, noise ~0.005)`);
-if (worst > 0.015) throw new Error('engine pricing deviates from simulation beyond noise');
+/* the gate must clear the EXPECTED MAX of ~36 noisy estimates, not one
+   estimate's own sigma: at sigma ≈ 0.005 the max sits near 0.011–0.013,
+   so a 0.015 gate tripped on luck every few runs. 0.025 is ~5 sigma for
+   a single price — real engine drift blows far past it; luck never does. */
+if (worst > 0.025) throw new Error('engine pricing deviates from simulation beyond noise');
 console.log('\nEV999 Monte-Carlo ground truth: pricing matches the floor rules');

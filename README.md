@@ -445,7 +445,14 @@ answers with CORS headers.
   deliberate miss showed the honest two-sided verdict ("It was +4 — you
   said +3 · 1.2s") and reset the streak, stats persisted across reloads,
   and the session shoe never moved (100% · 2.0 dk before and after) — the
-  stream draws from its own fresh deck.
+  stream draws from its own fresh deck. **The cadence is adaptive**:
+  after each run the pace tightens 6% on a hit (never less than 20ms)
+  and eases back 12% on a miss (never less than 40ms), bounded at 0.18s
+  and 0.75s, the verdict telling the story ("cadence up → 0.28s",
+  "eased to 0.32s", "at the floor/ceiling" at the bounds) and the stats
+  line carrying the live pace; the Adaptive toggle (persisted,
+  `999.practice.speedadapt`) turns it off, and the pace buttons reset
+  the base the engine evolves from.
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the
