@@ -16,9 +16,9 @@ function grab(a, b) {
   if (i < 0 || j < 0) throw new Error('anchor miss: ' + a);
   return src.slice(i, j + b.length);
 }
-const fnFull = grab('  function roomIR(c) {', '\n  }');
+const fnFull = grab('  function roomIR(c, big) {', '\n  }');
 const fnBody = fnFull.slice(fnFull.indexOf('{') + 1, fnFull.lastIndexOf('}'));
-const roomIR = new Function('Math', 'return function roomIR(c) {' + fnBody + '}')(Math);
+const roomIR = new Function('Math', 'return function roomIR(c, big) {' + fnBody + '}')(Math);
 
 /* --- build one IR over a mock context --- */
 const SR = 48000;
@@ -64,16 +64,45 @@ for (let i = 0; i < channels[0].length; i += 997) if (channels[0][i] !== channel
 if (diff < 40) throw new Error('the channels must differ \u2014 a stereo room, not a mono one');
 console.log('normalization: each channel pinned at 0.35 energy, decorrelated \u2014 a stereo room');
 
+/* --- the hall: the cinema's second, larger character --- */
+const hall = roomIR(mockCtx, true);
+if (!(hall.length > buf.length)) throw new Error('the hall must be a longer room than the felt');
+const HRT = 2.8, HPRE = 0.026;
+if (hall.length !== Math.floor(SR * (HPRE + HRT + 0.05))) throw new Error('hall length must cover its pre-delay + RT + pad: ' + hall.length);
+const hch = [hall.getChannelData(0), hall.getChannelData(1)];
+for (let ch2 = 0; ch2 < 2; ch2++)
+  for (let i = 0; i < Math.floor(HPRE * SR); i++)
+    if (hch[ch2][i] !== 0) throw new Error('the hall keeps its air before the reflections');
+const hOnset = peak(hch[0], Math.floor(HPRE * SR), Math.floor((HPRE + 0.01) * SR));
+const hAtRt = peak(hch[0], Math.floor((HPRE + HRT - 0.01) * SR), Math.floor((HPRE + HRT) * SR));
+if (!(hOnset > 0) || !(hAtRt / hOnset < 0.05)) throw new Error('the hall tail must reach ~-60dB by its 2.8s RT: ' + (hAtRt / hOnset).toFixed(4));
+if (Math.abs(energy(hch[0]) - 0.35) > 0.02 || Math.abs(energy(hch[1]) - 0.35) > 0.02)
+  throw new Error('the hall is pinned to the same 0.35 loudness \u2014 bigger, not louder');
+let hd = 0;
+for (let i = 0; i < hch[0].length; i += 997) if (hch[0][i] !== hch[1][i]) hd++;
+if (hd < 40) throw new Error('the hall must be a stereo room too');
+console.log('the hall: ' + (hall.length / SR).toFixed(2) + 's of air against the felt\u2019s ' + (buf.length / SR).toFixed(2) + 's \u2014 same loudness, decorrelated, breathing with the stretched flights');
+
 /* --- the wiring: a send off the mix into a convolver, straight out --- */
-if (!/var actx = null, master = null, noiseBuf = null, reverbBus = null;/.test(src))
-  throw new Error('the bus must live beside the master');
-const chain = grab('        reverbBus = actx.createGain();', 'conv.connect(actx.destination);');
-if (!/conv\.buffer = roomIR\(actx\);/.test(chain)) throw new Error('the convolver must carry the synthesized room');
-if (!/reverbBus\.connect\(conv\);/.test(chain)) throw new Error('the bus must feed the convolver');
+if (!/var actx = null, master = null, noiseBuf = null, reverbBus = null, wetA = null, wetB = null;/.test(src))
+  throw new Error('the two rooms must live beside the bus');
+const chain = grab('        reverbBus = actx.createGain();', 'wetB.connect(actx.destination);');
+if (!/convFelt\.buffer = roomIR\(actx\);/.test(chain)) throw new Error('the felt convolver must carry the synthesized room');
+if (!/convHall\.buffer = roomIR\(actx, true\);/.test(chain)) throw new Error('the hall convolver must carry the second character');
+if (!/reverbBus\.connect\(convFelt\);/.test(chain) || !/reverbBus\.connect\(convHall\);/.test(chain))
+  throw new Error('both rooms must hang on the bus');
 if (!/reverbBus\.gain\.value = 0\.35;/.test(chain)) throw new Error('the bus trims the shared share at 0.35 — under the deal, never over it');
+if (!/wetA\.gain\.value = cineOn \? 0 : 1;/.test(chain) || !/wetB\.gain\.value = cineOn \? 1 : 0;/.test(chain))
+  throw new Error('a page born in cinema must wake in the hall');
 if (/master\.connect\(reverbBus\)/.test(src))
   throw new Error('the send must come from the voices — a mix-bus send would double every room');
-console.log('wiring: voices → their own send → bus 0.35 → convolver(roomIR) → destination — no mix-bus double-send');
+console.log('wiring: voices → their own send → bus 0.35 → two rooms crossfaded → destination — no mix-bus double-send');
+
+/* --- the toggle slides the walls, it never clicks --- */
+if (!/wetA\.gain\.setTargetAtTime\(on \? 0 : 1, actx\.currentTime, 0\.25\);/.test(src) ||
+    !/wetB\.gain\.setTargetAtTime\(on \? 1 : 0, actx\.currentTime, 0\.25\);/.test(src))
+  throw new Error('the cinema toggle must crossfade the two rooms');
+console.log('the toggle: the wet path slides felt \u2194 hall over ~0.75s while the flights stretch');
 
 /* --- the room answers the mute too --- */
 if (!/reverbBus\.gain\.value = audioOn \? 0\.35 : 0;/.test(src))

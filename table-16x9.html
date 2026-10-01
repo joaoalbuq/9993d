@@ -1322,6 +1322,13 @@
     try { localStorage.setItem('999.table.cine', on ? 'on' : 'off'); } catch (e) { }
     var b = document.getElementById('cineBtn');
     if (b) b.textContent = on ? '🎬 Cinema' : '◻ Normal';
+    /* the room changes character with the tempo: the walls slide
+       from the felt's room to the hall (and back) while the flights
+       stretch - a crossfade, never a click                     */
+    if (actx && wetA) {
+      wetA.gain.setTargetAtTime(on ? 0 : 1, actx.currentTime, 0.25);
+      wetB.gain.setTargetAtTime(on ? 1 : 0, actx.currentTime, 0.25);
+    }
   }
 
   /* ==== EV999 canon - one pricing engine for both floors ====
@@ -2306,14 +2313,18 @@
      lands it — impact, then sound. A push is silent apart from its returning chips.   */
   var audioOn = true;
   try { audioOn = localStorage.getItem('999.table.audio') !== 'off'; } catch (e) { }
-  var actx = null, master = null, noiseBuf = null, reverbBus = null;
-  function roomIR(c) {
+  var actx = null, master = null, noiseBuf = null, reverbBus = null, wetA = null, wetB = null;
+  function roomIR(c, big) {
     /* the room, synthesized - no samples, no downloads: a dozen
        milliseconds of air, then the first reflections off the
        tables and rails around the felt, then a tail that loses
        its top end as the cloth and air take it. Normalized so
-       the room sits quietly under the deal, never over it.   */
-    var rt = 1.35, pre = 0.012, taps = [0.021, 0.033, 0.047];
+       the room sits quietly under the deal, never over it.
+       big = the cinema's hall: the same walls pushed back - a
+       longer tail, a later first answer and wider reflections,
+       sized to breathe with the stretched flights          */
+    var rt = big ? 2.8 : 1.35, pre = big ? 0.026 : 0.012;
+    var taps = big ? [0.034, 0.058, 0.089] : [0.021, 0.033, 0.047];
     var len = Math.floor(c.sampleRate * (pre + rt + 0.05));
     var buf = c.createBuffer(2, len, c.sampleRate);
     for (var ch = 0; ch < 2; ch++) {
@@ -2321,7 +2332,7 @@
       for (i = 0; i < len; i++) {
         var t = i / c.sampleRate;
         var n = Math.random() * 2 - 1;
-        last = last * 0.78 + n * 0.22;                    /* the tail loses its shimmer */
+        last = last * (big ? 0.72 : 0.78) + n * (big ? 0.28 : 0.22);   /* the hall loses its shimmer sooner */
         d[i] = t < pre ? 0 : last * 0.35 * Math.exp(-6.9 * (t - pre) / rt);
       }
       for (i = 0; i < taps.length; i++) {                 /* the first reflections */
@@ -2348,13 +2359,23 @@
         master.connect(actx.destination);
         /* the room: every voice sends to it at its own level (toRoom
            below) - the bus trims the shared share, the walls answer
-           where the sound belongs, not everywhere the same       */
+           where the sound belongs, not everywhere the same. Two
+           characters hang on the bus: the felt's room and the
+           cinema's hall, crossfaded when the toggle flips       */
         reverbBus = actx.createGain();
         reverbBus.gain.value = 0.35;
-        var conv = actx.createConvolver();
-        conv.buffer = roomIR(actx);
-        reverbBus.connect(conv);
-        conv.connect(actx.destination);
+        var convFelt = actx.createConvolver();
+        convFelt.buffer = roomIR(actx);
+        var convHall = actx.createConvolver();
+        convHall.buffer = roomIR(actx, true);
+        reverbBus.connect(convFelt);
+        reverbBus.connect(convHall);
+        wetA = actx.createGain();
+        wetA.gain.value = cineOn ? 0 : 1;    /* a page born in cinema wakes in the hall */
+        wetB = actx.createGain();
+        wetB.gain.value = cineOn ? 1 : 0;
+        convFelt.connect(wetA); wetA.connect(actx.destination);
+        convHall.connect(wetB); wetB.connect(actx.destination);
       }
       if (actx.state !== 'running') {
         var r = actx.resume();

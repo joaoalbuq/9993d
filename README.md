@@ -121,7 +121,13 @@ are additive screens kept beside it for side-by-side comparison.
   keep their plain share, so the room swells only where it belongs
   (stereo IR, and every send sits after its panner, so a panned deal
   keeps its direction in the reflections too; muting gates the walls
-  as well as the felt). **The payout walk speaks the cards' model too**:
+  as well as the felt). **The room has a second, larger character**:
+  the Cinema toggle doesn't just stretch the flights — it slides the
+  wet path from the felt's 1.35s room into a hall (2.8s tail, 26ms
+  pre-delay, reflections pushed wider, the same 0.35 loudness —
+  bigger, not louder), crossfaded over ~0.75s so the walls move back
+  with the stretched flights and never click; a page born in cinema
+  wakes in the hall. **The payout walk speaks the cards' model too**:
   every clack measures its chips' tray-to-box flight — the tray sits
   left of center, so the ladder runs bright at the center seat to the
   1.75kHz floor at the far rail, deeper and quieter with every unit of
