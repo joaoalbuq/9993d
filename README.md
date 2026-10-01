@@ -505,6 +505,15 @@ answers with CORS headers.
   hand in play, the house's stake refund lands at deal (a won replay is
   pure upside, a lost one free), one mode at a time is enforced with
   Leaks, and the reel holds the last twelve misses across reloads.
+  **Same hand, two answers**: a replayed miss whose book play differs
+  from the one you made now deals BOTH — first as you played it, then
+  the book's way against the SAME dealer hand, the book leg popping the
+  very card the shoe was holding (a stand book draws nothing, a double
+  stakes twice and draws its second card) — and the settle line names
+  the divergence ("— the book's hit would have won +50"); the review
+  panel files the hand under "Same hand, both plays: yours (stand) lost
+  −25 · book ('hit') lost −25", with `forkYou`/`forkBook` persisted on
+  the entry so the both-ways verdict survives reloads.
 
 ## Layout
 

@@ -922,6 +922,22 @@
      the decision comes back to the player at the real pace
      of the deal.                                            */
   var reviewMode = false, reviewIdx = 0;
+  /* side-by-side: while a replayed miss is on the felt, the book's
+     play is carried alongside yours — at settle the un-chosen leg
+     is priced on the SAME dealer hand (the book's draw pops the
+     very card your play consumed), and both outcomes land on the
+     reel entry so the panel can show the divergence.           */
+  var fork = null;
+  function replayBookBook() {
+    fork = null;
+    if (!reviewMode || !replay.length) return;
+    var r = replay[(reviewIdx + replay.length - 1) % replay.length];
+    if (r.book === r.choice) return;               /* the same play both ways */
+    fork = { kind: r.book, branch: 0 };
+  }
+  function forkWord(net, stake) {
+    return net > 0 ? 'won +' + fmt(net) : net === 0 ? 'pushed' : 'lost \u2212' + fmt(-net);
+  }
   function reviewDeal() {
     if (!reviewMode || !replay.length) return;
     if (reviewIdx >= replay.length) reviewIdx = 0;
@@ -967,7 +983,12 @@
         return '<li>' + mark + (r2.soft ? 'soft ' : 'hard ') + r2.t + ' v ' + r2.up +
           ' \u00b7 you played ' + r2.choice + ', book ' + r2.book + ' \u00b7 <b>\u2212' + r2.cost + '</b></li>';
       }).join('');
-      box.innerHTML = '<h3>Session review</h3><ol>' + rows2 + '</ol>' +
+      var cur2 = replay[(reviewIdx + replay.length - 1) % replay.length];
+      var forkHtml = cur2 && cur2.forkYou
+        ? '<p class="drillnow">Same hand, both plays: yours (' + cur2.choice + ') ' + cur2.forkYou +
+          ' \u00b7 book (\u2019' + cur2.book + '\u2019) ' + cur2.forkBook + '</p>'
+        : '';
+      box.innerHTML = '<h3>Session review</h3><ol>' + rows2 + '</ol>' + forkHtml +
         '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.</p>';
       box.hidden = false;
       return;
@@ -1644,6 +1665,7 @@
     you = []; dealerArr = [];
     leakDeal();                                   /* leaks mode stacks the shoe here */
     reviewDeal();                                 /* review mode reals the reel here */
+    replayBookBook();                             /* the book's play rides along */
     if (reviewMode) {                             /* the house stakes the replay: the
                                                      stake comes straight back, so a
                                                      win is pure upside and a miss
@@ -1675,6 +1697,10 @@
     phase = 'dealing';
     syncUI();
     dealCard('you');
+    if (fork && fork.kind === 'hit' && fork.branch === 0) {
+      shoeArr.push(you[you.length - 1]);   /* the book leg meets this same card */
+      fork.branch = 1;
+    }
     later(650, beginTurn);
   }
   function stand() {
@@ -1691,6 +1717,10 @@
     phase = 'dealing';
     syncUI();
     dealCard('you');
+    if (fork && fork.kind === 'double' && fork.branch === 0) {
+      shoeArr.push(you[you.length - 1]);   /* the book's double draws this same card */
+      fork.branch = 1;
+    }
     later(650, dealerTurn);          /* one card, then it stands — the double's price */
   }
 
@@ -1863,6 +1893,26 @@
       }
       saveReplay();
     }
+    /* side-by-side: the book's leg on the SAME dealer hand — a
+       hit/double book pops the same card your play drew; a stand
+       book stands on the original two. Both outcomes are kept on
+       the reel entry for the panel.                          */
+    var bookNote = '';
+    if (fork) {
+      var cur = replay[(reviewIdx + replay.length - 1) % replay.length];
+      var bookCards = you.slice(), bookStake = bet, bookDraw = null;
+      if (fork.kind !== 'stand') bookDraw = shoeArr.pop();
+      if (bookDraw) bookCards.push(bookDraw);
+      if (fork.kind === 'double') bookStake = bet * 2;
+      var fk = SHOE999.settle(bookCards, dealerArr, bookStake);
+      bookNote = ' \u2014 the book\'s ' + fork.kind + ' would have ' + forkWord(fk.net, bookStake);
+      if (cur) {
+        cur.forkYou = forkWord(st.net, bet);
+        cur.forkBook = forkWord(fk.net, bookStake);
+        saveReplay();
+      }
+      fork = null;
+    }
     var kind = { 'bust': 'Bust — the house takes it', 'blackjack': 'Blackjack! Pays 3 to 2',
                  'win': 'You win', 'push': 'Push — the stake comes back', 'lose': 'Dealer takes it' }[st.kind];
     var delta = st.prize;
@@ -1888,7 +1938,7 @@
           ' (true ' + fmtCount(spreadUnitsStake.tc) + '): \u2212' + gapCost.toFixed(1) + ' unplayed';
       }
     }
-    setStatus(kind + (insWin ? ' \u2014 insurance pays ' + fmt(insWin) : '') + spNote);
+    setStatus(kind + (insWin ? ' \u2014 insurance pays ' + fmt(insWin) : '') + spNote + bookNote);
     /* the +delta floats at the total — the settlement's own number */
     if (net !== 0) {
       var pay = document.createElement('div');
