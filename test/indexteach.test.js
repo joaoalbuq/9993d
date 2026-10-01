@@ -155,4 +155,22 @@ if (!/renderIndexSheet\(\);              \/\* the teach sheet follows the live c
   throw new Error('the gold must refresh with the count, not only on toggle');
 console.log('gold rows: a row goes gold with the \u25B8 the count it crosses, refreshed every count');
 
+/* --- index discipline: following the count play, judged apart --- */
+if (!/var ixStats = \{ asked: 0, followed: 0 \};/.test(src))
+  throw new Error('index discipline must start at zero');
+if (!/'999\.practice\.ixstats'/.test(src) || !/function saveIx\(\)/.test(src))
+  throw new Error('index discipline must persist apart from the coach score');
+if (!/if \(ix && ix !== play\) \{/.test(src))
+  throw new Error('a flip only counts when it truly contradicts the chart');
+if (!/if \(lastFlip\) \{[\s\S]{0,220}ixStats\.asked\+\+;[\s\S]{0,60}if \(ok\) ixStats\.followed\+\+;[\s\S]{0,30}saveIx\(\);/.test(src))
+  throw new Error('a hand decision over a live flip must feed the discipline, followed or not');
+if (!/insBook\.play === 'insure'\) \{[\s\S]{0,200}ixStats\.asked\+\+;[\s\S]{0,60}if \(ok\) ixStats\.followed\+\+;/.test(src))
+  throw new Error('the count\u2019s insurance bet is an index ask like any other');
+if (!/ixStats\.asked \? ixStats\.followed \+ '\/' \+ ixStats\.asked/.test(src) ||
+    !/\\u00b7 ix ' \+ ixF/.test(src))
+  throw new Error('the count pill must carry the follow rate as asked/followed');
+if (!/count plays followed ' \+ ixStats\.followed \+ '\/' \+ ixStats\.asked/.test(src))
+  throw new Error('the sheet must spell the discipline out beside the live line');
+console.log('index discipline: flips judged apart \u2014 asked when the count speaks, followed or not, on pill and sheet');
+
 console.log('\nindex teach verified');

@@ -837,6 +837,20 @@
       localStorage.setItem('999.practice.coachstats', JSON.stringify(coachStats));
     } catch (e) { }
   }
+  /* index discipline, judged apart: of the decisions where the count
+     play stood AGAINST the chart, how often the player took it. The
+     chart is the baseline — an index is a bet that the shoe's real
+     composition outprices the infinite deck, and following it when
+     it actually speaks is its own skill, muddied if the chart's
+     easy answers count toward it.                        */
+  var ixStats = { asked: 0, followed: 0 };
+  try {
+    var ixRaw = JSON.parse(localStorage.getItem('999.practice.ixstats') || 'null');
+    if (ixRaw && typeof ixRaw.asked === 'number' && typeof ixRaw.followed === 'number') ixStats = ixRaw;
+  } catch (e) { }
+  function saveIx() {
+    try { localStorage.setItem('999.practice.ixstats', JSON.stringify(ixStats)); } catch (e) { }
+  }
   /* the EV strip: the engine prices every decided round at the
      first click - the chosen play's expected chips - and the
      felt reports what actually moved; the gap between them is
@@ -1007,6 +1021,12 @@
       if (du > 0) cost = du * bet;       /* expected chips the deviation throws away */
     }
     coachStats.decisions++;
+    if (lastFlip) {                        /* the count spoke over the chart this
+                                              decision — did the player follow it? */
+      ixStats.asked++;
+      if (ok) ixStats.followed++;
+      saveIx();
+    }
     if (ok) {
       coachStats.book++;
       coachStats.streak++;
@@ -1401,7 +1421,8 @@
     box.innerHTML = '<h3>The count\u2019s plays</h3><ol>' + rows.join('') + '</ol>' +
       '<p class="drillnow">' + (countingOn ? indexLiveLine(trueCount())
         : 'Counting is off \u2014 the sheet still teaches; the \u2660 Count pill turns it live.') +
-      ' <span class="quiznew" data-act="new">quiz me \u2014 a fresh count</span>' + '</p>' +
+      ' <span class="quiznew" data-act="new">quiz me \u2014 a fresh count</span>' +
+      (ixStats.asked ? ' \u00b7 count plays followed ' + ixStats.followed + '/' + ixStats.asked : '') + '</p>' +
       '<p class="drillnow">The running count \u00f7 decks left is the true count \u2014 that is what flips these plays. ' +
       'The spread: 1 unit until the true count passes +1, then the count minus one, six at the top.</p>';
     box.hidden = false;
@@ -1643,9 +1664,11 @@
         sp += ' \u00b7 streak ' + spb.streak;
       }
       var pPct = countStats.pGuesses ? Math.round(100 * countStats.pRight / countStats.pGuesses) : null;
+      var ixF = ixStats.asked ? ixStats.followed + '/' + ixStats.asked : null;
       sc.textContent = countingOn
         ? (base + (tcPct == null ? '' : ' \u00b7 TC ' + tcPct + '%') +
-           (pPct == null ? '' : ' \u00b7 TCp ' + pPct + '%') + sp)
+           (pPct == null ? '' : ' \u00b7 TCp ' + pPct + '%') +
+           (ixF ? ' \u00b7 ix ' + ixF : '') + sp)
         : ('Count off' + sp);
     }
     var bh = document.getElementById('betHint');
@@ -2250,6 +2273,12 @@
     var cost = 0;
     if (!ok) cost = Math.abs(insBook.edge) * Math.max(1, Math.floor(bet / 2));
     coachStats.decisions++;
+    if (insBook.play === 'insure') {       /* the count's own bet against the chart's
+                                              decline — an index ask like any other */
+      ixStats.asked++;
+      if (ok) ixStats.followed++;
+      saveIx();
+    }
     if (ok) {
       coachStats.book++;
       coachStats.streak++;

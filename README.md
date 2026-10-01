@@ -318,7 +318,13 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   cards graded, and "a fresh count" deals again. On the teach sheet
   itself the flips announce themselves: each row goes gold with a ▸
   the count it crosses — the live rows read gold beside the footer's
-  live line, refreshed with every dealt card. The panels read and
+  live line, refreshed with every dealt card. **Index discipline is
+  judged apart**: every decision where the count play stood against
+  the chart — the nine hand flips, plus the count's own insurance bet
+  against the chart's decline — asks the player, and the follow rate
+  rides the ♠ pill ("· ix 5/7") and the sheet's footer ("count plays
+  followed 5/7"), persisted apart from the coach score: the chart's
+  easy answers never pad it. The panels read and
   take taps above the shoe's right edge, which used to swallow clicks.
   The drill teaches the **true count** too: the meter
   reads out decks left ("Shoe 99% · 2.0 dk"), questions ALTERNATE running →
