@@ -476,7 +476,12 @@ answers with CORS headers.
   on the exact tenth, misses showing the honest division ("RC −1 over
   0.65 dk"), the adaptive cadence riding both modes, per-mode books
   (`999.practice.speedtrue`), and the ♠ pill carrying whichever book is
-  active.
+  active. **The between-rounds drill now cycles three asks** — running,
+  true (rounded), and TC-precision: the true count to one decimal
+  against the precise two-decimal divisor shown in the question
+  ("count ÷ 1.73 dk"), answered on a ±0.1 stepper beside the ±1s and
+  graded on the exact tenth, with its own TCp accuracy on the ♠ pill
+  and a legacy-safe slot in the persisted counting score.
 - **The session review** — the reel verified end to end: a deliberate
   stand-on-soft-13-v-Q miss stocked the reel (`yc:['A','2'], ys:[1,2]`,
   cost 10.05 — the hint's −10.1), Review mode restacked the shoe with the

@@ -407,6 +407,8 @@
     <button class="dbtn" id="drillMinus" type="button" aria-label="One lower">&minus;</button>
     <span class="dval" id="drillVal">0</span>
     <button class="dbtn" id="drillPlus" type="button" aria-label="One higher">+</button>
+    <button class="dbtn" id="drillHalf" type="button" hidden aria-label="A tenth lower">&minus;.1</button>
+    <button class="dbtn" id="drillHalfUp" type="button" hidden aria-label="A tenth higher">+.1</button>
   </div>
   <button class="btn" id="drillLock" type="button">Lock it in</button>
   <button class="btn ghost" id="drillTell" type="button">Tell me</button>
@@ -1053,7 +1055,8 @@
      recognition — or asks for it outright.                    */
   var HILO = { '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 0, '8': 0, '9': 0, '10': -1, 'J': -1, 'Q': -1, 'K': -1, 'A': -1 };
   var hiLo = 0, countingOn = true, drillOpen = false, drillVal = 0;
-  var drillKind = 'run', drillAsk = 'run';   /* the drill alternates: running, then true */
+  var drillCycle = ['run', 'true', 'prec'], drillIdx = 0, drillAsk = 'run';   /* the drill cycles: running, true, then the tenth */
+  var drillDkStr = null;                 /* the divisor the precision ask shows */
   /* the TRUE count: the running count divided by the decks
      left in the rack — the number the bet spread actually
      rides. Rounded to the nearest whole count, the way it is
@@ -1063,12 +1066,16 @@
     return dk < 0.25 ? 0.25 : dk;   /* never divide by an empty rack */
   }
   function trueCount() { return Math.round(hiLo / decksLeft()); }
+  /* the TC-precision ask: the SAME division kept to a tenth —
+     derived from the divisor the drill SHOWS (two decimals), so
+     the player's own arithmetic always matches the engine       */
+  function precTrue() { return Math.round((hiLo / parseFloat(drillDkStr)) * 10) / 10; }
   function spreadUnits(tc) {
     /* the old rule of thumb: the count minus one, in units,
        held at the table minimum until the edge shows up      */
     return tc <= 1 ? 1 : Math.min(6, tc - 1);
   }
-  var countStats = { guesses: 0, right: 0, offBy: 0, tGuesses: 0, tRight: 0, tOffBy: 0 };
+  var countStats = { guesses: 0, right: 0, offBy: 0, tGuesses: 0, tRight: 0, tOffBy: 0, pGuesses: 0, pRight: 0, pOffBy: 0 };
   try {
     countingOn = localStorage.getItem('999.practice.counting') !== 'off';
     var cts = JSON.parse(localStorage.getItem('999.practice.counts') || 'null');
@@ -1076,6 +1083,9 @@
       countStats = cts;
       if (typeof countStats.tGuesses !== 'number') {   /* a score from before the true count */
         countStats.tGuesses = 0; countStats.tRight = 0; countStats.tOffBy = 0;
+      }
+      if (typeof countStats.pGuesses !== 'number') {   /* a score from before the tenth */
+        countStats.pGuesses = 0; countStats.pRight = 0; countStats.pOffBy = 0;
       }
     }
   } catch (e) { }
@@ -1113,8 +1123,10 @@
         if (spb.bestMs) sp += ' \u00b7 \u26a1' + (spb.bestMs / 1000).toFixed(1) + 's';
         sp += ' \u00b7 streak ' + spb.streak;
       }
+      var pPct = countStats.pGuesses ? Math.round(100 * countStats.pRight / countStats.pGuesses) : null;
       sc.textContent = countingOn
-        ? (base + (tcPct == null ? '' : ' \u00b7 TC ' + tcPct + '%') + sp)
+        ? (base + (tcPct == null ? '' : ' \u00b7 TC ' + tcPct + '%') +
+           (pPct == null ? '' : ' \u00b7 TCp ' + pPct + '%') + sp)
         : ('Count off' + sp);
     }
     var bh = document.getElementById('betHint');
@@ -1133,13 +1145,18 @@
   }
   function openDrill() {
     if (!countingOn) return;
-    drillAsk = drillKind;
-    drillKind = drillAsk === 'run' ? 'true' : 'run';   /* running first, then alternate */
+    drillAsk = drillCycle[drillIdx % drillCycle.length];
+    drillIdx++;                        /* running, then true, then the tenth */
     drillOpen = true; drillVal = 0;
+    drillDkStr = drillAsk === 'prec' ? decksLeft().toFixed(2) : null;
     document.getElementById('drillQ').textContent = drillAsk === 'run'
       ? "What's the running count?"
-      : "What's the true count? (count \u00f7 decks left)";
-    document.getElementById('drillVal').textContent = '0';
+      : drillAsk === 'prec'
+        ? "True count to a tenth? (count \u00f7 " + drillDkStr + " dk)"
+        : "What's the true count? (count \u00f7 decks left)";
+    document.getElementById('drillVal').textContent = drillAsk === 'prec' ? '0.0' : '0';
+    document.getElementById('drillHalf').hidden = drillAsk !== 'prec';
+    document.getElementById('drillHalfUp').hidden = drillAsk !== 'prec';
     var v = document.getElementById('drillVerdict');
     v.textContent = '';
     v.className = 'dverdict';
@@ -1154,32 +1171,42 @@
   }
   function drillStep(d) {
     if (!drillOpen) return;
-    drillVal += d;
-    document.getElementById('drillVal').textContent = fmtCount(drillVal);
+    drillVal = Math.round((drillVal + d) * 10) / 10;   /* the tenth grid holds
+                                                          every step, even \u00b11 */
+    document.getElementById('drillVal').textContent = drillAsk === 'prec'
+      ? (drillVal > 0 ? '+' : '') + drillVal.toFixed(1)
+      : fmtCount(drillVal);
   }
   function drillLock() {
     if (!drillOpen) return;
-    var target = drillAsk === 'true' ? trueCount() : hiLo;
+    var prec = drillAsk === 'prec';
+    var target = drillAsk === 'true' ? trueCount() : prec ? precTrue() : hiLo;
     var ok = drillVal === target;
     countStats.guesses++;
     if (drillAsk === 'true') countStats.tGuesses++;
+    if (prec) countStats.pGuesses++;
     if (ok) {
       countStats.right++;
       if (drillAsk === 'true') countStats.tRight++;
+      if (prec) countStats.pRight++;
     } else {
       countStats.offBy += Math.abs(drillVal - target);
       if (drillAsk === 'true') countStats.tOffBy += Math.abs(drillVal - target);
+      if (prec) countStats.pOffBy += Math.abs(drillVal - target);
     }
     saveCount(); renderCount();
     var v = document.getElementById('drillVerdict');
     v.className = 'dverdict ' + (ok ? 'ok' : 'miss');
     var split = drillAsk === 'true'
-      ? ' \u00b7 RC ' + fmtCount(hiLo) + ' over ' + decksLeft().toFixed(1) + ' dk' : '';
+      ? ' \u00b7 RC ' + fmtCount(hiLo) + ' over ' + decksLeft().toFixed(1) + ' dk'
+      : prec ? ' \u00b7 RC ' + fmtCount(hiLo) + ' over ' + drillDkStr + ' dk' : '';
     v.textContent = ok
-      ? (drillAsk === 'true' ? '\u2713 True ' + fmtCount(target) + split : '\u2713 The count is ' + fmtCount(target))
+      ? (drillAsk === 'run' ? '\u2713 The count is ' + fmtCount(target) : '\u2713 True ' + fmtCount(target) + split)
       : (drillAsk === 'true'
           ? 'It was true ' + fmtCount(target) + split
-          : 'It was ' + fmtCount(target) + ' \u2014 off by ' + Math.abs(drillVal - target));
+          : drillAsk === 'prec'
+            ? 'It was true ' + fmtCount(target) + ' \u2014 you said ' + fmtCount(drillVal) + split
+            : 'It was ' + fmtCount(target) + ' \u2014 off by ' + Math.abs(drillVal - target));
     coachCue(ok);
     setTimeout(closeDrill, 1800);
   }
@@ -1189,7 +1216,9 @@
     v.className = 'dverdict';
     v.textContent = drillAsk === 'true'
       ? 'True was ' + fmtCount(trueCount()) + ' \u00b7 RC ' + fmtCount(hiLo) + ' over ' + decksLeft().toFixed(1) + ' dk'
-      : 'It was ' + fmtCount(hiLo);
+      : drillAsk === 'prec'
+        ? 'True was ' + fmtCount(precTrue()) + ' \u00b7 RC ' + fmtCount(hiLo) + ' over ' + drillDkStr + ' dk'
+        : 'It was ' + fmtCount(hiLo);
     setTimeout(closeDrill, 1400);
   }
 
@@ -1875,6 +1904,8 @@
   });
   document.getElementById('drillMinus').addEventListener('click', function () { drillStep(-1); });
   document.getElementById('drillPlus').addEventListener('click', function () { drillStep(1); });
+  document.getElementById('drillHalf').addEventListener('click', function () { drillStep(-0.1); });
+  document.getElementById('drillHalfUp').addEventListener('click', function () { drillStep(0.1); });
   document.getElementById('drillLock').addEventListener('click', drillLock);
   document.getElementById('drillTell').addEventListener('click', drillTell);
 
