@@ -432,7 +432,15 @@ answers with CORS headers.
   the moment the book is marked and costed at the box's own stake;
   persisted separately from the practice shoe (`999.table.trainstats`
   vs the practice keys), so a night at the felt never muddies the
-  drills. Live on the practice floor: the stacked "insurance v ace"
+  drills — except on purpose: **the felt's mistakes hand themselves to
+  the practice shoe.** At every settled round the overlay's misses
+  ride into the practice floor's leak ledger (`999.practice.leaks`),
+  cell for cell with the same names ("hard 20 v 10"), each priced at
+  the box's own stake; the ledger is read-merge-written one settle at
+  a time so the floor's own entries are never clobbered, a hand
+  abandoned mid-round teaches nothing, and the settle line says what
+  crossed over ("· 1 miss to the practice shoe") — the drills there
+  then deal the felt's worst cell on purpose. Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
   "Book: Decline — insurance turns at true +3 (now true −1)", decline
   "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray

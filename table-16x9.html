@@ -1519,6 +1519,35 @@
   function saveT() {
     try { localStorage.setItem('999.table.trainstats', JSON.stringify(trainStats)); } catch (e) { }
   }
+  /* the hand-off: the felt's misses ride to the practice shoe's
+     leak ledger, cell for cell, so the drills there aim at what
+     the live table cost you - the same cell names, the same
+     key, read-merge-written one settle at a time so the
+     practice floor's own entries are never clobbered. The
+     record waits for the round to settle: a hand abandoned
+     mid-round teaches nothing.                          */
+  var tLedger = [];                 /* this round's misses, flushed at settle */
+  function leakMerge(lk, miss) {    /* pure: the ledger after one miss lands */
+    var out = {}, k;
+    for (k in lk) if (lk[k] && typeof lk[k].n === 'number') out[k] = { n: lk[k].n, cost: lk[k].cost };
+    if (!out[miss.cell]) out[miss.cell] = { n: 0, cost: 0 };
+    out[miss.cell].n++;
+    out[miss.cell].cost += miss.cost;
+    return out;
+  }
+  function flushT() {
+    if (!tLedger.length) return 0;
+    var lk = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem('999.practice.leaks') || 'null');
+      if (raw && typeof raw === 'object') lk = raw;
+    } catch (e) { }
+    for (var i = 0; i < tLedger.length; i++) lk = leakMerge(lk, tLedger[i]);
+    var handed = tLedger.length;
+    tLedger = [];
+    try { localStorage.setItem('999.practice.leaks', JSON.stringify(lk)); } catch (e) { }
+    return handed;
+  }
   function fmtT(n) { return n > 0 ? '+' + n : String(n); }
   function capT(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function bookT(cards, canD) {
@@ -1624,6 +1653,12 @@
       }
     }
     if (ok) trainStats.book++;
+    else {                           /* the miss rides to the practice shoe's
+                                        ledger at settle - cell for cell     */
+      var vM = SHOE999.value(game.hands[YOUR].cards);
+      tLedger.push({ cell: (vM.soft ? 'soft ' : 'hard ') + vM.total + ' v ' +
+        (game.dealer.cards[0] ? game.dealer.cards[0].rank : '10'), cost: cost });
+    }
     saveT();
     trainMsg = ok ? '\u2713 book play' + (trainFlip ? ' \u2014 the count play' : '')
       : 'book says ' + capT(trainBook) + (trainFlip
@@ -1889,6 +1924,7 @@
 
   function settle() {
     game.phase = 'settle';
+    var tHanded = flushT();          /* the round settled: its misses belong to the practice shoe now */
     var ds = score(game.dealer.cards);
     /* the payout walk (spec 4.4): every staked box takes its
        beat — the camera HOLDS it while its chips fly to the
@@ -1910,7 +1946,8 @@
       h.payDelta = h.result === 'win' ? SHOE999.chips(st.prize) : h.result === 'push' ? st.prize : 0;
       if (n) game.walk.push(i);          /* a beat only where a stake sits */
     }
-    setStatus('Round settles — the payout walk');
+    setStatus('Round settles — the payout walk' + (tHanded ? ' · ' + tHanded +
+      ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : ''));
     var beat = 0;
     game.walk.forEach(function (b) {
       var h = game.hands[b], at = CHIP_DELAY + beat * WALK_BEAT;
