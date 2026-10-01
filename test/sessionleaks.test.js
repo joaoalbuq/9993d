@@ -5,7 +5,11 @@
    test: costliest first, junk dropped, counts and costs
    accumulating per cell, and the wiring that lands every miss
    (hand and insurance) in both ledgers and re-renders on the
-   tab clicks.                                             */
+   tab clicks. The session tab also reads its ranking against
+   the all-time one — \u25B2 marks a class bleeding more per
+   miss than its own history — and every session row carries a
+   one-tap drill-now hand-off that forces the cell past the
+   all-time queue.                                             */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -72,5 +76,105 @@ if (!/\.viewtabs span\.on \{ color: #d8b56a;/.test(src)) throw new Error('the li
 if (!/if \(!leakMode \|\| !allCells\.length\)/.test(src))
   throw new Error('the drill\u2019s gate stays on the all-time ledger');
 console.log('wiring: both ledgers fed at every miss, the tabs re-render, the drill keeps its all-time queue');
+
+/* --- worseThanHistory: louder is not worse — the average is --- */
+const worseThanHistory = extract('worseThanHistory', '')();
+if (worseThanHistory('hard 16 v 10', null, { n: 4, cost: 40 }) !== null)
+  throw new Error('no session record: nothing to compare');
+if (worseThanHistory('hard 16 v 10', { n: 2, cost: 51 }, null) !== null)
+  throw new Error('no history: a first sitting cannot be worse than it');
+if (worseThanHistory('hard 16 v 10', { n: 0, cost: 5 }, { n: 4, cost: 40 }) !== null)
+  throw new Error('a clean streak on the cell compares as nothing');
+const worse = worseThanHistory('hard 16 v 10', { n: 2, cost: 51 }, { n: 4, cost: 40 });
+if (!worse || Math.abs(worse.sAvg - 25.5) > 1e-9 || Math.abs(worse.hAvg - 10) > 1e-9 || Math.abs(worse.x - 2.55) > 1e-9)
+  throw new Error('the verdict must carry both averages and the ratio: ' + JSON.stringify(worse));
+if (worseThanHistory('hard 12 v 2', { n: 2, cost: 8 }, { n: 4, cost: 40 }) !== null)
+  throw new Error('a better sitting is not flagged');
+if (worseThanHistory('hard 12 v 2', { n: 4, cost: 40 }, { n: 2, cost: 20 }) !== null)
+  throw new Error('equal averages are not worse');
+console.log('worseThanHistory: \u221225.5 a miss v \u221210 all time flags; matching or better stays quiet');
+
+/* --- worseFlag: the \u25B2 line, read from the two ledgers --- */
+const worseFlag = new Function('sessionLeaks', 'leaks', 'worseThanHistory',
+  grab('  function worseFlag(', '\n  }') + '\nreturn worseFlag;')(
+  { 'hard 16 v 10': { n: 2, cost: 51 }, 'hard 12 v 2': { n: 1, cost: 3 } },
+  { 'hard 16 v 10': { n: 4, cost: 40 }, 'hard 12 v 2': { n: 6, cost: 36 } },
+  worseThanHistory);
+const flagged = worseFlag('hard 16 v 10');
+if (!flagged || flagged.indexOf('\u25B2') < 0 || !/26 a miss v 10 all time/.test(flagged))
+  throw new Error('a drifting class must wear \u25B2 with both averages: ' + flagged);
+if (worseFlag('hard 12 v 2') !== '') throw new Error('an honest class stays unflagged');
+if (worseFlag('soft 13 v Q') !== '') throw new Error('an unmissed cell is unflagged');
+console.log('worseFlag: \u25B226 a miss v 10 all time rides the drifter, quiet cells stay clean');
+
+/* --- drillNow: the tap hands the cell to the shoe --- */
+const dGrab = grab('  function drillNow(', '\n  }');
+function drillRun(o) {
+  const said = [];
+  const leakQueue = o.queue ? o.queue.slice() : [];
+  const leaksMap = o.leaks ? JSON.parse(JSON.stringify(o.leaks)) : {};
+  const sessionMap = o.session || { 'hard 16 v 10': { n: 2, cost: 51 } };
+  const saved = { v: false };
+  const peek = new Function('reviewMode', 'reviewIdx', 'leakMode', 'leakQueue', 'leaks', 'leakCell',
+    'renderCoach', 'renderLeaks', 'phase', 'bet', 'setStatus', 'sessionLeaks', 'saveLeaks', 'refillQueue',
+    dGrab + '\nreturn function (cell) { drillNow(cell);' +
+      ' return { mode: leakMode, cell: leakCell, review: reviewMode }; };')(
+    !!o.review, 0, !!o.leakMode, leakQueue, leaksMap, o.leakCell || null,
+    function () {}, function () {}, o.phase || 'betting', o.bet || 0,
+    function (s) { said.push(s); }, sessionMap,
+    function () { saved.v = true; },
+    function () { leakQueue.push('refilled-from-all-time'); });
+  const out = peek(o.cell);
+  return { out: out, said: said, queue: leakQueue, leaks: leaksMap, saved: saved.v };
+}
+
+let d = drillRun({ cell: 'hard 16 v 10' });
+if (!d.out.mode) throw new Error('the tap must switch leak mode on');
+if (d.out.cell !== 'hard 16 v 10') throw new Error('the tap must force the tapped cell');
+if (d.said.length !== 1 || !/hard 16 v 10/.test(d.said[0]) || !/place any bet, the shoe stacks it/.test(d.said[0]))
+  throw new Error('the hand-off must be announced: ' + JSON.stringify(d.said));
+if (d.queue.join('|') !== 'refilled-from-all-time')
+  throw new Error('a cold start must refill the queue before the tap takes over');
+console.log('drillNow: the tap turns the drill on, names the cell, stacks it on the next bet');
+
+d = drillRun({ cell: 'hard 16 v 10', leakMode: true, queue: ['soft 13 v Q'], phase: 'acting' });
+if (d.out.cell !== 'hard 16 v 10') throw new Error('the forced cell wins even mid-drill');
+if (d.queue.join('|') !== 'soft 13 v Q')
+  throw new Error('the all-time queue must wait untouched \u2014 bypass, not clobber');
+if (!/the next hand stacks it/.test(d.said[0]))
+  throw new Error('mid-hand the drill waits for the next deal: ' + JSON.stringify(d.said));
+console.log('drillNow: the all-time queue keeps its order \u2014 the forced cell just cuts in line');
+
+d = drillRun({ cell: 'hard 16 v 10', leakMode: true, review: true,
+  leaks: { 'hard 16 v 10': { n: 2, cost: 50, r: 1, back: 26, g: 1, s: 0 } },
+  session: { 'hard 16 v 10': { n: 1, cost: 25 } } });
+if (d.out.review) throw new Error('one mode at a time \u2014 review stands down');
+if (d.leaks['hard 16 v 10'].r || d.leaks['hard 16 v 10'].back)
+  throw new Error('a graduate tapped by name must wake at once');
+if (!d.saved) throw new Error('the wake must persist');
+console.log('drillNow: a retired cell tapped by name wakes and persists');
+
+d = drillRun({ cell: 'soft 13 v Q' });
+if (d.out.mode || d.out.cell !== null)
+  throw new Error('a cell the sitting never missed must be refused');
+console.log('drillNow: unknown cells are refused \u2014 only this sitting\u2019s misses are drillable');
+
+/* --- wiring: rows carry the flag, session rows carry the tap --- */
+if (!/worseFlag\(c\.cell\)/.test(src))
+  throw new Error('both tabs must read each row against the cell\u2019s history');
+if (!/leakView === 'session' \? ' <span class="drilltap" data-cell="' \+ c\.cell \+ '">drill now<\/span>' : ''/.test(src))
+  throw new Error('the tap must ride the session tab\u2019s rows only');
+if (!/e\.target\.classList\.contains\('drilltap'\)/.test(src) ||
+    !/drillNow\(e\.target\.getAttribute\('data-cell'\)\)/.test(src))
+  throw new Error('the panel clicks must route the tap to drillNow');
+if (!/leakCell = cell;[^\n]*the queue keeps its order/.test(src))
+  throw new Error('the tap must force leakCell, leaving the all-time queue\u2019s order alone');
+if (!/if \(e && e\.r\) \{ e\.r = 0; e\.back = 0; e\.s = 0; saveLeaks\(\); \}/.test(src))
+  throw new Error('a graduate tapped by name must be woken and persisted');
+if (!/\\u25B2 = bleeding more per miss than its own history/.test(src))
+  throw new Error('the session tab must explain the \u25B2');
+if (!/tap a row to drill it now \\u2014 the all-time queue waits\./.test(src))
+  throw new Error('the footer must name the hand-off');
+console.log('wiring: rows flag drift, session rows tap to drill, the footer explains both');
 
 console.log('\nsession leaks verified');

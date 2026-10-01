@@ -291,7 +291,9 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   worst cells by cost, and toggling it deals those EXACT hands — the shoe
   is stacked at deal time (three cards lifted from the shoe: hand, hand,
   upcard; a spent shoe earns a fresh shuffle) so "hard 16 v 10" returns
-  whole, not something like it. With an empty ledger it teaches the
+  whole, not something like it. The panel's two tabs compare this sitting
+  against the whole ledger — a ▲ marks any class bleeding worse than its
+  own history, and each sitting row carries a one-tap drill-now hand-off. With an empty ledger it teaches the
   classic — hard 16 v 10, the costliest stand in the book. The **⏪
   Review** mode goes deeper: the last misses are kept as they HAPPENED
   (cards and suits, the click, the book's answer, the price) and replayed
@@ -558,7 +560,19 @@ answers with CORS headers.
   ("insurance v ace ×4 · −8 · clean 1/3"); the drill's queue stays
   on the all-time cells. Live: a deliberate stand on 9 v 10 against
   the book's hit landed as "hard 9 v 10 ×1 · −9" on the session tab
-  while the all-time cell read ×2, the tabs toggling both ways. **The drill now
+  while the all-time cell read ×2, the tabs toggling both ways. **The
+  session tab reads its ranking against history**: a class can top the
+  sitting without getting worse, so each row is priced against its own
+  all-time average — bleeding more per miss than it ever has wears the
+  flag ("▲144 a miss v 25 all time"), matching or better stays quiet,
+  and the footer explains the glyph. **And every session row is a
+  hand-off**: a "drill now" tap forces that cell past the all-time
+  queue — the queue keeps its order, a retired cell tapped by name wakes
+  at once, and the shoe stacks it the moment a bet lands ("Drill: hard
+  16 v 10 — place any bet, the shoe stacks it"). Live: a stand-then-double
+  on the drilled 16 v 10 (−0.3, then −288) flagged "×2 · −288 · ▲144 a
+  miss v 25 all time", the tap announcing the hand-off before the next
+  stacked deal. **The drill now
   graduates its students**: a cell that answers with the book three
   times running retires from the queue — shown muted on the panel with
   its honours ("🎓1 · back in 6") — and returns with spacing for a

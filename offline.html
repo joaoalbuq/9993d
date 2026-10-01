@@ -326,6 +326,7 @@
   .leaks .viewtabs { margin: 0 0 0.45em; font-size: 0.9em; letter-spacing: 0.06em; }
   .leaks .viewtabs span { cursor: pointer; color: rgba(255,255,255,0.45); text-decoration: underline dotted; }
   .leaks .viewtabs span.on { color: #d8b56a; text-decoration: none; font-weight: bold; }
+  .leaks .drilltap { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; white-space: nowrap; }
   .leaks b { color: #e2705f; }
   .idx b { color: #d8b56a; }
   .leaks .drillnow { margin-top: 0.55em; }
@@ -721,6 +722,23 @@
     for (k in map) if (map[k] && map[k].n) arr.push({ cell: k, n: map[k].n, cost: map[k].cost });
     arr.sort(function (a, b) { return b.cost - a.cost; });
     return arr;
+  }
+  /* session vs history: a cell can top this sitting's ranking
+     without getting worse — loud is not the same as drifting.
+     A session average above the cell's all-time average says
+     the class is bleeding more per miss than it ever has; the
+     panel flags it so the ranking is read with that in mind.
+     No history or no sitting: nothing to compare, no flag.  */
+  function worseThanHistory(cell, sess, hist) {
+    if (!sess || !sess.n || !hist || !hist.n) return null;
+    var sAvg = sess.cost / sess.n, hAvg = hist.cost / hist.n;
+    if (!(sAvg > hAvg)) return null;
+    return { sAvg: sAvg, hAvg: hAvg, x: sAvg / hAvg };
+  }
+  function worseFlag(cell) {
+    var w = worseThanHistory(cell, sessionLeaks[cell], leaks[cell]);
+    if (!w) return '';
+    return ' \u00b7 \u25B2' + Math.round(w.sAvg) + ' a miss v ' + Math.round(w.hAvg) + ' all time';
   }
   /* graduation: a cell that answers with the book three times
      running leaves the drill - retired with honours - and
@@ -1206,9 +1224,10 @@
       var st = '';
       if (c.r) st = ' \u00b7 \uD83C\uDF93' + (c.g || 1) + ' \u00b7 back in ' + Math.max(0, c.back - gradClock);
       else if (c.s) st = ' \u00b7 clean ' + c.s + '/' + GRAD_AT;
+      var tap = leakView === 'session' ? ' <span class="drilltap" data-cell="' + c.cell + '">drill now</span>' : '';
       return '<li' + (c.r ? ' class="grad"' : '') + '>' + c.cell + ' \u00d7' + c.n +
-        ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + '</li>';
-    }).join('');
+        ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + worseFlag(c.cell) + tap + '</li>';
+    }).join('');;
     var next = null, retiredN = 0;
     for (var ci = 0; ci < allCells.length; ci++) {
       if (allCells[ci].r) retiredN++;
@@ -1223,7 +1242,11 @@
                  : 'A clean sitting so far \u2014 nothing leaked this session. ')
         : (retiredN ? '\uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced. ' : '')) +
       (next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
-            : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>';
+            : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>' +
+      (leakView === 'session' && sessN
+        ? '<p class="drillnow">\u25B2 = bleeding more per miss than its own history \u00b7 '
+          + 'tap a row to drill it now \u2014 the all-time queue waits.</p>'
+        : '');
     box.hidden = false;
   }
   /* the index sheet: the count's plays taught in the open — every
@@ -1282,6 +1305,22 @@
       leakCell = null;
       if (phase === 'betting') setStatus('Place your bet');
     }
+  }
+  /* one tap on a session row: that cell next, now \u2014 the
+     all-time queue waits untouched. A graduate tapped by name
+     wakes at once, and the shoe stacks the class the moment a
+     bet lands (leakDeal serves leakCell inside deal()).     */
+  function drillNow(cell) {
+    if (!cell || !sessionLeaks[cell]) return;    /* only a cell this sitting actually missed */
+    if (reviewMode) { reviewMode = false; reviewIdx = 0; }   /* one mode at a time */
+    if (!leakMode) { leakMode = true; if (!leakQueue.length) refillQueue(); }
+    var e = leaks[cell];
+    if (e && e.r) { e.r = 0; e.back = 0; e.s = 0; saveLeaks(); }
+    leakCell = cell;                             /* the forced cell \u2014 the queue keeps its order */
+    renderCoach();
+    renderLeaks();
+    if (phase === 'betting' && !bet) setStatus('Drill: ' + cell + ' \u2014 place any bet, the shoe stacks it');
+    else setStatus('Drill: ' + cell + ' \u2014 the next hand stacks it');
   }
   function toggleReview() {
     reviewMode = !reviewMode;
@@ -2354,6 +2393,8 @@
   if (leakBoxEl) leakBoxEl.addEventListener('click', function (e) {
     if (e.target && e.target.id === 'leakViewSession') { leakView = 'session'; renderLeaks(); }
     else if (e.target && e.target.id === 'leakViewAll') { leakView = 'all'; renderLeaks(); }
+    else if (e.target && e.target.classList && e.target.classList.contains('drilltap'))
+      drillNow(e.target.getAttribute('data-cell'));
   });
   document.getElementById('btnLeaks').addEventListener('click', toggleLeaks);
 
