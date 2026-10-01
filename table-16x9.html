@@ -189,6 +189,19 @@
   .act:hover:not([disabled]) { filter: brightness(1.06); }
   .act:active:not([disabled]) { transform: translateY(1px) scale(0.985); }
   .act[disabled] { opacity: 0.38; cursor: default; }
+  .act.book {
+    box-shadow: 0 0 0 2px rgba(216,181,106,0.85);
+    border-color: rgba(216,181,106,0.9);
+    color: #f4e9c8;
+  }
+  .tool.on { color: #d8b56a; border-color: rgba(216,181,106,0.55); }
+  .training {
+    position: fixed; left: 12px; top: 56px; z-index: 6;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 8px; padding: 0.5em 0.8em;
+    font-size: 0.74em; letter-spacing: 0.06em; line-height: 1.55;
+    color: #e8e4d8; font-variant-numeric: tabular-nums;
+  }
   .act.chip.on {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
@@ -307,11 +320,14 @@
     <div class="shotpill" id="shotpill">Wide table</div>
   </header>
 
+  <div class="training" id="trainBox" hidden></div>
+
   <div class="tools">
     <a class="tool" id="who" href="login-16x9.html">Sign in</a>
     <button class="tool" id="zoom" type="button">Zoom out</button>
     <button class="tool" id="audioBtn" type="button" title="Toggle sound">🔊 Sound</button>
     <button class="tool" id="cineBtn" type="button" title="Cinematic deal (C)">◻ Normal</button>
+    <button class="tool" id="coachBtn" type="button" title="Training overlay: book marks and the Hi-Lo count">🎓 Coach</button>
     <button class="tool" id="fsBtn" type="button" title="Toggle fullscreen">⤢ Fullscreen</button>
     <button class="tool" id="installBtn" type="button" hidden>⤓ Install</button>
     <div class="swatches" id="swatches" role="group" aria-label="Table cloth palette"></div>
@@ -1307,6 +1323,91 @@
     var b = document.getElementById('cineBtn');
     if (b) b.textContent = on ? '🎬 Cinema' : '◻ Normal';
   }
+
+  /* ---- the training overlay (optional, 🎓) -----------------
+     The practice shoe's two quiet tutors ride the live table:
+     the Hi-Lo meter counts EVERY card the shoe releases — the
+     panel reads running, true and decks left — and at your
+     decision the book play is badged on its button, judged on
+     the click, and reported in one line. Off by default; the
+     count tags every card regardless, so switching on mid-shoe
+     is still exact.                                          */
+  var HILO = { '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 0, '8': 0, '9': 0, '10': -1, 'J': -1, 'Q': -1, 'K': -1, 'A': -1 };
+  var hiLo = 0, coachOn = false, trainBook = null, trainMsg = '';
+  try { coachOn = localStorage.getItem('999.table.coach') === 'on'; } catch (e) { }
+  function fmtT(n) { return n > 0 ? '+' + n : String(n); }
+  function capT(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function bookT(cards, canD) {
+    var upR = game.dealer.cards[0] ? game.dealer.cards[0].rank : '10';
+    var up = upR === 'A' ? 11 : (upR === 'J' || upR === 'Q' || upR === 'K' ? 10 : parseInt(upR, 10));
+    var v = SHOE999.value(cards), t = v.total, soft = v.soft, play;
+    if (soft) {
+      if (t >= 19) play = 'stand';
+      else if (t === 18) {
+        if (up >= 3 && up <= 6) play = canD ? 'double' : 'stand';
+        else if (up <= 2 || up === 7 || up === 8) play = 'stand';
+        else play = 'hit';
+      } else if (t === 17) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
+      else if (t >= 15) play = (canD && up >= 4 && up <= 6) ? 'double' : 'hit';
+      else play = (canD && up >= 5 && up <= 6) ? 'double' : 'hit';
+    } else {
+      if (t >= 17) play = 'stand';
+      else if (t >= 13) play = up <= 6 ? 'stand' : 'hit';
+      else if (t === 12) play = (up >= 4 && up <= 6) ? 'stand' : 'hit';
+      else if (t === 11) play = canD ? 'double' : 'hit';
+      else if (t === 10) play = (canD && up <= 9) ? 'double' : 'hit';
+      else if (t === 9) play = (canD && up >= 3 && up <= 6) ? 'double' : 'hit';
+      else play = 'hit';
+    }
+    return play;
+  }
+  function btnForT(p) {
+    return document.getElementById(p === 'hit' ? 'btnHit' : p === 'stand' ? 'btnStand' : 'btnDouble');
+  }
+  function clearT() {
+    ['btnHit', 'btnStand', 'btnDouble'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('book');
+    });
+    trainBook = null;
+  }
+  function renderTrain() {
+    var b = document.getElementById('trainBox');
+    if (!b) return;
+    b.hidden = !coachOn;
+    if (!coachOn) return;
+    var dk = shoeArr.length / 52;
+    var tc = Math.round(hiLo / Math.max(dk, 0.25));
+    var html = 'Hi-Lo ' + fmtT(hiLo) + ' · True ' + fmtT(tc) + ' · ' + dk.toFixed(1) + ' dk';
+    if (game.phase === 'acting' && game.acting === YOUR && trainBook) html += '<br>Book: ' + capT(trainBook);
+    else if (trainMsg) html += '<br>' + trainMsg;
+    b.innerHTML = html;
+  }
+  function markT() {
+    if (!coachOn || game.phase !== 'acting' || game.acting !== YOUR) return;
+    var h = game.hands[YOUR];
+    if (!h || !h.cards.length) return;
+    trainBook = bookT(h.cards, h.cards.length === 2);
+    var el = btnForT(trainBook);
+    if (el) el.classList.add('book');
+    renderTrain();
+  }
+  function verdictT(choice) {
+    if (!coachOn || !trainBook) return;
+    var ok = choice === trainBook;
+    trainMsg = ok ? '\u2713 book play' : 'book says ' + capT(trainBook);
+    clearT();
+    renderTrain();
+    setTimeout(function () { trainMsg = ''; renderTrain(); }, 2200);
+  }
+  function setCoach(on) {
+    coachOn = on;
+    try { localStorage.setItem('999.table.coach', on ? 'on' : 'off'); } catch (e) { }
+    if (!on) { clearT(); trainMsg = ''; }
+    var b = document.getElementById('coachBtn');
+    if (b) b.classList.toggle('on', on);
+    renderTrain();
+  }
   function makeCard(isDealer, box, idx) {
     shoeDealt++;             /* every card leaving the shoe counts toward the cut */
     if (!cutT0 && shoeDealt >= shoeCut - CUT_NEAR) {
@@ -1314,6 +1415,8 @@
       cutCue();
     }
     var c = drawCard();      /* the stack deals the card — rank AND suit together */
+    hiLo += (HILO[c.rank] || 0);   /* the counter sees every card the shoe releases */
+    renderTrain();
     return {
       rank: c.rank, suit: c.suit,
       dealer: isDealer, box: box, idx: idx,
@@ -1373,6 +1476,7 @@
     shoeCut = SHOE999.cutBetween(SHOE_CARDS, 0.75, 0.85);
     cutT0 = 0;               /* a new shoe takes its cut card back */
     shoeFresh = true;        /* its first betting window says so */
+    hiLo = 0;                /* a fresh shoe starts the count over */
     buildShoe();             /* a fresh stack: 208 cards, shuffled whole */
   }
   newShoe();
@@ -1485,6 +1589,7 @@
       if (s >= 21) { later(750 * pace, playerStand); return; }
       setStatus('Your move — hit, stand or double');
       enableActions(true);
+      markT();               /* the overlay badges the book play */
     } else {
       setStatus('Seat ' + (i + 1) + ' decides');
       later(850 * pace, botStep);
@@ -1503,18 +1608,21 @@
 
   function playerHit() {
     if (game.phase !== 'acting' || game.acting !== YOUR) return;
+    verdictT('hit');
     dealTo(YOUR);
     if (score(game.hands[YOUR].cards) >= 21) playerStand();
-    else updateActions();
+    else { updateActions(); markT(); }   /* still your move: the book re-marks */
   }
   function playerStand() {
     if (game.phase !== 'acting' || game.acting !== YOUR) return;
+    verdictT('stand');
     enableActions(false);
     game.hands[YOUR].done = true;
     nextBox();
   }
   function playerDouble() {
     if (game.phase !== 'acting' || game.acting !== YOUR) return;
+    verdictT('double');
     var h = game.hands[YOUR];
     if (h.cards.length !== 2) return;
     h.doubled = true;
@@ -2255,6 +2363,11 @@
   var cineBtn = document.getElementById('cineBtn');
   if (cineBtn) cineBtn.addEventListener('click', function () { setCine(!cineOn); });
   setCine(cineOn);
+
+  /* the training overlay toggle — book marks + the count meter */
+  var coachBtn = document.getElementById('coachBtn');
+  if (coachBtn) coachBtn.addEventListener('click', function () { setCoach(!coachOn); });
+  setCoach(coachOn);
 
   /* ================= fullscreen (mobile landscape) ==========
      The first tap on a phone drops the browser chrome and locks

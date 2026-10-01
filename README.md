@@ -116,7 +116,13 @@ are additive screens kept beside it for side-by-side comparison.
   ten-density exactly 30.77% with no weighting, and every card keeps the
   suit it was printed with. The visible cut card surfaces 20 cards before
   the cut, stands at the shoe through its last rounds, and is gone with
-  the riffle that renews the shoe.
+  the riffle that renews the shoe. An optional **training overlay** (the
+  🎓 tool, off by default, persisted) rides the live table: the Hi-Lo
+  count tags every card the shoe releases — the panel reads running,
+  true and decks left — and at your decision the book play badges its
+  button and the click is judged in one line ("book says Hit"). The
+  count tags every card regardless, so switching on mid-shoe is exact;
+  a fresh shoe resets the count.
 - **The betting interlude, every round** — the floor opens for the oldest
   ritual there is before every deal, not only when the shoe changes: the
   status line reads **"New shoe — place your bets"** when the shoe is fresh
