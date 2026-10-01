@@ -22,7 +22,10 @@ const fmt = new Function('n', fmtMatch[0].slice(fmtMatch[0].indexOf('{') + 1, -1
 
 const fnFull = grab('  function evStripLine(s) {', '\n  }');
 const fnBody = fnFull.slice(fnFull.indexOf('{') + 1, fnFull.lastIndexOf('}'));
-const evStripLine = new Function('fmt', 'return function evStripLine(s) {' + fnBody + '}')(fmt);
+const luckFull = grab('  function luckWord(s) {', '\n  }');
+const luckBody = luckFull.slice(luckFull.indexOf('{') + 1, luckFull.lastIndexOf('}'));
+const luckWord = new Function('return function luckWord(s) {' + luckBody + '}')();
+const evStripLine = new Function('fmt', 'luckWord', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord);
 
 /* --- an empty session draws no line --- */
 if (evStripLine({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('empty session must draw nothing');
@@ -67,5 +70,20 @@ if (!/evSession\.ev \+= evRoundExp \+ evInsExp;/.test(commit))
   throw new Error('the engine leg must carry the decision price AND the insurance edge');
 if (!/<p class="evstrip" id="evStrip" hidden><\/p>/.test(src)) throw new Error('the strip element must exist on the felt');
 console.log('wiring: first click prices, insurance rides along, settle commits once \u2014 both legs, one line');
+
+/* --- the gap's own word, and the pill that carries it --- */
+if (luckWord({ ev: -3.1, felt: -25 }) !== '\u221221.9') throw new Error('cold luck word');
+if (luckWord({ ev: -2, felt: 10 }) !== '+12.0') throw new Error('hot luck word');
+if (luckWord({ ev: 0, felt: 0 }) !== '+0.0') throw new Error('a perfect reconciliation reads signed');
+if (!/\\u00b7 ' \+ luckWord\(evSession\) \+ ' luck';/.test(src))
+  throw new Error('the coach pill must carry the gap');
+if (!/if \(evSession\.rounds\) el\.textContent \+=/.test(src))
+  throw new Error('the pill shows the gap only once a round has been priced');
+const commit2 = grab('    if (evRound && evPriced) {', 'renderCoach();');
+if (!/renderEvStrip\(\);/.test(commit2))
+  throw new Error('the settle commit must refresh both the strip and the pill');
+if (!/luckWord\(s\)/.test(src))
+  throw new Error('the strip must read the same word as the pill \u2014 one source for the gap');
+console.log('the pill: "\u221248.0 luck" rides the coach score \u2014 one source for the gap, refreshed at the commit');
 
 console.log('\nev strip verified');

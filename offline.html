@@ -814,14 +814,19 @@
     if (!evRound) return;
     evInsExp += INDEX999.insEdge(shoeArr) * insBet;
   }
+  /* the gap's own word: felt minus engine, one decimal, signed —
+     the one number both the strip and the pill read          */
+  function luckWord(s) {
+    var luck = s.felt - s.ev;
+    return (luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1);
+  }
   function evStripLine(s) {
     if (!s || !s.rounds) return '';
     function w(v, dec) {
       return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmt(Math.abs(v)));
     }
-    var luck = s.felt - s.ev;
     return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b>' +
-      w(luck, true) + '</b> luck \u00b7 ' + s.rounds + ' round' + (s.rounds === 1 ? '' : 's');
+      luckWord(s) + '</b> luck \u00b7 ' + s.rounds + ' round' + (s.rounds === 1 ? '' : 's');
   }
   function renderEvStrip() {
     var el = document.getElementById('evStrip');
@@ -1004,6 +1009,9 @@
     el.textContent = coachOn
       ? (pct == null ? 'Coach' : 'Coach ' + pct + '% \u00b7 ' + coachStats.book + '/' + coachStats.decisions + (perDev ? ' ' + perDev : ''))
       : 'Coach off';
+    /* the session's reconciliation rides the pill: what the engine
+       expected against what the felt actually moved             */
+    if (evSession.rounds) el.textContent += ' \u00b7 ' + luckWord(evSession) + ' luck';
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
     var lb = document.getElementById('btnLeaks');
     if (lb) {
@@ -2064,6 +2072,7 @@
       evSession.ev += evRoundExp + evInsExp;
       evSession.felt += st.net + insWin - insStake;
       renderEvStrip();
+      renderCoach();                   /* the pill's luck reads the same commit */
     }
     /* the reel learns the hole card only now: the European deal
        keeps it in the shoe through the player's decision, so every

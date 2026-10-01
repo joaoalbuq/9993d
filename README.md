@@ -520,7 +520,11 @@ answers with CORS headers.
   −27.0 engine · −75 felt · −48.0 luck · 2 rounds", the gap being the
   luck the shoe dealt. Naturals (no decision to price) stay out of
   both sides, so the two always reconcile over the hands the engine
-  can see; the book is per-session — a reload starts a new one.
+  can see; the book is per-session — a reload starts a new one. **The
+  gap rides the coach pill too**: after each settle the score line
+  carries it ("Coach 83% · 19/23 · −2.9/dev · −9.0 luck"), the strip
+  and the pill reading one source for the word, live-verified against
+  a stood 17 v A (engine −16.0 · felt −25 · −9.0 both places).
   **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle
