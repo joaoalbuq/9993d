@@ -1,11 +1,14 @@
 /* Graduation: a cell that answers with the book three times
    running retires from the drill and returns with spacing —
    six served hands, doubling each re-graduation, capped —
-   for a refresher; any miss yanks a graduate straight back.
-   The ladder and the state machine are the property under
-   test, plus the wiring that counts only clean answers on
-   ledgered cells, skips retired cells in the queue, ticks
-   the clock per served hand, and shows retired-vs-active.  */
+   for a refresher; any miss yanks a graduate straight back,
+   and the yank's PRICE trims the next rest: a cheap yank is a
+   lesson nearly held, so soft cells come back sooner than
+   expensive ones. The ladder, the trim and the state machine
+   are the properties under test, plus the wiring that counts
+   only clean answers on ledgered cells, skips retired cells in
+   the queue, ticks the clock per served hand, and shows
+   retired-vs-active.                                      */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -31,12 +34,19 @@ if (gradGap(3) !== 24) throw new Error('third: doubled again');
 if (gradGap(5) !== 24) throw new Error('capped at twenty-four');
 console.log('spacing ladder: 6 \u2192 12 \u2192 24, capped \u2014 refreshers drift further apart');
 
+/* --- the refresher's price: a cheap yank shortens the next rest --- */
+const refresherTrim = extract('refresherTrim', '')();
+if (refresherTrim(0) !== 1) throw new Error('an unpriced yank keeps the full ladder');
+if (refresherTrim(60) !== 1) throw new Error('an expensive yank keeps the full ladder');
+if (Math.abs(refresherTrim(12.5) - 0.5) > 1e-9) throw new Error('half a unit of chips halves the rest');
+if (refresherTrim(2) !== 0.4) throw new Error('a whisper of a yank still owes two-fifths of the ladder');
+
 /* --- the state machine: clean streak retires, miss yanks back --- */
 function harness(clock) {
   const leaks = {};
   return {
     leaks,
-    gradClean: extract('gradClean', 'GRAD_AT, gradClock, gradGap, saveLeaks, leaks')(3, clock, gradGap, function () {}, leaks),
+    gradClean: extract('gradClean', 'GRAD_AT, gradClock, gradGap, saveLeaks, leaks, refresherTrim')(3, clock, gradGap, function () {}, leaks, refresherTrim),
     gradMiss: extract('gradMiss', 'saveLeaks, leaks')(function () {}, leaks),
     gradWakeDue: extract('gradWakeDue', 'gradClock, saveLeaks, leaks')(clock, function () {}, leaks)
   };
@@ -80,9 +90,9 @@ console.log('the yank: one miss undoes the streak \u2014 a graduate returns to t
 
 /* --- wiring: hooks, the queue skips retired, the panel shows both --- */
 const verdict = grab('  function coachVerdict(choice) {', 'var entry = {');
-if (!verdict.includes('gradClean(lastCell)') || !verdict.includes('gradMiss(lastCell)'))
-  throw new Error('the hand verdict must feed graduation both ways');
-const ins = grab("      gradClean('insurance v ace')", "gradMiss('insurance v ace')");
+if (!verdict.includes('gradClean(lastCell)') || !verdict.includes('gradMiss(lastCell, cost)'))
+  throw new Error('the hand verdict must feed graduation both ways, the yank priced');
+const ins = grab("      gradClean('insurance v ace')", "gradMiss('insurance v ace', cost)");
 if (!ins) throw new Error('the insurance verdict must graduate its cell too');
 if (!/refillQueue\(\);/.test(src) || !/function refillQueue\(\) \{[\s\S]*?return !c\.r;/.test(src))
   throw new Error('the drill queue must wake the due and skip the retired');
@@ -100,5 +110,28 @@ if (!/All graduated \\u2014 the classic 16 v 10 keeps the drill honest\./.test(s
   throw new Error('an all-graduated ledger must fall back to the classic');
 if (!/'999\.practice\.grad'/.test(src)) throw new Error('the clock must persist');
 console.log('wiring: verdicts feed the machine, the queue skips the retired, the panel shows retired-vs-active');
+
+const h5 = harness(40);
+h5.leaks['soft 16 v 10'] = { n: 4, cost: 37, r: 1, back: 999, g: 1, s: 0 };
+h5.gradMiss('soft 16 v 10', 12.5);           /* the cheap yank, priced */
+if (h5.leaks['soft 16 v 10'].rc !== 12.5)
+  throw new Error('the yank must record its price: ' + JSON.stringify(h5.leaks['soft 16 v 10']));
+h5.leaks['soft 16 v 10'].s = 2;              /* two cleans already banked this sitting */
+h5.gradClean('soft 16 v 10');                /* the third: re-retires */
+const g5 = h5.leaks['soft 16 v 10'];
+if (g5.back !== 46) throw new Error('a cheap yank trims the second-gen ladder twelve to six: back at ' + g5.back);
+if (g5.rc !== 0) throw new Error('this generation priced its own refresher \u2014 the record resets');
+const h6 = harness(40);
+h6.leaks['hard 16 v 10'] = { n: 4, cost: 100, r: 1, back: 999, g: 1, s: 0 };
+h6.gradMiss('hard 16 v 10', 200);            /* an expensive yank */
+h6.leaks['hard 16 v 10'].s = 2;
+h6.gradClean('hard 16 v 10');
+if (h6.leaks['hard 16 v 10'].back !== 52)
+  throw new Error('a full-price yank keeps the second-gen ladder at twelve: back at ' + h6.leaks['hard 16 v 10'].back);
+const h7 = harness(40);
+h7.leaks['hard 15 v 10'] = { n: 4, cost: 100, r: 1, back: 999, g: 1, s: 0 };
+h7.gradMiss('hard 15 v 10', 5000);           /* a monstrous yank is capped at the record */
+if (h7.leaks['hard 15 v 10'].rc !== 200) throw new Error('the recorded price is capped');
+console.log('the trim: a 12.5-chip yank rests 6 not 12, a full-price yank keeps 12 \u2014 soft cells return sooner');
 
 console.log('\ngraduation verified');

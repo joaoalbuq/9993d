@@ -614,7 +614,12 @@ answers with CORS headers.
   refresher (six served hands, doubling each re-graduation, capped at
   twenty-four, the clock persisted in `999.practice.grad`); any miss on
   the cell, at the drill or on the felt, yanks a graduate straight back
-  and zeroes its streak, the panel showing the live streak meanwhile
+  and zeroes its streak — **and the yank's price trims the next rest**:
+  the miss is recorded with the chips it threw away, and re-retirement
+  scales the ladder by it (full from 25 chips up, floored at 0.4×), so
+  a cheap yank is a lesson nearly held and soft cells come back sooner
+  than expensive ones, each generation measuring its own refresher;
+  the panel showing the live streak meanwhile
   ("clean 1/3"), and an all-graduated ledger falls back to the classic
   16 v 10 so the drill never runs dry. Live end to end: hard 12 v 2
   retired at clock 3 ("back in 6"), the countdown ticked down on the

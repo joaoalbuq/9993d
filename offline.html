@@ -781,16 +781,32 @@
       e.r = 1;
       e.s = 0;
       e.at = gradClock;
-      e.back = gradClock + gradGap(e.g);
+      e.back = gradClock + Math.round(gradGap(e.g) * refresherTrim(e.rc || 0));
+      e.rc = 0;                              /* this generation's refresher is priced */
     }
     saveLeaks();
   }
-  function gradMiss(cell) {
+  function gradMiss(cell, cost) {
     var e = leaks[cell];
     if (!e) return;
     e.s = 0;
-    if (e.r) { e.r = 0; e.back = 0; }
+    if (e.r) {
+      e.r = 0;
+      e.back = 0;
+      if (typeof cost === 'number') e.rc = Math.min(cost, 200);   /* the yank's price, for
+                                                    the rest that follows this re-learn */
+    }
     saveLeaks();
+  }
+  /* a refresher miss has a price — the chips that miss threw away —
+     and the price says how soft the cell still is: a cheap yank
+     (a soft stand that cost half a unit) means the lesson nearly
+     held, so its next rest is trimmed; an expensive one keeps the
+     full ladder. The trim rides the retirement's own record, so
+     each generation measures its own refresher.            */
+  function refresherTrim(cost) {
+    if (!(cost > 0)) return 1;
+    return Math.max(0.4, Math.min(1, cost / 25));   /* full at 25+ chips, floor 0.4× */
   }
   function gradWakeDue() {
     var woke = 0, k, e;
@@ -1074,7 +1090,7 @@
         try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
         var lb = document.getElementById('btnLeaks');
         if (lb) lb.hidden = false;
-        gradMiss(lastCell);                  /* the miss undoes any graduation */
+        gradMiss(lastCell, cost);            /* the miss undoes any graduation, priced */
         /* a FIRST miss of its class opens the panel itself */
         if (sessionMiss(lastCell, cost)) leakAutoOpen();
       }
@@ -2331,7 +2347,7 @@
       try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
       var lb = document.getElementById('btnLeaks');
       if (lb) lb.hidden = false;
-      gradMiss('insurance v ace');           /* the miss undoes any graduation */
+      gradMiss('insurance v ace', cost);     /* the miss undoes any graduation, priced */
       if (sessionMiss('insurance v ace', cost)) leakAutoOpen();   /* a first of its class opens the panel */
       replay.push({                    /* the reel keeps it like any other miss */
         yc: [you[0].rank, you[1].rank], ys: [you[0].suit, you[1].suit],
