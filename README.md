@@ -644,7 +644,18 @@ answers with CORS headers.
   retired at clock 3 ("back in 6"), the countdown ticked down on the
   classic hands, and the woken cell was dealt again the moment its rest
   was up — with the wake starving nothing when the classic loop held
-  the queue (found live, fixed at the serve).
+  the queue (found live, fixed at the serve). **And the queue follows
+  this week's leaks, not last month's**: a cell's pull on the ranking
+  is its toll decayed by age — a week's half-life — and capped, so one
+  distant disaster can never sit at the top for good; every miss dates
+  its cell (`999.practice.leaks` cells carry a `ts` stamp, the felt's
+  misses riding in with their own at settle, other cells untouched),
+  the panel keeps the honest all-time `−cost` and only the order cools
+  ("Ranks by the freshest tolls — a month-old blow cools."), and the
+  drill's queue and "Next hand" read that same decayed ranking. Live:
+  a fresh −30 leapt a month-old −120 ("soft 18 v 9 ×2 · −30" first),
+  and a live miss on the fresh cell re-dated it while the stale one
+  kept its old stamp.
 - **The speed-counting drill** — the full loop driven live both compressed
   and in REAL time: the flash phase held its wall clock (4651ms for 15
   cards at Fast ≈ 0.3s each), the recall timer ticked live (1.2s sampled),

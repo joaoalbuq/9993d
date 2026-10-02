@@ -99,6 +99,27 @@ if (mastered['hard 16 v 10'].t !== 1)
   throw new Error('even a master\'s felt toll is stamped: ' + JSON.stringify(mastered['hard 16 v 10']));
 console.log('origin: a master stays mastered under a felt miss, its toll still stamped');
 
+/* --- freshness: a felt miss dates its cell so the practice
+       shoe's queue follows the newest tolls; dates ride other
+       cells' misses and a fresh miss re-dates its own cell   --- */
+const dated = leakMerge({}, { cell: 'hard 16 v 10', cost: 4, ts: 1700000000000 });
+if (dated['hard 16 v 10'].ts !== 1700000000000)
+  throw new Error('a felt miss must carry its date: ' + JSON.stringify(dated['hard 16 v 10']));
+const stamped = leakMerge({}, { cell: 'hard 12 v 2', cost: 4 });
+if (typeof stamped['hard 12 v 2'].ts !== 'number')
+  throw new Error('a dateless miss must still be dated now: ' + JSON.stringify(stamped['hard 12 v 2']));
+const rode = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40, ts: 1690000000000 } },
+  { cell: 'hard 16 v 10', cost: 2, ts: 1700000000000 });
+if (rode['soft 13 v Q'].ts !== 1690000000000)
+  throw new Error('freshness must ride other cells\u2019 misses: ' + JSON.stringify(rode['soft 13 v Q']));
+const reDated = leakMerge(
+  { 'hard 16 v 10': { n: 1, cost: 5, ts: 1690000000000 } },
+  { cell: 'hard 16 v 10', cost: 2, ts: 1700000000000 });
+if (reDated['hard 16 v 10'].ts !== 1700000000000)
+  throw new Error('a fresh miss must re-date its own cell: ' + JSON.stringify(reDated['hard 16 v 10']));
+console.log('freshness: the felt dates its misses, dates ride the merge, a fresh miss re-dates its cell');
+
 /* --- the reel rides the same settle: the felt's whole hands land
        in the practice shoe's reel and replay with the fork     --- */
 const flushReelFull = grab(tableSrc, '  function flushReelT() {', '\n  }');

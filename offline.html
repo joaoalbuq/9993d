@@ -704,14 +704,30 @@
   function leakKey(soft, t, up) {
     return (soft ? 'soft ' : 'hard ') + t + ' v ' + up;
   }
-  function weakestCells() {
+  /* a ledger kept for months measures months. The drills
+     should follow THIS week's leaks, so a cell's pull on the
+     queue is its toll decayed by age — a week's half-life, so
+     a month-old blow is worth a sixteenth — and CAPPED, so one
+     distant disaster can never sit at the top of the queue for
+     good. The stored cost stays honest for the panel; only
+     the ranking cools. A cell the felt never stamped reads as
+     fresh: the decay begins at its first re-stamp.            */
+  var LEAK_HALF = 7 * 24 * 60 * 60 * 1000, LEAK_CAP = 100;
+  function leakWeight(e, now) {
+    if (!e || !e.n) return 0;
+    var age = now - (e.ts || now);
+    if (!(age > 0)) age = 0;
+    return Math.min((e.cost || 0) * Math.pow(0.5, age / LEAK_HALF), LEAK_CAP);
+  }
+  function weakestCells(now) {
+    now = now || Date.now();
     var arr = [];
     for (var k in leaks) if (leaks[k] && leaks[k].n) arr.push({
-      cell: k, n: leaks[k].n, cost: leaks[k].cost,
+      cell: k, n: leaks[k].n, cost: leaks[k].cost, w: leakWeight(leaks[k], now),
       s: leaks[k].s || 0, r: leaks[k].r ? 1 : 0, m: leaks[k].m ? 1 : 0,
       back: leaks[k].back || 0, g: leaks[k].g || 0, t: leaks[k].t || 0
     });
-    arr.sort(function (a, b) { return b.cost - a.cost; });
+    arr.sort(function (a, b) { return b.w - a.w; });
     return arr;
   }
   /* this sitting's own ledger: every miss lands twice - the
@@ -1100,6 +1116,7 @@
         if (!leaks[lastCell]) leaks[lastCell] = { n: 0, cost: 0 };
         leaks[lastCell].n++;
         leaks[lastCell].cost += cost;
+        leaks[lastCell].ts = Date.now();    /* the queue follows the freshest tolls */
         try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
         var lb = document.getElementById('btnLeaks');
         if (lb) lb.hidden = false;
@@ -1348,7 +1365,8 @@
         : (retiredN ? '\uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced. ' : '') +
         (masterN ? '\uD83C\uDFC5 ' + masterN + ' mastered \u2014 out of the drill for good. ' : '')) +
       (next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
-            : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>' +
+            : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') +
+      (leakView === 'session' ? '' : ' Ranks by the freshest tolls \u2014 a month-old blow cools.') + '</p>' +
       (leakView === 'session' && sessN
         ? '<p class="drillnow">\u25B2 = bleeding more per miss than its own history \u00b7 '
           + 'tap a row to drill it now \u2014 the all-time queue waits.</p>'
@@ -2368,6 +2386,7 @@
       if (!leaks['insurance v ace']) leaks['insurance v ace'] = { n: 0, cost: 0 };
       leaks['insurance v ace'].n++;
       leaks['insurance v ace'].cost += cost;
+      leaks['insurance v ace'].ts = Date.now();
       try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
       var lb = document.getElementById('btnLeaks');
       if (lb) lb.hidden = false;

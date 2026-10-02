@@ -1568,6 +1568,8 @@
       if (typeof lk[k].back === 'number') out[k].back = lk[k].back;
       if (typeof lk[k].g === 'number') out[k].g = lk[k].g;
       if (typeof lk[k].t === 'number') out[k].t = lk[k].t;    /* the felt's own toll rides too */
+      if (typeof lk[k].ts === 'number') out[k].ts = lk[k].ts; /* freshness rides too: the queue
+                                                                 follows the newest tolls */
       if (lk[k].m) out[k].m = 1;                              /* a master stays mastered */
     }
     if (!out[miss.cell]) out[miss.cell] = { n: 0, cost: 0 };
@@ -1575,6 +1577,8 @@
     out[miss.cell].cost += miss.cost;
     out[miss.cell].s = 0;                     /* a felt miss undoes any graduation */
     out[miss.cell].t = (out[miss.cell].t || 0) + 1;   /* and stamps itself: this one came off the felt */
+    out[miss.cell].ts = miss.ts || Date.now();        /* and dates itself: a felt miss is
+                                                         as fresh as the click that missed */
     if (out[miss.cell].r) { out[miss.cell].r = 0; out[miss.cell].back = 0; }
     return out;
   }
@@ -1722,7 +1726,7 @@
       var vM = SHOE999.value(game.hands[YOUR].cards);
       var hc = game.hands[YOUR].cards, dU = game.dealer.cards[0];
       tLedger.push({ cell: (vM.soft ? 'soft ' : 'hard ') + vM.total + ' v ' +
-        (dU ? dU.rank : '10'), cost: cost });
+        (dU ? dU.rank : '10'), cost: cost, ts: Date.now() });
       tReel.push({                   /* ...and the reel keeps the whole hand —
                                         the felt's miss replays on the practice felt */
         yc: [hc[0].rank, hc[1].rank], ys: [hc[0].suit, hc[1].suit],

@@ -256,4 +256,44 @@ if (!/if \(reviewMode\) return;/.test(grab('  function leakAutoOpen(', '\n  }'))
   throw new Error('the auto-open must stand down while the replay reel owns the box');
 console.log('wiring: a class\u2019s first miss \u2014 hand or insurance \u2014 opens the panel on its own');
 
+/* --- the queue follows THIS week's leaks: a cell's pull is
+       its toll decayed by age and capped, so a month-old blow
+       cannot hog the drill forever                         --- */
+if (!/var LEAK_HALF = 7 \* 24 \* 60 \* 60 \* 1000, LEAK_CAP = 100;/.test(src))
+  throw new Error('the decay and its cap must be named constants');
+const HALF = 7 * 24 * 60 * 60 * 1000, CAP = 100;
+const leakWeight = extract('leakWeight', 'LEAK_HALF, LEAK_CAP')(HALF, CAP);
+const now = 1700000000000;
+if (leakWeight(null, now) !== 0 || leakWeight({ n: 0, cost: 50 }, now) !== 0)
+  throw new Error('a cell with no misses pulls nothing');
+if (leakWeight({ n: 1, cost: 40, ts: now }, now) !== 40)
+  throw new Error('a fresh miss weighs its face value');
+if (Math.abs(leakWeight({ n: 1, cost: 40, ts: now - HALF }, now) - 20) > 1e-9)
+  throw new Error('a week old halves the pull');
+if (Math.abs(leakWeight({ n: 1, cost: 64, ts: now - 4 * HALF }, now) - 4) > 1e-9)
+  throw new Error('a month old is a sixteenth: ' + leakWeight({ n: 1, cost: 64, ts: now - 4 * HALF }, now));
+if (leakWeight({ n: 1, cost: 5000, ts: now }, now) !== CAP)
+  throw new Error('one distant disaster is capped');
+if (leakWeight({ n: 1, cost: 40 }, now) !== 40)
+  throw new Error('an undated cell reads fresh \u2014 the decay starts at its next miss');
+console.log('leakWeight: fresh face value, a week halves, a month is a sixteenth \u2014 and the pull is capped');
+
+const leakMap = {
+  'hard 16 v 10': { n: 3, cost: 60, ts: now - 3 * HALF },   /* heavy but stale: 7.5 */
+  'hard 12 v 2': { n: 1, cost: 20, ts: now },               /* modest but fresh: 20 */
+  'soft 13 v Q': { n: 2, cost: 5, ts: now, m: 1 }           /* mastered: still ranked, still skipped */
+};
+const weakestCells = extract('weakestCells', 'leaks, leakWeight')(leakMap, leakWeight);
+const wc = weakestCells(now);
+if (wc.length !== 3) throw new Error('every ledgered cell ranks');
+if (wc[0].cell !== 'hard 12 v 2') throw new Error('the freshest leak leads: ' + JSON.stringify(wc.map(c => c.cell)));
+if (wc[1].cell !== 'hard 16 v 10' || wc[1].w !== 7.5)
+  throw new Error('the stale heavy one cools below it, its weight on the row: ' + JSON.stringify(wc[1]));
+if (!wc[2].m) throw new Error('the master flag still rides the ranking');
+if (!/arr\.sort\(function \(a, b\) \{ return b\.w - a\.w; \}\);/.test(src))
+  throw new Error('the ranking must order by the decayed weight');
+if (!/Ranks by the freshest tolls \\u2014 a month-old blow cools\./.test(src))
+  throw new Error('the all-time panel must say the queue leans on the freshest tolls');
+console.log('weakestCells: a fresh \u221220 leaps a stale \u221260 \u2014 the queue follows this week, not last month');
+
 console.log('\nsession leaks verified');
