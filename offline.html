@@ -337,6 +337,14 @@
   .idx .quizpicks span.on { color: #d8b56a; text-decoration: none; font-weight: bold; }
   .idx .quiznew { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; white-space: nowrap; }
   .leaks .drillnow { margin-top: 0.55em; }
+  .leaks .evleft { margin-top: 0.6em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.55em; }
+  .leaks .evtitle { margin: 0 0 0.4em; color: rgba(255,255,255,0.55); letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.86em; }
+  .leaks .evrow { display: flex; align-items: center; gap: 0.5em; margin: 0.22em 0; }
+  .leaks .evrow .evcell { flex: 0 0 34%; color: rgba(255,255,255,0.85); white-space: nowrap; }
+  .leaks .evrow .evbar { flex: 1; height: 0.62em; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  .leaks .evrow .evbar i { display: block; height: 100%; background: #e2705f; }
+  .leaks .evrow b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  .leaks .evtotal { margin: 0.42em 0 0; color: rgba(255,255,255,0.6); }
   .evstrip {
     margin: 0.55em auto 0; max-width: 30em; font-size: 0.7em;
     letter-spacing: 0.1em; text-transform: uppercase;
@@ -1390,6 +1398,22 @@
     }
     return { total: total, rows: rows, cells: cells.length, covered: total ? run / total : 0 };
   }
+  /* the EV left on the table: the scorecard's named cells drawn
+     as a chart — each bar the chips fixing that cell wins back,
+     the widest the worst leak — so the recoverable money is read
+     at a glance, not summed in the head. The tail names what the
+     whole cut is worth and what still hides behind the rest.  */
+  function evLeft(sc) {
+    if (!sc || !sc.rows.length) return null;
+    var rows = [], cum = 0, mx = 0, i;
+    for (i = 0; i < sc.rows.length; i++) if (sc.rows[i].cost > mx) mx = sc.rows[i].cost;
+    for (i = 0; i < sc.rows.length; i++) {
+      var c = sc.rows[i].cost;
+      cum += c;
+      rows.push({ cell: sc.rows[i].cell, cost: c, cum: cum, w: mx ? c / mx : 0 });
+    }
+    return { rows: rows, total: sc.total, cum: cum };
+  }
   function renderLeaks() {
     var box = document.getElementById('leakBox');
     if (!box) return;
@@ -1407,7 +1431,7 @@
           ' \u00b7 book (\u2019' + cur2.book + '\u2019) ' + cur2.forkBook + '</p>'
         : '';
       var sc = reviewScorecard(replay);
-      var scHtml = '';
+      var scHtml = '', evHtml = '';
       if (sc && sc.rows.length) {
         var scRows = sc.rows.map(function (r3) {
           var e = leaks[r3.cell];            /* a mastered cell has left the drill: no tap */
@@ -1423,13 +1447,23 @@
             : ' \u2014 ' + sc.rows.length + ' of ' + sc.cells + ' cells carry ' +
               Math.round(100 * sc.covered) + '% of the \u2212' + Math.round(sc.total) +
               '. Tap a cell to drill it first.') + '</p>';
+        var ev = evLeft(sc), behind = ev.total - ev.cum;
+        var bars = ev.rows.map(function (r4) {
+          return '<div class="evrow"><span class="evcell">' + r4.cell + '</span>' +
+            '<span class="evbar"><i style="width:' + Math.round(100 * r4.w) + '%"></i></span>' +
+            '<b>\u2212' + Math.round(r4.cost) + '</b></div>';
+        }).join('');
+        evHtml = '<div class="evleft"><p class="evtitle">EV left on the table</p>' + bars +
+          '<p class="evtotal">Fix ' + (ev.rows.length === 1 ? 'it' : 'all ' + ev.rows.length) +
+          ': +' + Math.round(ev.cum) + ' back' +
+          (behind > 0.5 ? ' \u00b7 ' + Math.round(behind) + ' still behind the rest.' : '.') + '</p></div>';
       }
       var feltN = 0, fi;
       for (fi = 0; fi < replay.length; fi++) if (replay[fi].felt) feltN++;
       box.innerHTML = '<h3>Session review</h3><ol>' + rows2 + '</ol>' + forkHtml +
         '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.' +
         (feltN ? ' \uD83C\uDFB0 ' + feltN + ' crossed over from the live table.' : '') + '</p>' +
-        scHtml;
+        scHtml + evHtml;
       box.hidden = false;
       return;
     }

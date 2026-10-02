@@ -787,7 +787,12 @@ answers with CORS headers.
   misses) while a mastered cell keeps its name and loses the tap; the
   drill fires immediately ("Drill: hard 16 v 10 — place any bet, the shoe
   stacks it"), live-verified end to end (tapped from the scorecard, the
-  shoe dealt 6+10 against the 10).
+  shoe dealt 6+10 against the 10). **And an EV-left chart closes the
+  panel**: under the scorecard each named cell draws a bar — the chips
+  that fixing it wins back, scaled to the worst leak — with the recovery
+  tail ("Fix all 2: +55 back · 10 still behind the rest."), so the
+  money on the table is read at a glance, not summed in the head; the
+  bars wear the house red beside the gold drill taps.
 
 ## Layout
 
