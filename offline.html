@@ -324,6 +324,7 @@
   .leaks ol { margin: 0; padding-left: 1.2em; }
   .leaks li { margin: 0.15em 0; color: rgba(255,255,255,0.85); }
   .leaks li.grad { opacity: 0.55; }
+  .leaks li.master { color: #d8b56a; }   /* mastered: out of the drill, worn in gold */
   .leaks .viewtabs { margin: 0 0 0.45em; font-size: 0.9em; letter-spacing: 0.06em; }
   .leaks .viewtabs span { cursor: pointer; color: rgba(255,255,255,0.45); text-decoration: underline dotted; }
   .leaks .viewtabs span.on { color: #d8b56a; text-decoration: none; font-weight: bold; }
@@ -707,7 +708,7 @@
     var arr = [];
     for (var k in leaks) if (leaks[k] && leaks[k].n) arr.push({
       cell: k, n: leaks[k].n, cost: leaks[k].cost,
-      s: leaks[k].s || 0, r: leaks[k].r ? 1 : 0,
+      s: leaks[k].s || 0, r: leaks[k].r ? 1 : 0, m: leaks[k].m ? 1 : 0,
       back: leaks[k].back || 0, g: leaks[k].g || 0
     });
     arr.sort(function (a, b) { return b.cost - a.cost; });
@@ -752,10 +753,14 @@
      running leaves the drill - retired with honours - and
      returns with spacing (six drill hands, then double, capped
      at twenty-four) for a refresher; any miss on the cell,
-     drill or felt, yanks a graduate straight back. The clock
+     drill or felt, yanks a graduate straight back. A cell that
+     survives TWO spaced refreshers - three graduations, each
+     refresher passed at the felt or the drill - is a MASTER
+     with honours: it leaves the drill for good, gold-badged,
+     and no miss drags it back; the lesson is owned. The clock
      counts drill hands served and persists, so spacing
      survives reloads.                                     */
-  var GRAD_AT = 3, GRAD_GAP = 6, GRAD_GAP_MAX = 24;
+  var GRAD_AT = 3, GRAD_GAP = 6, GRAD_GAP_MAX = 24, GRAD_MASTER = 2;
   var gradClock = 0;
   try {
     var gcRaw = JSON.parse(localStorage.getItem('999.practice.grad') || 'null');
@@ -778,11 +783,19 @@
     e.s = (e.s || 0) + 1;
     if (e.s >= GRAD_AT) {
       e.g = (e.g || 0) + 1;
-      e.r = 1;
       e.s = 0;
-      e.at = gradClock;
-      e.back = gradClock + Math.round(gradGap(e.g) * refresherTrim(e.rc || 0));
-      e.rc = 0;                              /* this generation's refresher is priced */
+      if (e.g > GRAD_MASTER) {             /* two spaced refreshers survived:
+                                              the cell leaves for good */
+        e.r = 0;
+        e.m = 1;
+        e.back = 0;
+        e.at = gradClock;
+      } else {
+        e.r = 1;
+        e.at = gradClock;
+        e.back = gradClock + Math.round(gradGap(e.g) * refresherTrim(e.rc || 0));
+        e.rc = 0;                            /* this generation's refresher is priced */
+      }
     }
     saveLeaks();
   }
@@ -819,7 +832,7 @@
   }
   function refillQueue() {
     gradWakeDue();
-    leakQueue = weakestCells().filter(function (c) { return !c.r; })
+    leakQueue = weakestCells().filter(function (c) { return !c.r && !c.m; })
       .map(function (c) { return c.cell; });
   }
   /* the replay reel: the last misses, EXACTLY as they happened —
@@ -1149,9 +1162,10 @@
     /* the drill's roster rides the pill: cells holding honours
        beside cells still drilling \u2014 the panel's two crowds,
        read in one glance                                */
-    var roster = weakestCells(), gradN = 0, drillN = 0, ri;
-    for (ri = 0; ri < roster.length; ri++) (roster[ri].r ? gradN++ : drillN++);
-    if (gradN) el.textContent += ' \u00b7 \uD83C\uDF93' + gradN + ' \u00b7 ' + drillN + ' drilling';
+    var roster = weakestCells(), gradN = 0, drillN = 0, masterN = 0, ri;
+    for (ri = 0; ri < roster.length; ri++) (roster[ri].m ? masterN++ : roster[ri].r ? gradN++ : drillN++);
+    if (masterN || gradN) el.textContent += ' \u00b7 ' + (masterN ? '\uD83C\uDFC5' + masterN + ' \u00b7 ' : '') +
+      (gradN ? '\uD83C\uDF93' + gradN + ' \u00b7 ' : '') + drillN + ' drilling';
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
     var lb = document.getElementById('btnLeaks');
     if (lb) {
@@ -1305,15 +1319,17 @@
       '>all time</span></p>';
     var rows = cells.slice(0, 5).map(function (c) {
       var st = '';
-      if (c.r) st = ' \u00b7 \uD83C\uDF93' + (c.g || 1) + ' \u00b7 back in ' + Math.max(0, c.back - gradClock);
+      if (c.m) st = ' \u00b7 \uD83C\uDFC5 master';   /* two refreshers survived: gone for good, gold */
+      else if (c.r) st = ' \u00b7 \uD83C\uDF93' + (c.g || 1) + ' \u00b7 back in ' + Math.max(0, c.back - gradClock);
       else if (c.s) st = ' \u00b7 clean ' + c.s + '/' + GRAD_AT;
-      var tap = leakView === 'session' ? ' <span class="drilltap" data-cell="' + c.cell + '">drill now</span>' : '';
-      return '<li' + (c.r ? ' class="grad"' : '') + '>' + c.cell + ' \u00d7' + c.n +
+      var tap = leakView === 'session' && !c.m ? ' <span class="drilltap" data-cell="' + c.cell + '">drill now</span>' : '';
+      return '<li' + (c.r ? ' class="grad"' : c.m ? ' class="master"' : '') + '>' + c.cell + ' \u00d7' + c.n +
         ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + worseFlag(c.cell) + tap + '</li>';
-    }).join('');;
-    var next = null, retiredN = 0;
+    }).join('');
+    var next = null, retiredN = 0, masterN = 0;
     for (var ci = 0; ci < allCells.length; ci++) {
-      if (allCells[ci].r) retiredN++;
+      if (allCells[ci].m) masterN++;
+      else if (allCells[ci].r) retiredN++;
       else if (!next) next = allCells[ci];
     }
     var sessN = 0, sessCost = 0, sk;
@@ -1323,7 +1339,8 @@
       (leakView === 'session'
         ? (sessN ? 'This sitting: \u2212' + Math.round(sessCost) + ' in ' + sessN + ' miss' + (sessN === 1 ? '' : 'es') + '. '
                  : 'A clean sitting so far \u2014 nothing leaked this session. ')
-        : (retiredN ? '\uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced. ' : '')) +
+        : (retiredN ? '\uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced. ' : '') +
+        (masterN ? '\uD83C\uDFC5 ' + masterN + ' mastered \u2014 out of the drill for good. ' : '')) +
       (next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
             : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') + '</p>' +
       (leakView === 'session' && sessN
@@ -1530,6 +1547,7 @@
     if (reviewMode) { reviewMode = false; reviewIdx = 0; }   /* one mode at a time */
     if (!leakMode) { leakMode = true; if (!leakQueue.length) refillQueue(); }
     var e = leaks[cell];
+    if (e && e.m) return;                        /* a master has left the drill for good */
     if (e && e.r) { e.r = 0; e.back = 0; e.s = 0; saveLeaks(); }
     leakCell = cell;                             /* the forced cell \u2014 the queue keeps its order */
     renderCoach();

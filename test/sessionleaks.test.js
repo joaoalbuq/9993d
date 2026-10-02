@@ -214,8 +214,8 @@ console.log('drillNow: unknown cells are refused \u2014 only this sitting\u2019s
 /* --- wiring: rows carry the flag, session rows carry the tap --- */
 if (!/worseFlag\(c\.cell\)/.test(src))
   throw new Error('both tabs must read each row against the cell\u2019s history');
-if (!/leakView === 'session' \? ' <span class="drilltap" data-cell="' \+ c\.cell \+ '">drill now<\/span>' : ''/.test(src))
-  throw new Error('the tap must ride the session tab\u2019s rows only');
+if (!/leakView === 'session' && !c\.m \? ' <span class="drilltap"/.test(src))
+  throw new Error('the tap must ride the session tab\u2019s rows only, and never a mastered row');
 if (!/e\.target\.classList\.contains\('drilltap'\)/.test(src) ||
     !/drillNow\(e\.target\.getAttribute\('data-cell'\)\)/.test(src))
   throw new Error('the panel clicks must route the tap to drillNow');
@@ -230,12 +230,13 @@ if (!/tap a row to drill it now \\u2014 the all-time queue waits\./.test(src))
 console.log('wiring: rows flag drift, session rows tap to drill, the footer explains both');
 
 /* --- the pill's graduation roster: honours beside the drill --- */
-if (!/var roster = weakestCells\(\), gradN = 0, drillN = 0, ri;/.test(src))
+if (!/var roster = weakestCells\(\), gradN = 0, drillN = 0, masterN = 0, ri;/.test(src))
   throw new Error('renderCoach must read the roster once, for the pill and the pill visibility');
-if (!/\(roster\[ri\]\.r \? gradN\+\+ : drillN\+\+\);/.test(src))
+if (!/\(roster\[ri\]\.m \? masterN\+\+ : roster\[ri\]\.r \? gradN\+\+ : drillN\+\+\);/.test(src))
   throw new Error('the crowds must be counted by their retirement flag');
-if (!/if \(gradN\) el\.textContent \+= ' \\u00b7 \\uD83C\\uDF93' \+ gradN \+ ' \\u00b7 ' \+ drillN \+ ' drilling';/.test(src))
-  throw new Error('the pill must carry the two crowds \u2014 honours first, drills beside');
+if (!/\(masterN \? '\\uD83C\\uDFC5' \+ masterN \+ ' \\u00b7 ' : ''\) \+/.test(src) ||
+    !/\(gradN \? '\\uD83C\\uDF93' \+ gradN \+ ' \\u00b7 ' : ''\) \+ drillN \+ ' drilling';/.test(src))
+  throw new Error('the pill must carry the crowds \u2014 gold first, honours beside, drills last');
 if (!/lb\.hidden = coachOn && !roster\.length;/.test(src))
   throw new Error('the pill visibility must read the same roster, not a second walk');
 console.log('the pill roster: \u{1F393}N honours beside N still drilling \u2014 one walk, both crowds');

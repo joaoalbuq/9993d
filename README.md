@@ -620,7 +620,13 @@ answers with CORS headers.
   a cheap yank is a lesson nearly held and soft cells come back sooner
   than expensive ones, each generation measuring its own refresher;
   the panel showing the live streak meanwhile
-  ("clean 1/3"), and an all-graduated ledger falls back to the classic
+  ("clean 1/3"). **And there is a top of the ladder**: a cell that
+  survives two spaced refreshers — the third graduation — is a MASTER
+  with honours, 🏅 on the panel in gold, gone from the drill for good;
+  no miss, drill or felt, drags it back, no drill-now tap offers it,
+  the pill counts it first ("· 🏅1 · 🎓1 · 5 drilling"), and the
+  footer says so ("🏅 1 mastered — out of the drill for good"). An
+  all-done ledger falls back to the classic
   16 v 10 so the drill never runs dry. Live end to end: hard 12 v 2
   retired at clock 3 ("back in 6"), the countdown ticked down on the
   classic hands, and the woken cell was dealt again the moment its rest

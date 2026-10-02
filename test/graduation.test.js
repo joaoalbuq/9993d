@@ -46,7 +46,7 @@ function harness(clock) {
   const leaks = {};
   return {
     leaks,
-    gradClean: extract('gradClean', 'GRAD_AT, gradClock, gradGap, saveLeaks, leaks, refresherTrim')(3, clock, gradGap, function () {}, leaks, refresherTrim),
+    gradClean: extract('gradClean', 'GRAD_AT, gradClock, gradGap, saveLeaks, leaks, refresherTrim, GRAD_MASTER')(3, clock, gradGap, function () {}, leaks, refresherTrim, 2),
     gradMiss: extract('gradMiss', 'saveLeaks, leaks')(function () {}, leaks),
     gradWakeDue: extract('gradWakeDue', 'gradClock, saveLeaks, leaks')(clock, function () {}, leaks)
   };
@@ -94,8 +94,8 @@ if (!verdict.includes('gradClean(lastCell)') || !verdict.includes('gradMiss(last
   throw new Error('the hand verdict must feed graduation both ways, the yank priced');
 const ins = grab("      gradClean('insurance v ace')", "gradMiss('insurance v ace', cost)");
 if (!ins) throw new Error('the insurance verdict must graduate its cell too');
-if (!/refillQueue\(\);/.test(src) || !/function refillQueue\(\) \{[\s\S]*?return !c\.r;/.test(src))
-  throw new Error('the drill queue must wake the due and skip the retired');
+if (!/refillQueue\(\);/.test(src) || !/function refillQueue\(\) \{[\s\S]*?return !c\.r && !c\.m;/.test(src))
+  throw new Error('the drill queue must wake the due and skip the retired and mastered');
 if (!/if \(gradWakeDue\(\)\) leakQueue = \[\];/.test(src))
   throw new Error('every served hand must check the clock — the classic loop must not starve a wake');
 if (!/gradClock\+\+;[\s\S]{0,160}saveGrad\(\);/.test(src))
@@ -133,5 +133,42 @@ h7.leaks['hard 15 v 10'] = { n: 4, cost: 100, r: 1, back: 999, g: 1, s: 0 };
 h7.gradMiss('hard 15 v 10', 5000);           /* a monstrous yank is capped at the record */
 if (h7.leaks['hard 15 v 10'].rc !== 200) throw new Error('the recorded price is capped');
 console.log('the trim: a 12.5-chip yank rests 6 not 12, a full-price yank keeps 12 \u2014 soft cells return sooner');
+
+/* --- the masters: two spaced refreshers survived, the drill lets go --- */
+const hm = harness(60);
+hm.leaks['hard 12 v 3'] = { n: 3, cost: 20, g: 2, s: 2 };   /* twice graduated, once survived */
+hm.gradClean('hard 12 v 3');                                 /* the second refresher passed */
+const gm = hm.leaks['hard 12 v 3'];
+if (!gm.m || gm.r) throw new Error('the third graduation must master, not re-retire: ' + JSON.stringify(gm));
+if (gm.back !== 0) throw new Error('a master owes no rest');
+hm.gradClean('hard 12 v 3');                                 /* clean answers must not un-master it */
+hm.gradMiss('hard 12 v 3', 50);                              /* nor must a felt miss */
+if (!hm.leaks['hard 12 v 3'].m || hm.leaks['hard 12 v 3'].r)
+  throw new Error('a master stays mastered \u2014 nothing drags it back');
+const hw = harness(60);
+hw.leaks['hard 16 v 10'] = { n: 2, cost: 50, g: 1, s: 2, r: 1, back: 66 };  /* one refresher survived only */
+hw.leaks['hard 16 v 10'].r = 0; hw.leaks['hard 16 v 10'].s = 2;
+hw.gradClean('hard 16 v 10');                                /* the second graduation is not a master yet */
+if (!hw.leaks['hard 16 v 10'].r || hw.leaks['hard 16 v 10'].m)
+  throw new Error('two graduations = one refresher survived \u2014 still on the ladder');
+if (!/if \(e\.g > GRAD_MASTER\) \{/.test(src))
+  throw new Error('the master must be the third graduation, named');
+if (!/var GRAD_AT = 3, GRAD_GAP = 6, GRAD_GAP_MAX = 24, GRAD_MASTER = 2;/.test(src))
+  throw new Error('the master tier must be named, not magic');
+if (!/return !c\.r && !c\.m;/.test(src))
+  throw new Error('the queue must skip the mastered as well as the retired');
+if (!/m: leaks\[k\]\.m \? 1 : 0/.test(src))
+  throw new Error('the ranking must carry the master flag');
+if (!/mastered \\u2014 out of the drill for good/.test(src))
+  throw new Error('the panel footer must count the mastered');
+if (!/masterN \? '\\uD83C\\uDFC5' \+ masterN/.test(src))
+  throw new Error('the pill roster must carry the gold count first');
+if (!/if \(e && e\.m\) return;/.test(src))
+  throw new Error('drill-now must refuse a master \u2014 the drill let go for good');
+if (!/leakView === 'session' && !c\.m/.test(src))
+  throw new Error('a mastered row carries no drill-now tap');
+if (!/\.leaks li\.master \{ color: #d8b56a; \}/.test(src))
+  throw new Error('a mastered row wears gold');
+console.log('masters: two refreshers survived = gone for good \u2014 no miss drags them back, no tap, gold on the panel');
 
 console.log('\ngraduation verified');
