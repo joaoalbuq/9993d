@@ -721,6 +721,14 @@ answers with CORS headers.
   inside one, cool or warm inside two, cold or hot inside three, freak
   past that ("−13.1 luck · even" on one small hand; a 500 double losing
   flat is a different animal). Hot and cold are sizes, not moods.
+  **And the size is printed, not just named**: the strip ends in the
+  signed distance itself — `+2.0\u03c3 hot` on a rich shoe, `\u22120.1\u03c3
+  even` when twelve rounds have widened the spread — the gap divided
+  by the session's accumulated standard deviation, so a hot streak
+  knows HOW hot; the \u03c3 stays lowercase against the strip's
+  uppercasing (a sum's \u03a3 would confuse the read), the band still
+  naming the size beside it, and sessions banked without a spread
+  read exactly as before.
   **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle

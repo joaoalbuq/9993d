@@ -31,7 +31,10 @@ const luckWord = new Function('return function luckWord(s) {' + luckBody + '}')(
 const bandFull = grab('  function luckBand(s) {', '\n  }');
 const bandBody = bandFull.slice(bandFull.indexOf('{') + 1, bandFull.lastIndexOf('}'));
 const luckBand = new Function('return function luckBand(s) {' + bandBody + '}')();
-const evStripLine = new Function('fmt', 'luckWord', 'luckBand', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord, luckBand);
+const sigFull = grab('  function luckSigma(s) {', '\n  }');
+const sigBody = sigFull.slice(sigFull.indexOf('{') + 1, sigFull.lastIndexOf('}'));
+const luckSigma = new Function('return function luckSigma(s) {' + sigBody + '}')();
+const evStripLine = new Function('fmt', 'luckWord', 'luckBand', 'luckSigma', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord, luckBand, luckSigma);
 
 /* --- an empty session draws no line --- */
 if (evStripLine({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('empty session must draw nothing');
@@ -115,13 +118,27 @@ if (luckBand(grown) !== 'even')
   throw new Error('\u221221.9 over twelve rounds is ordinary: ' + luckBand(grown));
 console.log('the band: even < 1 spread, cool/warm < 2, cold/hot < 3, freak past \u2014 sizes, not moods');
 
-/* --- the strip carries the band; old sessions read unchanged --- */
+/* --- the sigma readout: the gap as a distance in the engine's
+       own spreads, signed — a hot streak knows how hot     --- */
+if (luckSigma({ ev: 0, felt: 0 }) !== '') throw new Error('no spread, no sigma');
+if (luckSigma({ ev: -3.1, felt: -25 }) !== '') throw new Error('a session without a spread cannot measure');
+if (luckSigma({ ev: 0, felt: 115, sd2: 13225 }) !== '+1.0\u03c3')
+  throw new Error('one spread hot reads +1.0\u03c3: ' + luckSigma({ ev: 0, felt: 115, sd2: 13225 }));
+if (luckSigma({ ev: 0, felt: -230, sd2: 13225 }) !== '\u22122.0\u03c3')
+  throw new Error('two spreads cold reads signed: ' + luckSigma({ ev: 0, felt: -230, sd2: 13225 }));
+if (luckSigma({ rounds: 12, ev: -3.1, felt: -25, sd2: 12 * 13225 }) !== '\u22120.1\u03c3')
+  throw new Error('a wide session measures small: ' + luckSigma({ rounds: 12, ev: -3.1, felt: -25, sd2: 12 * 13225 }));
+console.log('luckSigma: +1.0\u03c3 hot, \u22122.0\u03c3 cold, \u221221.9 over twelve rounds \u22120.1\u03c3 \u2014 the gap as a distance');
+
+/* --- the strip carries the sigma and its band; old sessions read unchanged --- */
 const banded = evStripLine({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
-if (!/2 rounds \u00b7 hot$/.test(banded)) throw new Error('the strip must end in the band: ' + banded);
+if (!/2 rounds \u00b7 <span class="sd">\+2\.1\u03c3<\/span> hot$/.test(banded)) throw new Error('the strip must end in the signed spread and its band: ' + banded);
+if (!/\.evstrip \.sd \{ text-transform: none; \}/.test(src))
+  throw new Error('the sigma must keep its case against the strip\u2019s uppercasing');
 if (!/<b>\+236\.0<\/b> luck/.test(banded)) throw new Error('the gap rides beside its band: ' + banded);
 const evenStrip = evStripLine({ rounds: 1, ev: 0, felt: 50, sd2: 13225 });
-if (!/1 round \u00b7 even$/.test(evenStrip)) throw new Error('an ordinary session says so: ' + evenStrip);
-console.log('the strip: the band rides the round count \u2014 and sessions without a spread read exactly as before');
+if (!/1 round \u00b7 <span class="sd">\+0\.4\u03c3<\/span> even$/.test(evenStrip)) throw new Error('an ordinary session says so, with its own width: ' + evenStrip);
+console.log('the strip: the sigma and the band ride the round count \u2014 and sessions without a spread read exactly as before');
 
 /* --- the wiring: variance accumulates where the legs do --- */
 if (!/var evSession = \{ rounds: 0, ev: 0, felt: 0, sd2: 0 \};/.test(src))
@@ -136,6 +153,10 @@ if (!/  renderCoach\(\);\n  renderCount\(\);\n  renderEvStrip\(\);/.test(src))
   throw new Error('the restored book must draw at boot, not only at the next settle');
 if (!/var HAND_SD = 1\.15;/.test(src))
   throw new Error('the hand spread must be named, not magic');
+if (!/  function luckSigma\(s\) \{/.test(src))
+  throw new Error('the quality readout must be its own named function');
+if (!/var band = luckBand\(s\), sig = luckSigma\(s\);/.test(src))
+  throw new Error('the strip must read the sigma beside the band');
 if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD \* \(doubled \? 2 \* bet : bet\), 2\);/.test(src))
   throw new Error('settle must bank the round\u2019s width \u2014 a double rides twice');
 if (!/evSession\.sd2 \+= insBet \* insBet \* \(1 \+ 3 \* td - Math\.pow\(3 \* td - 1, 2\)\);/.test(src))
