@@ -1566,11 +1566,14 @@
       if (lk[k].r) out[k].r = 1;
       if (typeof lk[k].back === 'number') out[k].back = lk[k].back;
       if (typeof lk[k].g === 'number') out[k].g = lk[k].g;
+      if (typeof lk[k].t === 'number') out[k].t = lk[k].t;    /* the felt's own toll rides too */
+      if (lk[k].m) out[k].m = 1;                              /* a master stays mastered */
     }
     if (!out[miss.cell]) out[miss.cell] = { n: 0, cost: 0 };
     out[miss.cell].n++;
     out[miss.cell].cost += miss.cost;
     out[miss.cell].s = 0;                     /* a felt miss undoes any graduation */
+    out[miss.cell].t = (out[miss.cell].t || 0) + 1;   /* and stamps itself: this one came off the felt */
     if (out[miss.cell].r) { out[miss.cell].r = 0; out[miss.cell].back = 0; }
     return out;
   }

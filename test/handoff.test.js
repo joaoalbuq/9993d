@@ -4,7 +4,10 @@
    cost you here. The merge is the property under test: the
    practice floor's own entries preserved, counts and costs
    accumulating across rounds, malformed junk ignored, and
-   the cell vocabulary identical on both pages.             */
+   the cell vocabulary identical on both pages. The merge also
+   stamps each cell with the misses that came off the felt —
+   the floor's own entries never wear one — and a master's
+   honours survive a felt miss.                             */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -46,6 +49,27 @@ if (lk['hard 16 v 10'].n !== 1 || lk['hard 16 v 10'].cost !== 0)
   throw new Error('a costless miss still lands: ' + JSON.stringify(lk['hard 16 v 10']));
 console.log('accumulation: ×2 −5.2 across two rounds; a costless miss still counts once');
 
+/* --- the hand-off badge: the ledger remembers which misses
+       came off the felt — the floor's own never wear a stamp --- */
+let tlk = {};
+tlk = leakMerge(tlk, { cell: 'hard 12 v 2', cost: 2.6 });
+tlk = leakMerge(tlk, { cell: 'hard 12 v 2', cost: 2.6 });
+if (tlk['hard 12 v 2'].t !== 2)
+  throw new Error('every felt miss must stamp its cell: ' + JSON.stringify(tlk['hard 12 v 2']));
+if (tlk['hard 12 v 2'].n !== 2)
+  throw new Error('the stamp counts misses, it must not double them: ' + JSON.stringify(tlk['hard 12 v 2']));
+const floorCell = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40, t: 1 } },
+  { cell: 'hard 16 v 10', cost: 2 });
+if (floorCell['soft 13 v Q'].t !== 1)
+  throw new Error('a cell must keep its felt toll through other cells\' misses: ' + JSON.stringify(floorCell['soft 13 v Q']));
+const unstamped = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40 } },
+  { cell: 'hard 16 v 10', cost: 2 });
+if (unstamped['soft 13 v Q'].t)
+  throw new Error('the merge must not invent a felt toll the floor never wrote: ' + JSON.stringify(unstamped['soft 13 v Q']));
+console.log('origin: felt misses stamp their cells, the floor\'s stay unstamped, stamps ride the merge');
+
 /* --- graduation rides the merge: a graduate untouched by other
        cells' misses keeps its honours; a felt miss on the
        graduate itself yanks it back to the drill         --- */
@@ -61,6 +85,16 @@ const yanked = leakMerge(
 if (yanked['soft 13 v Q'].r || yanked['soft 13 v Q'].back)
   throw new Error('a felt miss on a graduate must yank it back: ' + JSON.stringify(yanked['soft 13 v Q']));
 console.log('graduation rides the merge: honours kept, felt misses yank graduates back');
+
+/* --- a felt miss on a MASTER must not strip its honours --- */
+const mastered = leakMerge(
+  { 'hard 16 v 10': { n: 6, cost: 60, g: 3, m: 1, r: 0, s: 0, back: 0 } },
+  { cell: 'hard 16 v 10', cost: 4 });
+if (!mastered['hard 16 v 10'].m)
+  throw new Error('a felt miss must not unmaster a cell: ' + JSON.stringify(mastered['hard 16 v 10']));
+if (mastered['hard 16 v 10'].t !== 1)
+  throw new Error('even a master\'s felt toll is stamped: ' + JSON.stringify(mastered['hard 16 v 10']));
+console.log('origin: a master stays mastered under a felt miss, its toll still stamped');
 
 /* --- the cell vocabulary is byte-identical on both pages --- */
 const floorKey = floorSrc.match(/function leakKey\(soft, t, up\) \{\s*return \(soft \? 'soft ' : 'hard '\) \+ t \+ ' v ' \+ up;/);

@@ -709,7 +709,7 @@
     for (var k in leaks) if (leaks[k] && leaks[k].n) arr.push({
       cell: k, n: leaks[k].n, cost: leaks[k].cost,
       s: leaks[k].s || 0, r: leaks[k].r ? 1 : 0, m: leaks[k].m ? 1 : 0,
-      back: leaks[k].back || 0, g: leaks[k].g || 0
+      back: leaks[k].back || 0, g: leaks[k].g || 0, t: leaks[k].t || 0
     });
     arr.sort(function (a, b) { return b.cost - a.cost; });
     return arr;
@@ -1322,9 +1322,11 @@
       if (c.m) st = ' \u00b7 \uD83C\uDFC5 master';   /* two refreshers survived: gone for good, gold */
       else if (c.r) st = ' \u00b7 \uD83C\uDF93' + (c.g || 1) + ' \u00b7 back in ' + Math.max(0, c.back - gradClock);
       else if (c.s) st = ' \u00b7 clean ' + c.s + '/' + GRAD_AT;
+      var from = c.t ? ' \u00b7 \uD83C\uDFB0 ' + (c.t === c.n ? 'all ' + c.n : c.t + ' of ' + c.n) +
+        ' from the felt' : '';         /* the felt's share of the cell's toll */
       var tap = leakView === 'session' && !c.m ? ' <span class="drilltap" data-cell="' + c.cell + '">drill now</span>' : '';
       return '<li' + (c.r ? ' class="grad"' : c.m ? ' class="master"' : '') + '>' + c.cell + ' \u00d7' + c.n +
-        ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + worseFlag(c.cell) + tap + '</li>';
+        ' \u00b7 <b>\u2212' + Math.round(c.cost) + '</b>' + st + from + worseFlag(c.cell) + tap + '</li>';
     }).join('');
     var next = null, retiredN = 0, masterN = 0;
     for (var ci = 0; ci < allCells.length; ci++) {

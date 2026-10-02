@@ -10,7 +10,9 @@
    miss than its own history — and every session row carries a
    one-tap drill-now hand-off that forces the cell past the
    all-time queue. A class's FIRST miss of the sitting opens
-   the panel on the session tab by itself.                     */
+   the panel on the session tab by itself. The all-time rows
+   also badge each cell's felt share — how many of its misses
+   crossed over from the live table.                         */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -214,6 +216,8 @@ console.log('drillNow: unknown cells are refused \u2014 only this sitting\u2019s
 /* --- wiring: rows carry the flag, session rows carry the tap --- */
 if (!/worseFlag\(c\.cell\)/.test(src))
   throw new Error('both tabs must read each row against the cell\u2019s history');
+if (!/var from = c\.t \? ' \\u00b7 \\uD83C\\uDFB0 '/.test(src) || !/st \+ from \+ worseFlag\(c\.cell\)/.test(src))
+  throw new Error('the all-time rows must badge the felt\u2019s share of a cell\u2019s toll');
 if (!/leakView === 'session' && !c\.m \? ' <span class="drilltap"/.test(src))
   throw new Error('the tap must ride the session tab\u2019s rows only, and never a mastered row');
 if (!/e\.target\.classList\.contains\('drilltap'\)/.test(src) ||
@@ -227,7 +231,7 @@ if (!/\\u25B2 = bleeding more per miss than its own history/.test(src))
   throw new Error('the session tab must explain the \u25B2');
 if (!/tap a row to drill it now \\u2014 the all-time queue waits\./.test(src))
   throw new Error('the footer must name the hand-off');
-console.log('wiring: rows flag drift, session rows tap to drill, the footer explains both');
+console.log('wiring: rows flag drift and badge the felt\u2019s share, session rows tap to drill, the footer explains both');
 
 /* --- the pill's graduation roster: honours beside the drill --- */
 if (!/var roster = weakestCells\(\), gradN = 0, drillN = 0, masterN = 0, ri;/.test(src))

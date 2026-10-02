@@ -558,7 +558,13 @@ answers with CORS headers.
   a time so the floor's own entries are never clobbered, a hand
   abandoned mid-round teaches nothing, and the settle line says what
   crossed over ("· 1 miss to the practice shoe") — the drills there
-  then deal the felt's worst cell on purpose. The overlay's score
+  then deal the felt's worst cell on purpose. **And the ledger wears
+  the felt's share**: every hand-off stamps its cell with how many of
+  its misses crossed over, so the all-time rows read their provenance
+  at a glance ("hard 16 v 10 ×7 · −34 · 🎰 3 of 7 from the felt";
+  "🎰 all 4 from the felt" when the felt owns the whole record) while
+  the floor's own misses stay unstamped — and a master keeps its
+  honours even when the felt misses on it. The overlay's score
   line carries the luck gap too — the first decision prices the
   round's book with the same EV999 (at the box's own stake), the
   settle banks it against the player box's felt movement, and the
