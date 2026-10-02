@@ -791,6 +791,74 @@
   function saveLeaks() {
     try { localStorage.setItem('999.practice.leaks', JSON.stringify(leaks)); } catch (e) { }
   }
+  /* the week over week: the scorecard's headline cell, tracked.
+     A snapshot of the ledger's cumulative costs at each week's
+     first sighting gives that week's leak by subtraction, so
+     "is the worst cell improving?" is a difference of two weeks
+     rather than a hunch. Monday starts the week and the last
+     eight are kept; the felt's hand-offs ride in unchanged —
+     they land in the same ledger the snapshot reads.       */
+  var WEEK_KEEP = 8;
+  var weekBase = {};
+  try {
+    var wbRaw = JSON.parse(localStorage.getItem('999.practice.weekbase') || 'null');
+    if (wbRaw && typeof wbRaw === 'object') weekBase = wbRaw;
+  } catch (e) { }
+  function weekStart(ms) {                 /* Monday 00:00, local */
+    var d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d.getTime();
+  }
+  function prevWeek(ws) { var d = new Date(ws); d.setDate(d.getDate() - 7); return d.getTime(); }
+  function nextWeek(ws) { var d = new Date(ws); d.setDate(d.getDate() + 7); return d.getTime(); }
+  function weekSnap() {
+    var o = {}, k;
+    for (k in leaks) if (leaks[k] && leaks[k].n) o[k] = leaks[k].cost;
+    return o;
+  }
+  function saveWeek() {
+    var keys = [], k;
+    for (k in weekBase) keys.push(Number(k));
+    keys.sort(function (a, b) { return b - a; });
+    while (keys.length > WEEK_KEEP) delete weekBase[keys.pop()];
+    try { localStorage.setItem('999.practice.weekbase', JSON.stringify(weekBase)); } catch (e) { }
+  }
+  function weekMark(now) {                 /* the ledger's baseline for this week */
+    now = now || Date.now();
+    var ws = weekStart(now);
+    if (!weekBase[ws]) { weekBase[ws] = weekSnap(); saveWeek(); }
+    return ws;
+  }
+  /* chips leaked in week ws: the ledger's move from that week's
+     snapshot to the next week's — the present for this one.
+     Null when either end was never seen.                  */
+  function leakedIn(cell, ws, now) {
+    now = now || Date.now();
+    if (!weekBase[ws]) return null;
+    var before = weekBase[ws][cell] || 0;
+    if (ws === weekStart(now)) return ((leaks[cell] && leaks[cell].cost) || 0) - before;
+    var nx = weekBase[nextWeek(ws)];
+    if (!nx) return null;
+    return (nx[cell] || 0) - before;
+  }
+  /* the pill's weekly read: this week's worst leaker, weighed
+     against its own last week. No leak this week, or no last
+     week to weigh it, and the pill stays quiet.           */
+  function weekTrend(now) {
+    now = now || Date.now();
+    var cur = weekMark(now), prev = prevWeek(cur);
+    if (!weekBase[prev]) return null;
+    var worst = null, top = 0, k;
+    for (k in leaks) if (leaks[k] && leaks[k].n && !leaks[k].m) {
+      var l = leakedIn(k, cur, now);
+      if (l != null && l > top) { top = l; worst = k; }
+    }
+    if (!worst) return null;
+    var was = leakedIn(worst, prev, now);
+    return { cell: worst, now: top, was: was,
+             dir: was == null ? 0 : top < was ? -1 : top > was ? 1 : 0 };
+  }
   function gradGap(g) {
     var gap = GRAD_GAP;
     while (--g > 0 && gap < GRAD_GAP_MAX) gap *= 2;
@@ -1136,6 +1204,7 @@
       coachStats.streak = 0;
       coachStats.loss += cost;
       if (lastCell) {                    /* the leak ledger takes the miss */
+        weekMark();                        /* a fresh week baselines before the miss lands */
         if (!leaks[lastCell]) leaks[lastCell] = { n: 0, cost: 0 };
         leaks[lastCell].n++;
         leaks[lastCell].cost += cost;
@@ -1206,6 +1275,11 @@
     for (ri = 0; ri < roster.length; ri++) (roster[ri].m ? masterN++ : roster[ri].r ? gradN++ : drillN++);
     if (masterN || gradN) el.textContent += ' \u00b7 ' + (masterN ? '\uD83C\uDFC5' + masterN + ' \u00b7 ' : '') +
       (gradN ? '\uD83C\uDF93' + gradN + ' \u00b7 ' : '') + drillN + ' drilling';
+    /* week over week: the worst-leaking cell, and which way its
+       leak is moving against last week — down is improving   */
+    var wt = weekTrend();
+    if (wt) el.textContent += ' \u00b7 \uD83E\uDE79 ' + wt.cell +
+      (wt.dir < 0 ? ' \u25BC' : wt.dir > 0 ? ' \u25B2' : ' \u00b7');
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
     var lb = document.getElementById('btnLeaks');
     if (lb) {
@@ -2412,6 +2486,7 @@
     } else {
       coachStats.streak = 0;
       coachStats.loss += cost;
+      weekMark();
       if (!leaks['insurance v ace']) leaks['insurance v ace'] = { n: 0, cost: 0 };
       leaks['insurance v ace'].n++;
       leaks['insurance v ace'].cost += cost;

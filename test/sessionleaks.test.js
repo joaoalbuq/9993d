@@ -303,4 +303,71 @@ if (!/Ranks by the freshest tolls \\u2014 a month-old blow cools\./.test(src))
   throw new Error('the all-time panel must say the queue leans on the freshest tolls');
 console.log('weakestCells: a fresh \u221220 leaps a stale \u221260 \u2014 the queue follows this week, not last month');
 
+/* --- week over week: the pill follows the worst cell --- */
+const weekStart = extract('weekStart', '')();
+function oneLiner(name) {
+  const m = src.match(new RegExp('function ' + name + '\\(ws\\) \\{[^\\n]*\\}'));
+  if (!m) throw new Error('the week one-liner not found: ' + name);
+  return new Function('ws', m[0].slice(m[0].indexOf('{') + 1, -1) + '\nreturn ' + name + ';');
+}
+const prevWeek = oneLiner('prevWeek');
+const nextWeek = oneLiner('nextWeek');
+const mon = new Date(2026, 9, 5).getTime();          /* Mon 5 Oct 2026 */
+const wed = new Date(2026, 9, 7, 15, 0, 0).getTime(); /* Wed, inside that week */
+if (weekStart(wed) !== mon) throw new Error('the week must start on Monday 00:00: ' + new Date(weekStart(wed)));
+if (prevWeek(mon) !== new Date(2026, 8, 28).getTime()) throw new Error('the week before 5 Oct is 28 Sep');
+if (nextWeek(mon) !== new Date(2026, 9, 12).getTime()) throw new Error('the week after 5 Oct is 12 Oct');
+console.log('the week: Monday to Monday \u2014 7 Oct sits in the week starting 5 Oct');
+
+const LAST = new Date(2026, 8, 28).getTime(), CURR = mon, NOW = wed;
+const base = {};
+base[LAST] = { 'hard 16 v 10': 100, 'hard 12 v 2': 20 };
+base[CURR] = { 'hard 16 v 10': 130, 'hard 12 v 2': 25 };
+const live = { 'hard 16 v 10': { n: 4, cost: 160 }, 'hard 12 v 2': { n: 3, cost: 45 } };
+const leakedIn = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
+  grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(base, live, weekStart, nextWeek);
+if (leakedIn('hard 16 v 10', CURR, NOW) !== 30) throw new Error('this week 16 v 10 leaked 160\u2212130 = 30');
+if (leakedIn('hard 16 v 10', LAST, NOW) !== 30) throw new Error('last week 16 v 10 leaked 130\u2212100 = 30');
+if (leakedIn('hard 12 v 2', CURR, NOW) !== 20) throw new Error('this week 12 v 2 leaked 45\u221225 = 20');
+if (leakedIn('hard 16 v 10', new Date(2026, 8, 21).getTime(), NOW) !== null)
+  throw new Error('a week never seen leaks nothing known');
+console.log('leakedIn: a week\u2019s leak is two snapshots apart \u2014 30 this week, 30 last, 20 beside');
+
+function trendOf(weekBaseMap, liveMap) {
+  const li = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
+    grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(weekBaseMap, liveMap, weekStart, nextWeek);
+  return new Function('weekBase', 'leaks', 'weekMark', 'leakedIn', 'prevWeek', 'weekStart',
+    grab('  function weekTrend(', '\n  }') + '\nreturn weekTrend;')(weekBaseMap, liveMap,
+    function () { return CURR; }, li, prevWeek, weekStart);
+}
+let t = trendOf(base, live)(NOW);
+if (!t || t.cell !== 'hard 16 v 10' || t.dir !== 0) throw new Error('a flat week reads steady: ' + JSON.stringify(t));
+const improving = trendOf(base, { 'hard 16 v 10': { n: 4, cost: 135 }, 'hard 12 v 2': { n: 3, cost: 27 } })(NOW);
+if (!improving || improving.cell !== 'hard 16 v 10' || improving.dir !== -1)
+  throw new Error('a shrinking leak reads improving: ' + JSON.stringify(improving));
+const worseWeek = trendOf(base, { 'hard 16 v 10': { n: 6, cost: 200 }, 'hard 12 v 2': { n: 3, cost: 45 } })(NOW);
+if (!worseWeek || worseWeek.cell !== 'hard 16 v 10' || worseWeek.dir !== 1)
+  throw new Error('a growing leak reads worse: ' + JSON.stringify(worseWeek));
+const noPrev = {}; noPrev[CURR] = base[CURR];
+if (trendOf(noPrev, live)(NOW) !== null) throw new Error('no last week: the pill stays quiet');
+const flat = {}; flat[LAST] = base[LAST]; flat[CURR] = base[CURR];
+if (trendOf(flat, { 'hard 16 v 10': { n: 4, cost: 130 }, 'hard 12 v 2': { n: 3, cost: 25 } })(NOW) !== null)
+  throw new Error('no leak this week: the pill stays quiet');
+console.log('weekTrend: 16 v 10 off 30 twice is steady, down to 5 improving, up to 70 worse \u2014 and it hides when it cannot tell');
+
+/* --- wiring: the week persists, a miss baselines it, the pill shows it --- */
+if (!/'999\.practice\.weekbase'/.test(src) || !/function saveWeek\(\)/.test(src))
+  throw new Error('the weekly baselines must persist');
+if (!/if \(!weekBase\[ws\]\) \{ weekBase\[ws\] = weekSnap\(\); saveWeek\(\); \}/.test(src))
+  throw new Error('a week must be baselined once, at its first sighting');
+if (!/weekMark\(\);[^\n]*baselines before the miss lands/.test(src))
+  throw new Error('a miss must baseline its week before it lands');
+if (!/var wt = weekTrend\(\);/.test(src))
+  throw new Error('the pill must read the weekly trend');
+if (!/' \\u00b7 \\uD83E\\uDE79 ' \+ wt\.cell \+/.test(src))
+  throw new Error('the pill must name the week\u2019s worst cell');
+if (!/wt\.dir < 0 \? ' \\u25BC' : wt\.dir > 0 \? ' \\u25B2' : ' \\u00b7'/.test(src))
+  throw new Error('the pill must point the trend down, up, or steady');
+console.log('wiring: the week persists, a miss baselines it, the pill wears the direction');
+
 console.log('\nsession leaks verified');

@@ -662,7 +662,16 @@ answers with CORS headers.
   drill's queue and "Next hand" read that same decayed ranking. Live:
   a fresh −30 leapt a month-old −120 ("soft 18 v 9 ×2 · −30" first),
   and a live miss on the fresh cell re-dated it while the stale one
-  kept its old stamp.
+  kept its old stamp. **And the pill watches the trend, not just the
+  toll**: a snapshot of the ledger's cumulative costs at each week's
+  first sighting (`999.practice.weekbase`, Monday-to-Monday, the last
+  eight kept) gives each week's leak by subtraction — the felt's
+  hand-offs riding in untouched — so the week's worst leaker is weighed
+  against its own last week and the pill wears the direction ("· 🩹
+  hard 16 v 10 ▼" shrinking, "▲" growing, and quiet until a second
+  week exists to compare), the same Pareto headline the scorecard
+  names. Live: a 5-chip week against a 30-chip one read ▼, the same
+  cell tripled read ▲, and a lone week drew nothing.
 - **The speed-counting drill** — the full loop driven live both compressed
   and in REAL time: the flash phase held its wall clock (4651ms for 15
   cards at Fast ≈ 0.3s each), the recall timer ticked live (1.2s sampled),
