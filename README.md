@@ -771,7 +771,14 @@ answers with CORS headers.
   sixty percent of the money (at most three rows, an honest share
   when the loss is spread thin) — and the panel closes on
   "Scorecard: hard 16 v 10 ×2 −50 (59%) · hard 12 v 2 ×1 −25 (29%)
-  — 2 of 3 cells carry 88% of the −85. Drill these first."
+  — 2 of 3 cells carry 88% of the −85. Tap a cell to drill it first."
+  **And each named cell is a tap**: it jumps straight into the leak drill
+  on that cell — a one-click "drill now" from the review, accepting cells
+  the ledger holds (the felt's hand-offs too, not only this sitting's
+  misses) while a mastered cell keeps its name and loses the tap; the
+  drill fires immediately ("Drill: hard 16 v 10 — place any bet, the shoe
+  stacks it"), live-verified end to end (tapped from the scorecard, the
+  shoe dealt 6+10 against the 10).
 
 ## Layout
 

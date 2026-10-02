@@ -67,4 +67,13 @@ if (!/The house refunds each hand\.' \+\s*\n\s*\(feltN \? ' \\uD83C\\uDFB0 ' \+ 
   throw new Error('the scorecard must be the last word of the session review panel');
 console.log('panel order: list, fork row, refund note with the crossings — and the scorecard last');
 
+/* --- each named cell jumps straight into the drill --- */
+if (!/class="drilltap" data-cell="' \+ r3\.cell \+ '">' \+ r3\.cell/.test(src))
+  throw new Error('the scorecard must name each cell as a drill tap');
+if (!/var name = e && e\.m[\s\S]{0,40}?'<b>' \+ r3\.cell/.test(src))
+  throw new Error('a mastered cell must keep its name and lose the tap');
+if (!/Tap a cell to drill it first\./.test(src) || !/Tap a cell to drill it\./.test(src))
+  throw new Error('the scorecard must invite the tap');
+console.log('the tap: each named cell is a drill hand-off \u2014 mastered cells stay names, not buttons');
+
 console.log('\nreview scorecard verified');

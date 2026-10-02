@@ -1336,15 +1336,19 @@
       var scHtml = '';
       if (sc && sc.rows.length) {
         var scRows = sc.rows.map(function (r3) {
-          return '<b>' + r3.cell + '</b> \u00d7' + r3.n + ' \u2212' + Math.round(r3.cost) +
+          var e = leaks[r3.cell];            /* a mastered cell has left the drill: no tap */
+          var name = e && e.m
+            ? '<b>' + r3.cell + '</b>'
+            : '<span class="drilltap" data-cell="' + r3.cell + '">' + r3.cell + '</span>';
+          return name + ' \u00d7' + r3.n + ' \u2212' + Math.round(r3.cost) +
             ' (' + Math.round(100 * r3.cost / sc.total) + '%)';
         }).join(' \u00b7 ');
         scHtml = '<p class="drillnow">Scorecard: ' + scRows +
           (sc.rows.length === sc.cells
-            ? ' \u2014 the whole \u2212' + Math.round(sc.total) + ' sits in these ' + sc.cells + ' cells. Drill them.'
+            ? ' \u2014 the whole \u2212' + Math.round(sc.total) + ' sits in these ' + sc.cells + ' cells. Tap a cell to drill it.'
             : ' \u2014 ' + sc.rows.length + ' of ' + sc.cells + ' cells carry ' +
               Math.round(100 * sc.covered) + '% of the \u2212' + Math.round(sc.total) +
-              '. Drill these first.') + '</p>';
+              '. Tap a cell to drill it first.') + '</p>';
       }
       var feltN = 0, fi;
       for (fi = 0; fi < replay.length; fi++) if (replay[fi].felt) feltN++;
@@ -1590,7 +1594,9 @@
      wakes at once, and the shoe stacks the class the moment a
      bet lands (leakDeal serves leakCell inside deal()).     */
   function drillNow(cell) {
-    if (!cell || !sessionLeaks[cell]) return;    /* only a cell this sitting actually missed */
+    if (!cell || !(sessionLeaks[cell] || leaks[cell])) return;   /* a cell this sitting missed,
+                                                                    or one the ledger already holds
+                                                                    (the felt handed it over) */
     if (reviewMode) { reviewMode = false; reviewIdx = 0; }   /* one mode at a time */
     if (!leakMode) { leakMode = true; if (!leakQueue.length) refillQueue(); }
     var e = leaks[cell];

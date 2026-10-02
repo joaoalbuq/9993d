@@ -210,8 +210,13 @@ console.log('drillNow: a retired cell tapped by name wakes and persists');
 
 d = drillRun({ cell: 'soft 13 v Q' });
 if (d.out.mode || d.out.cell !== null)
-  throw new Error('a cell the sitting never missed must be refused');
-console.log('drillNow: unknown cells are refused \u2014 only this sitting\u2019s misses are drillable');
+  throw new Error('a cell in neither ledger must be refused');
+console.log('drillNow: a cell in neither ledger is refused \u2014 this sitting\u2019s misses are drillable');
+
+d = drillRun({ cell: 'hard 16 v 10', session: {}, leaks: { 'hard 16 v 10': { n: 3, cost: 30 } } });
+if (!d.out.mode || d.out.cell !== 'hard 16 v 10')
+  throw new Error('a ledger cell the scorecard names \u2014 a felt hand-off \u2014 must be drillable');
+console.log('drillNow: the scorecard\u2019s cells drill \u2014 the ledger\u2019s own, not only this sitting\u2019s');
 
 /* --- wiring: rows carry the flag, session rows carry the tap --- */
 if (!/worseFlag\(c\.cell\)/.test(src))
@@ -225,6 +230,8 @@ if (!/e\.target\.classList\.contains\('drilltap'\)/.test(src) ||
   throw new Error('the panel clicks must route the tap to drillNow');
 if (!/leakCell = cell;[^\n]*the queue keeps its order/.test(src))
   throw new Error('the tap must force leakCell, leaving the all-time queue\u2019s order alone');
+if (!/if \(!cell \|\| !\(sessionLeaks\[cell\] \|\| leaks\[cell\]\)\) return;/.test(src))
+  throw new Error('drill-now must accept the ledger\u2019s own cells as well as this sitting\u2019s');
 if (!/if \(e && e\.r\) \{ e\.r = 0; e\.back = 0; e\.s = 0; saveLeaks\(\); \}/.test(src))
   throw new Error('a graduate tapped by name must be woken and persisted');
 if (!/\\u25B2 = bleeding more per miss than its own history/.test(src))
