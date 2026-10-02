@@ -1557,7 +1557,8 @@
      practice floor's own entries are never clobbered. The
      record waits for the round to settle: a hand abandoned
      mid-round teaches nothing.                          */
-  var tLedger = [];                 /* this round's misses, flushed at settle */
+  var tLedger = [], tReel = [];     /* this round's misses — cells for the ledger,
+                                       whole hands for the reel — flushed at settle */
   function leakMerge(lk, miss) {    /* pure: the ledger after one miss lands */
     var out = {}, k;
     for (k in lk) if (lk[k] && typeof lk[k].n === 'number') {
@@ -1589,6 +1590,24 @@
     tLedger = [];
     try { localStorage.setItem('999.practice.leaks', JSON.stringify(lk)); } catch (e) { }
     return handed;
+  }
+  function flushReelT() {           /* the reel rides the same settle: the felt's
+                                       whole hands land in the practice shoe's
+                                       reel, the last twelve across both tables */
+    if (!tReel.length) return;
+    var reel = [];
+    try {
+      var raw = JSON.parse(localStorage.getItem('999.practice.replay') || 'null');
+      if (Array.isArray(raw)) reel = raw.filter(function (e) { return e && typeof e === 'object'; });
+    } catch (e) { }
+    var hole = game.dealer.cards[1];
+    for (var i = 0; i < tReel.length; i++) {
+      if (hole) { tReel[i].hole = hole.rank; tReel[i].holes = hole.suit; }
+      reel.push(tReel[i]);
+    }
+    tReel = [];
+    while (reel.length > 12) reel.shift();
+    try { localStorage.setItem('999.practice.replay', JSON.stringify(reel)); } catch (e2) { }
   }
   function fmtT(n) { return n > 0 ? '+' + n : String(n); }
   function capT(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -1701,8 +1720,17 @@
     else {                           /* the miss rides to the practice shoe's
                                         ledger at settle - cell for cell     */
       var vM = SHOE999.value(game.hands[YOUR].cards);
+      var hc = game.hands[YOUR].cards, dU = game.dealer.cards[0];
       tLedger.push({ cell: (vM.soft ? 'soft ' : 'hard ') + vM.total + ' v ' +
-        (game.dealer.cards[0] ? game.dealer.cards[0].rank : '10'), cost: cost });
+        (dU ? dU.rank : '10'), cost: cost });
+      tReel.push({                   /* ...and the reel keeps the whole hand —
+                                        the felt's miss replays on the practice felt */
+        yc: [hc[0].rank, hc[1].rank], ys: [hc[0].suit, hc[1].suit],
+        up: dU ? dU.rank : '10', us: dU ? dU.suit : '',
+        t: vM.total, soft: vM.soft,
+        choice: choice, book: trainBook, cost: Math.round(cost * 100) / 100,
+        felt: 1
+      });
     }
     saveT();
     trainMsg = ok ? '\u2713 book play' + (trainFlip ? ' \u2014 the count play' : '')
@@ -1975,6 +2003,7 @@
   function settle() {
     game.phase = 'settle';
     var tHanded = flushT();          /* the round settled: its misses belong to the practice shoe now */
+    flushReelT();                    /* ...and the reel keeps the whole hands for the review */
     var ds = score(game.dealer.cards);
     /* the payout walk (spec 4.4): every staked box takes its
        beat — the camera HOLDS it while its chips fly to the

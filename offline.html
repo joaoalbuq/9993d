@@ -1284,7 +1284,8 @@
       var rows2 = replay.slice(0, 8).map(function (r2, i2) {
         var mark = (i2 === reviewIdx % replay.length) ? '\u25B8 ' : '';
         return '<li>' + mark + (r2.soft ? 'soft ' : 'hard ') + r2.t + ' v ' + r2.up +
-          ' \u00b7 you played ' + r2.choice + ', book ' + r2.book + ' \u00b7 <b>\u2212' + r2.cost + '</b></li>';
+          ' \u00b7 you played ' + r2.choice + ', book ' + r2.book + ' \u00b7 <b>\u2212' + r2.cost + '</b>' +
+          (r2.felt ? ' \u00b7 \uD83C\uDFB0 the felt' : '') + '</li>';
       }).join('');
       var cur2 = replay[(reviewIdx + replay.length - 1) % replay.length];
       var forkHtml = cur2 && cur2.forkYou
@@ -1305,8 +1306,11 @@
               Math.round(100 * sc.covered) + '% of the \u2212' + Math.round(sc.total) +
               '. Drill these first.') + '</p>';
       }
+      var feltN = 0, fi;
+      for (fi = 0; fi < replay.length; fi++) if (replay[fi].felt) feltN++;
       box.innerHTML = '<h3>Session review</h3><ol>' + rows2 + '</ol>' + forkHtml +
-        '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.</p>' +
+        '<p class="drillnow">Your misses, costliest first \u2014 replayed on the felt. The house refunds each hand.' +
+        (feltN ? ' \uD83C\uDFB0 ' + feltN + ' crossed over from the live table.' : '') + '</p>' +
         scHtml;
       box.hidden = false;
       return;

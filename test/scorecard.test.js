@@ -62,9 +62,9 @@ if (capped.cells !== 10) throw new Error('ten distinct cells: ' + capped.cells);
 if (Math.abs(capped.covered - 0.3) > 1e-9) throw new Error('honest share when the cut caps: ' + capped.covered);
 console.log('cap: three rows max — 30% of a spread-out loss reported honestly');
 
-/* --- the panel ends on the scorecard --- */
-if (!/house refunds each hand\.<\/p>' \+\s*\n\s*scHtml;/.test(src))
+/* --- the panel ends on the scorecard (the felt's crossings ride the footer) --- */
+if (!/The house refunds each hand\.' \+\s*\n\s*\(feltN \? ' \\uD83C\\uDFB0 ' \+ feltN \+ ' crossed over from the live table\.' : ''\) \+ '<\/p>' \+\s*\n\s*scHtml;/.test(src))
   throw new Error('the scorecard must be the last word of the session review panel');
-console.log('panel order: list, fork row, refund note — and the scorecard last');
+console.log('panel order: list, fork row, refund note with the crossings — and the scorecard last');
 
 console.log('\nreview scorecard verified');

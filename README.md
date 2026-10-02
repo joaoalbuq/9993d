@@ -564,7 +564,14 @@ answers with CORS headers.
   at a glance ("hard 16 v 10 ×7 · −34 · 🎰 3 of 7 from the felt";
   "🎰 all 4 from the felt" when the felt owns the whole record) while
   the floor's own misses stay unstamped — and a master keeps its
-  honours even when the felt misses on it. The overlay's score
+  honours even when the felt misses on it. **And the reel keeps the
+  whole hands**: the settle hands the felt's misses to the practice
+  shoe's replay reel — cards, suits, upcard, the hole dealt in, the
+  chosen play against the book's, priced at the box's own stake — so
+  the review replays the live table's mistakes on the practice felt
+  with the side-by-side fork, rows badged "🎰 the felt" and the footer
+  counting the crossings ("🎰 1 crossed over from the live table"),
+  the reel holding the last twelve across both tables. The overlay's score
   line carries the luck gap too — the first decision prices the
   round's book with the same EV999 (at the box's own stake), the
   settle banks it against the player box's felt movement, and the

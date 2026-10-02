@@ -7,7 +7,10 @@
    the cell vocabulary identical on both pages. The merge also
    stamps each cell with the misses that came off the felt —
    the floor's own entries never wear one — and a master's
-   honours survive a felt miss.                             */
+   honours survive a felt miss. The settle also hands the reel
+   the felt's whole hands — cards, plays, price — so the
+   practice review replays the live table's misses on the
+   felt with the fork.                                      */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -96,6 +99,47 @@ if (mastered['hard 16 v 10'].t !== 1)
   throw new Error('even a master\'s felt toll is stamped: ' + JSON.stringify(mastered['hard 16 v 10']));
 console.log('origin: a master stays mastered under a felt miss, its toll still stamped');
 
+/* --- the reel rides the same settle: the felt's whole hands land
+       in the practice shoe's reel and replay with the fork     --- */
+const flushReelFull = grab(tableSrc, '  function flushReelT() {', '\n  }');
+function reelRun(storage, pending, dealerCards) {
+  const calls = [];
+  const ls = {
+    getItem: k => (k in storage ? storage[k] : null),
+    setItem: (k, v) => { calls.push(k); storage[k] = v; }
+  };
+  const game = { dealer: { cards: dealerCards } };
+  new Function('tReel', 'game', 'localStorage',
+    flushReelFull + '\nreturn flushReelT;')(pending.slice(), game, ls)();
+  return { storage: storage, calls: calls };
+}
+const feltHand = { yc: ['6', '10'], ys: [0, 1], up: '10', us: 2, t: 16, soft: false,
+  choice: 'hit', book: 'stand', cost: 8.91, felt: 1 };
+const rr = reelRun(
+  { '999.practice.replay': JSON.stringify([
+      { yc: ['9', '9'], up: '5', t: 18, soft: false, choice: 'stand', book: 'stand', cost: 0 },
+      null, 42]) },
+  [feltHand],
+  [{ rank: '9', suit: 3 }, { rank: '9', suit: 4 }]);
+const rrOut = JSON.parse(rr.storage['999.practice.replay']);
+if (rrOut.length !== 2) throw new Error('junk must drop, the floor\u2019s entries must stay: ' + rrOut.length);
+if (!rrOut[0] || !rrOut[0].yc) throw new Error('the floor\u2019s own reel entry rides through');
+if (!rrOut[1] || !rrOut[1].felt || rrOut[1].hole !== '9' || rrOut[1].holes !== 4)
+  throw new Error('the felt\u2019s hand must land whole, the hole dealt in: ' + JSON.stringify(rrOut[1]));
+console.log('reel hand-off: the felt\u2019s whole hands land with the hole, the floor\u2019s entries ride, junk drops');
+
+const full = [];
+for (let f = 0; f < 12; f++) full.push({ yc: ['2', '2'], up: '6', t: 4, soft: false, choice: 'hit', book: 'stand', cost: 1 });
+const rc = reelRun({ '999.practice.replay': JSON.stringify(full) }, [feltHand], []);
+const capped = JSON.parse(rc.storage['999.practice.replay']);
+if (capped.length !== 12 || !capped[capped.length - 1].felt)
+  throw new Error('the reel holds the last twelve \u2014 the felt\u2019s miss rides in as the oldest walks: ' + capped.length);
+console.log('reel hand-off: twelve deep \u2014 the felt\u2019s miss rides in, the oldest floor miss walks');
+
+const quiet = reelRun({ '999.practice.replay': JSON.stringify([{ yc: ['9', '9'] }]) }, [], []);
+if (quiet.calls.length) throw new Error('a clean settle writes nothing to the reel');
+console.log('reel hand-off: nothing to hand, nothing written');
+
 /* --- the cell vocabulary is byte-identical on both pages --- */
 const floorKey = floorSrc.match(/function leakKey\(soft, t, up\) \{\s*return \(soft \? 'soft ' : 'hard '\) \+ t \+ ' v ' \+ up;/);
 if (!floorKey) throw new Error('the floor\u2019s leakKey template drifted');
@@ -114,6 +158,16 @@ const flush = grab(tableSrc, '  function flushT() {', '\n  }');
 if (!flush.includes("'999.practice.leaks'")) throw new Error('the hand-off must write the practice shoe\u2019s key');
 if (!/tHanded \? ' \u00b7 ' \+ tHanded/.test(tableSrc))
   throw new Error('the settle line must name the hand-off');
-console.log('wiring: miss at the click, ledger at the settle, the felt says what it handed over');
+const vtGrab = grab(tableSrc, '  function verdictT(choice) {', 'saveT();');
+if (!vtGrab.includes('tReel.push(') || !vtGrab.includes('felt: 1') ||
+    !vtGrab.includes('yc: [hc[0].rank, hc[1].rank]'))
+  throw new Error('verdictT must hand the whole hand \u2014 cards, up, plays, price \u2014 to the reel');
+if (!/var tHanded = flushT\(\);[\s\S]{0,200}?flushReelT\(\);/.test(tableSrc))
+  throw new Error('settle must flush the reel beside the ledger');
+if (!/r2\.felt \? ' \\u00b7 \\uD83C\\uDFB0 the felt' : ''/.test(floorSrc))
+  throw new Error('the review rows must badge the felt\u2019s misses');
+if (!/crossed over from the live table/.test(floorSrc))
+  throw new Error('the review footer must count the felt\u2019s crossings');
+console.log('wiring: miss at the click, ledger and reel at the settle, the felt says what it handed over');
 
 console.log('\nhand-off verified');
