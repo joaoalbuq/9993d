@@ -34,7 +34,10 @@ const luckBand = new Function('return function luckBand(s) {' + bandBody + '}')(
 const sigFull = grab('  function luckSigma(s) {', '\n  }');
 const sigBody = sigFull.slice(sigFull.indexOf('{') + 1, sigFull.lastIndexOf('}'));
 const luckSigma = new Function('return function luckSigma(s) {' + sigBody + '}')();
-const evStripLine = new Function('fmt', 'luckWord', 'luckBand', 'luckSigma', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord, luckBand, luckSigma);
+const toneFull = grab('  function luckTone(s) {', '\n  }');
+const toneBody = toneFull.slice(toneFull.indexOf('{') + 1, toneFull.lastIndexOf('}'));
+const luckTone = new Function('return function luckTone(s) {' + toneBody + '}')();
+const evStripLine = new Function('fmt', 'luckWord', 'luckBand', 'luckSigma', 'luckTone', 'return function evStripLine(s) {' + fnBody + '}')(fmt, luckWord, luckBand, luckSigma, luckTone);
 
 /* --- an empty session draws no line --- */
 if (evStripLine({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('empty session must draw nothing');
@@ -128,14 +131,24 @@ if (luckSigma({ ev: 0, felt: -230, sd2: 13225 }) !== '\u22122.0\u03c3')
   throw new Error('two spreads cold reads signed: ' + luckSigma({ ev: 0, felt: -230, sd2: 13225 }));
 if (luckSigma({ rounds: 12, ev: -3.1, felt: -25, sd2: 12 * 13225 }) !== '\u22120.1\u03c3')
   throw new Error('a wide session measures small: ' + luckSigma({ rounds: 12, ev: -3.1, felt: -25, sd2: 12 * 13225 }));
+if (luckTone({ ev: 0, felt: 50 }) !== '') throw new Error('no spread, no colour');
+if (luckTone({ ev: 0, felt: 50, sd2: 13225 }) !== 'ok') throw new Error('inside one spread reads green');
+if (luckTone({ ev: 0, felt: -120, sd2: 13225 }) !== 'out') throw new Error('past one spread reads red');
+if (luckTone({ ev: 0, felt: 115, sd2: 13225 }) !== 'out') throw new Error('exactly one spread is not inside it');
 console.log('luckSigma: +1.0\u03c3 hot, \u22122.0\u03c3 cold, \u221221.9 over twelve rounds \u22120.1\u03c3 \u2014 the gap as a distance');
+console.log('luckTone: inside one spread green, past it red, no spread no colour');
 
 /* --- the strip carries the sigma and its band; old sessions read unchanged --- */
 const banded = evStripLine({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
 if (!/2 rounds \u00b7 <span class="sd">\+2\.1\u03c3<\/span> hot$/.test(banded)) throw new Error('the strip must end in the signed spread and its band: ' + banded);
 if (!/\.evstrip \.sd \{ text-transform: none; \}/.test(src))
   throw new Error('the sigma must keep its case against the strip\u2019s uppercasing');
-if (!/<b>\+236\.0<\/b> luck/.test(banded)) throw new Error('the gap rides beside its band: ' + banded);
+if (!/<b class="luck out">\+236\.0<\/b> luck/.test(banded)) throw new Error('the outlier gap wears red: ' + banded);
+if (!/\.evstrip b\.luck\.ok \{ color: #43c98a; \}/.test(src) ||
+    !/\.evstrip b\.luck\.out \{ color: #e2705f; \}/.test(src))
+  throw new Error('the strip must colour the luck green inside one spread, red past it');
+const quietLuck = evStripLine({ rounds: 1, ev: 0, felt: 50, sd2: 13225 });
+if (!/<b class="luck ok">\+50\.0<\/b> luck/.test(quietLuck)) throw new Error('the ordinary gap wears green: ' + quietLuck);
 const evenStrip = evStripLine({ rounds: 1, ev: 0, felt: 50, sd2: 13225 });
 if (!/1 round \u00b7 <span class="sd">\+0\.4\u03c3<\/span> even$/.test(evenStrip)) throw new Error('an ordinary session says so, with its own width: ' + evenStrip);
 console.log('the strip: the sigma and the band ride the round count \u2014 and sessions without a spread read exactly as before');
@@ -155,8 +168,8 @@ if (!/var HAND_SD = 1\.15;/.test(src))
   throw new Error('the hand spread must be named, not magic');
 if (!/  function luckSigma\(s\) \{/.test(src))
   throw new Error('the quality readout must be its own named function');
-if (!/var band = luckBand\(s\), sig = luckSigma\(s\);/.test(src))
-  throw new Error('the strip must read the sigma beside the band');
+if (!/var band = luckBand\(s\), sig = luckSigma\(s\), tone = luckTone\(s\);/.test(src))
+  throw new Error('the strip must read the sigma and the tone beside the band');
 if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD \* \(doubled \? 2 \* bet : bet\), 2\);/.test(src))
   throw new Error('settle must bank the round\u2019s width \u2014 a double rides twice');
 if (!/evSession\.sd2 \+= insBet \* insBet \* \(1 \+ 3 \* td - Math\.pow\(3 \* td - 1, 2\)\);/.test(src))
@@ -209,12 +222,15 @@ const tBand = new Function('return function luckBandT(s) {' +
 const tSigFull = tgrab('  function luckSigmaT(s) {', '\n  }');
 const tSig = new Function('return function luckSigmaT(s) {' +
   tSigFull.slice(tSigFull.indexOf('{') + 1, tSigFull.lastIndexOf('}')) + '}')();
+const tToneFull = tgrab('  function luckToneT(s) {', '\n  }');
+const tTone = new Function('return function luckToneT(s) {' +
+  tToneFull.slice(tToneFull.indexOf('{') + 1, tToneFull.lastIndexOf('}')) + '}')();
 const fmtNMatch = tsrc.match(/function fmtN\(n\) \{ return[^\n]*\}/);
 if (!fmtNMatch) throw new Error('the table plain-chips formatter not found');
 const fmtN = new Function('n', fmtNMatch[0].slice(fmtNMatch[0].indexOf('{') + 1, -1) + '\nreturn fmtN;');
 const tStripFull = tgrab('  function evStripT(s) {', '\n  }');
-const tStrip = new Function('fmtN', 'luckBandT', 'luckSigmaT', 'return function evStripT(s) {' +
-  tStripFull.slice(tStripFull.indexOf('{') + 1, tStripFull.lastIndexOf('}')) + '}')(fmtN, tBand, tSig);
+const tStrip = new Function('fmtN', 'luckBandT', 'luckSigmaT', 'luckToneT', 'return function evStripT(s) {' +
+  tStripFull.slice(tStripFull.indexOf('{') + 1, tStripFull.lastIndexOf('}')) + '}')(fmtN, tBand, tSig, tTone);
 if (tBand({ ev: 0, felt: 0 }) !== '') throw new Error('no spread, no table band');
 if (tBand({ ev: 0, felt: 0, sd2: 13225 }) !== 'even') throw new Error('inside one spread is even');
 if (tBand({ ev: 0, felt: 230, sd2: 13225 }) !== 'hot') throw new Error('past two spreads reads hot');
@@ -223,7 +239,12 @@ if (tStrip({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('an empty tabl
 const tLine = tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
 if (!/2 rounds \u00b7 <span class="sd">\+2\.1\u03c3<\/span> hot$/.test(tLine))
   throw new Error('the table strip must end in the sigma and its band: ' + tLine);
-if (!/<b>\+236\.0<\/b> luck/.test(tLine)) throw new Error('the table gap rides its strip: ' + tLine);
+if (!/<b class="luck out">\+236\.0<\/b> luck/.test(tLine)) throw new Error('the table outlier gap wears red: ' + tLine);
+if (tTone({ ev: 0, felt: 50, sd2: 13225 }) !== 'ok') throw new Error('the table reads green inside one spread');
+if (tTone({ ev: 0, felt: 115, sd2: 13225 }) !== 'out') throw new Error('exactly one spread is not inside it');
+if (!/\.training \.evstrip b\.luck\.ok \{ color: #43c98a; \}/.test(tsrc) ||
+    !/\.training \.evstrip b\.luck\.out \{ color: #e2705f; \}/.test(tsrc))
+  throw new Error('the table strip must colour the luck green inside one spread, red past it');
 if (!/var strip = evStripT\(trainStats\);/.test(tsrc))
   throw new Error('the overlay must draw the reconciliation strip under the score');
 if (!/var HAND_SD = 1\.15;/.test(tsrc))

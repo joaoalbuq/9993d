@@ -344,6 +344,8 @@
   }
   .evstrip b { color: #d8b56a; font-variant-numeric: tabular-nums; }
   .evstrip .sd { text-transform: none; }   /* the sigma keeps its case: σ, not sum's Σ */
+  .evstrip b.luck.ok { color: #43c98a; }   /* inside one spread: the edge holds */
+  .evstrip b.luck.out { color: #e2705f; }  /* past one: an outlier, either way */
   #btnLeaks.on { color: #d8b56a; border-color: rgba(216,181,106,0.5); }
   .speedstage { min-height: 8em; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4em; }
   .speedstage .card { position: relative; width: 5.4em; height: 7.6em; margin: 0; animation: speedpop 0.16s ease-out; }
@@ -968,14 +970,24 @@
     var z = (s.felt - s.ev) / sd;
     return (z < 0 ? '\u2212' : '+') + Math.abs(z).toFixed(1) + '\u03c3';
   }
+  /* the luck's colour: inside one spread the engine's edge is
+     holding and the number reads green; past one the gap is an
+     outlier and reads red. No spread, no colour \u2014 the
+     number keeps the strip's own gold.                    */
+  function luckTone(s) {
+    var sd = Math.sqrt(s.sd2 || 0);
+    if (!sd) return '';
+    return Math.abs(s.felt - s.ev) / sd < 1 ? 'ok' : 'out';
+  }
   function evStripLine(s) {
     if (!s || !s.rounds) return '';
     function w(v, dec) {
       return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmt(Math.abs(v)));
     }
-    var band = luckBand(s), sig = luckSigma(s);
-    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b>' +
-      luckWord(s) + '</b> luck \u00b7 ' + s.rounds + ' round' + (s.rounds === 1 ? '' : 's') +
+    var band = luckBand(s), sig = luckSigma(s), tone = luckTone(s);
+    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b' +
+      (tone ? ' class="luck ' + tone + '"' : '') + '>' + luckWord(s) + '</b> luck \u00b7 ' +
+      s.rounds + ' round' + (s.rounds === 1 ? '' : 's') +
       (sig ? ' \u00b7 <span class="sd">' + sig + '</span>' + (band ? ' ' + band : '') : '');
   }
   function renderEvStrip() {

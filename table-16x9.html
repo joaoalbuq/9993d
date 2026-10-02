@@ -208,6 +208,8 @@
   }
   .training .evstrip b { color: #d8b56a; font-variant-numeric: tabular-nums; }
   .training .evstrip .sd { text-transform: none; }   /* the sigma keeps its case: σ, not sum's Σ */
+  .training .evstrip b.luck.ok { color: #43c98a; }   /* inside one spread: the edge holds */
+  .training .evstrip b.luck.out { color: #e2705f; }  /* past one: an outlier, either way */
   .act.chip.on {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
@@ -1579,6 +1581,14 @@
     var z = (s.felt - s.ev) / sd;
     return (z < 0 ? '\u2212' : '+') + Math.abs(z).toFixed(1) + '\u03c3';
   }
+  /* the luck's colour, the floor's rule: inside one spread the
+     engine's edge is holding (green), past one the gap is an
+     outlier (red); no spread, no colour \u2014 gold.        */
+  function luckToneT(s) {
+    var sd = Math.sqrt(s.sd2 || 0);
+    if (!sd) return '';
+    return Math.abs(s.felt - s.ev) / sd < 1 ? 'ok' : 'out';
+  }
   function fmtN(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }   /* plain chips: the strip's felt */
   function evStripT(s) {
     if (!s || !s.rounds) return '';
@@ -1586,8 +1596,9 @@
     function w(v, dec) {
       return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmtN(Math.abs(v)));
     }
-    var band = luckBandT(s), sig = luckSigmaT(s);
-    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b>' +
+    var band = luckBandT(s), sig = luckSigmaT(s), tone = luckToneT(s);
+    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b' +
+      (tone ? ' class="luck ' + tone + '"' : '') + '>' +
       ((luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1)) + '</b> luck \u00b7 ' + s.rounds +
       ' round' + (s.rounds === 1 ? '' : 's') +
       (sig ? ' \u00b7 <span class="sd">' + sig + '</span>' + (band ? ' ' + band : '') : '');

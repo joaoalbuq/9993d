@@ -579,10 +579,10 @@ answers with CORS headers.
   and silent on a stakeless round. **And the measured strip rides the
   overlay too**: beneath the score the practice floor's reconciliation
   runs off the table's own books — "EV −2.0 engine · +400 felt · +402.0
-  luck · 3 rounds · +2.0\u03c3 hot" — the gap divided by the session's
+  luck · 3 rounds · +2.0σ hot" — the gap divided by the session's
   accumulated spread (each settled round banks the player box's stake at
   1.15 units, a double riding as a wider stake), signed and banded, the
-  \u03c3 kept lowercase against the overlay's uppercasing; the table banks
+  σ kept lowercase against the overlay's uppercasing; the table banks
   no insurance leg, so only the hand widens it, and a book from before
   the spread keeps its totals with the band waiting. Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
@@ -729,13 +729,19 @@ answers with CORS headers.
   past that ("−13.1 luck · even" on one small hand; a 500 double losing
   flat is a different animal). Hot and cold are sizes, not moods.
   **And the size is printed, not just named**: the strip ends in the
-  signed distance itself — `+2.0\u03c3 hot` on a rich shoe, `\u22120.1\u03c3
+  signed distance itself — `+2.0σ hot` on a rich shoe, `−0.1σ
   even` when twelve rounds have widened the spread — the gap divided
   by the session's accumulated standard deviation, so a hot streak
-  knows HOW hot; the \u03c3 stays lowercase against the strip's
-  uppercasing (a sum's \u03a3 would confuse the read), the band still
+  knows HOW hot; the σ stays lowercase against the strip's
+  uppercasing (a sum's Σ would confuse the read), the band still
   naming the size beside it, and sessions banked without a spread
-  read exactly as before.
+  read exactly as before. **And the luck number is coloured by how
+  ordinary it is**: inside one spread — the engine's edge simply
+  holding — it prints green (`#43c98a`); past one the gap is an
+  outlier and prints red (`#e2705f`), hot or cold alike; with no
+  spread yet it keeps the strip's gold. Live: `+2.0σ` over three
+  rounds read red and `+50.0` inside one spread read green, on the
+  practice strip and the table overlay both.
   **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle
