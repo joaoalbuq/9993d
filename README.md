@@ -574,10 +574,17 @@ answers with CORS headers.
   the reel holding the last twelve across both tables. The overlay's score
   line carries the luck gap too — the first decision prices the
   round's book with the same EV999 (at the box's own stake), the
-  settle banks it against the player box's felt movement, and the
-  score line reads "Coach 83% · 19/23 · −2.9/dev · −13.1 luck" —
+  settle banks it against the player box's felt movement, and  the score line reads "Coach 83% · 19/23 · −2.9/dev · −13.1 luck" —
   the same word the practice pill reads, persisted in the trainstats
-  and silent on a stakeless round. Live on the practice floor: the stacked "insurance v ace"
+  and silent on a stakeless round. **And the measured strip rides the
+  overlay too**: beneath the score the practice floor's reconciliation
+  runs off the table's own books — "EV −2.0 engine · +400 felt · +402.0
+  luck · 3 rounds · +2.0\u03c3 hot" — the gap divided by the session's
+  accumulated spread (each settled round banks the player box's stake at
+  1.15 units, a double riding as a wider stake), signed and banded, the
+  \u03c3 kept lowercase against the overlay's uppercasing; the table banks
+  no insurance leg, so only the hand widens it, and a book from before
+  the spread keeps its totals with the band waiting. Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
   "Book: Decline — insurance turns at true +3 (now true −1)", decline
   "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray

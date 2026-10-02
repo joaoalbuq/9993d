@@ -172,10 +172,12 @@ function tgrab(a, b) {
   if (i < 0 || j < 0) throw new Error('table anchor miss: ' + a);
   return tsrc.slice(i, j + b.length);
 }
-if (!/var trainStats = \{ decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0 \};/.test(tsrc))
+if (!/var trainStats = \{ decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0, sd2: 0 \};/.test(tsrc))
   throw new Error('the table score must carry the book in its own stats');
 if (!/typeof trainStats\.ev !== 'number' \|\| typeof trainStats\.rounds !== 'number'/.test(tsrc))
   throw new Error('an old stored score must migrate, not NaN');
+if (!/typeof trainStats\.sd2 !== 'number'\) trainStats\.sd2 = 0;/.test(tsrc))
+  throw new Error('a book from before the spread must keep its totals, its band waiting');
 if (!/var evRoundT = false, evPricedT = false, evBookT = 0;/.test(tsrc))
   throw new Error('the round book must start closed');
 if (!/evRoundT = true; evPricedT = false; evBookT = 0;/.test(tsrc))
@@ -192,10 +194,42 @@ const tCommit = tgrab('if (evRoundT && evPricedT) {', 'renderTrain();\n    }');
 if (!/trainStats\.rounds\+\+;/.test(tCommit) || !/trainStats\.ev \+= evBookT;/.test(tCommit) ||
     !/trainStats\.felt \+= myNet;/.test(tCommit) || !/saveT\(\);/.test(tCommit))
   throw new Error('settle must commit both legs and save, like the practice floor');
+if (!/trainStats\.sd2 \+= Math\.pow\(HAND_SD \* \(game\.hands\[YOUR\]\.stake \|\| UNIT_BET\), 2\);/.test(tCommit))
+  throw new Error('the table settle must bank the round\u2019s width');
 if (!/var tLuck = trainStats\.rounds \? ' \\u00b7 ' \+ luckT\(\) \+ ' luck' : '';/.test(tsrc))
   throw new Error('the score line must carry the gap only once a round is booked');
 if (!/function luckT\(\) \{[\s\S]{0,60}trainStats\.felt - trainStats\.ev/.test(tsrc))
   throw new Error('the table\u2019s luck is the same gap: felt minus engine');
 console.log('the live table: the score line carries the luck \u2014 same engine, same gap, persisted in the trainstats');
+
+/* --- the table's own strip: the same reconciliation, measured --- */
+const tBandFull = tgrab('  function luckBandT(s) {', '\n  }');
+const tBand = new Function('return function luckBandT(s) {' +
+  tBandFull.slice(tBandFull.indexOf('{') + 1, tBandFull.lastIndexOf('}')) + '}')();
+const tSigFull = tgrab('  function luckSigmaT(s) {', '\n  }');
+const tSig = new Function('return function luckSigmaT(s) {' +
+  tSigFull.slice(tSigFull.indexOf('{') + 1, tSigFull.lastIndexOf('}')) + '}')();
+const fmtNMatch = tsrc.match(/function fmtN\(n\) \{ return[^\n]*\}/);
+if (!fmtNMatch) throw new Error('the table plain-chips formatter not found');
+const fmtN = new Function('n', fmtNMatch[0].slice(fmtNMatch[0].indexOf('{') + 1, -1) + '\nreturn fmtN;');
+const tStripFull = tgrab('  function evStripT(s) {', '\n  }');
+const tStrip = new Function('fmtN', 'luckBandT', 'luckSigmaT', 'return function evStripT(s) {' +
+  tStripFull.slice(tStripFull.indexOf('{') + 1, tStripFull.lastIndexOf('}')) + '}')(fmtN, tBand, tSig);
+if (tBand({ ev: 0, felt: 0 }) !== '') throw new Error('no spread, no table band');
+if (tBand({ ev: 0, felt: 0, sd2: 13225 }) !== 'even') throw new Error('inside one spread is even');
+if (tBand({ ev: 0, felt: 230, sd2: 13225 }) !== 'hot') throw new Error('past two spreads reads hot');
+if (tSig({ ev: 0, felt: 115, sd2: 13225 }) !== '+1.0\u03c3') throw new Error('one spread reads +1.0\u03c3: ' + tSig({ ev: 0, felt: 115, sd2: 13225 }));
+if (tStrip({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('an empty table book draws no strip');
+const tLine = tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
+if (!/2 rounds \u00b7 <span class="sd">\+2\.1\u03c3<\/span> hot$/.test(tLine))
+  throw new Error('the table strip must end in the sigma and its band: ' + tLine);
+if (!/<b>\+236\.0<\/b> luck/.test(tLine)) throw new Error('the table gap rides its strip: ' + tLine);
+if (!/var strip = evStripT\(trainStats\);/.test(tsrc))
+  throw new Error('the overlay must draw the reconciliation strip under the score');
+if (!/var HAND_SD = 1\.15;/.test(tsrc))
+  throw new Error('the table hand spread must be named, not magic');
+if (!/\.training \.evstrip \.sd \{ text-transform: none; \}/.test(tsrc))
+  throw new Error('the table sigma must keep its case against the overlay\u2019s uppercasing');
+console.log('the table strip: its own measured reconciliation \u2014 +236.0 luck over two rounds reads +2.1\u03c3 hot');
 
 console.log('\nev strip verified');

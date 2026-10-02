@@ -202,6 +202,12 @@
     font-size: 0.74em; letter-spacing: 0.06em; line-height: 1.55;
     color: #e8e4d8; font-variant-numeric: tabular-nums;
   }
+  .training .evstrip {
+    margin: 0.35em 0 0; letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
+  .training .evstrip b { color: #d8b56a; font-variant-numeric: tabular-nums; }
+  .training .evstrip .sd { text-transform: none; }   /* the sigma keeps its case: σ, not sum's Σ */
   .act.chip.on {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
@@ -1512,7 +1518,7 @@
      the moment the book was marked. Persisted separately from
      the practice shoe (999.table.trainstats vs the practice
      keys), so a night at the felt never muddies the drills.  */
-  var trainStats = { decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0 };
+  var trainStats = { decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0, sd2: 0 };
   try {
     var tsRaw = JSON.parse(localStorage.getItem('999.table.trainstats') || 'null');
     if (tsRaw && typeof tsRaw.decisions === 'number' && typeof tsRaw.book === 'number') {
@@ -1522,9 +1528,11 @@
         trainStats.lossBase = Math.max(0, (tsRaw.decisions - tsRaw.book) || 0);
       }
       if (typeof trainStats.ev !== 'number' || typeof trainStats.rounds !== 'number') {
-        trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0;   /* a score from
+        trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;   /* a score from
                                             before the luck: the old book stays honest */
       }
+      if (typeof trainStats.sd2 !== 'number') trainStats.sd2 = 0;   /* a book from before
+                                            the spread: the totals stay, the band waits */
     }
   } catch (e) { }
   /* the luck: the first decision's chosen play, priced by the same
@@ -1549,6 +1557,40 @@
   }
   function saveT() {
     try { localStorage.setItem('999.table.trainstats', JSON.stringify(trainStats)); } catch (e) { }
+  }
+  /* the reconciliation, measured: the practice floor's strip rides
+     the overlay too, off its OWN books — the felt-minus-engine gap
+     divided by the session's accumulated spread, signed and banded,
+     so the felt's hot nights know how hot they are. The table banks
+     no insurance leg, so only the hand's stake widens the spread.  */
+  var HAND_SD = 1.15;                    /* a blackjack hand's spread, in betting units */
+  function luckBandT(s) {
+    var sd = Math.sqrt(s.sd2 || 0);
+    if (!sd) return '';
+    var luck = s.felt - s.ev, z = Math.abs(luck) / sd;
+    if (z < 1) return 'even';
+    if (z < 2) return luck < 0 ? 'cool' : 'warm';
+    if (z < 3) return luck < 0 ? 'cold' : 'hot';
+    return luck < 0 ? 'freak cold' : 'freak hot';
+  }
+  function luckSigmaT(s) {
+    var sd = Math.sqrt(s.sd2 || 0);
+    if (!sd) return '';
+    var z = (s.felt - s.ev) / sd;
+    return (z < 0 ? '\u2212' : '+') + Math.abs(z).toFixed(1) + '\u03c3';
+  }
+  function fmtN(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }   /* plain chips: the strip's felt */
+  function evStripT(s) {
+    if (!s || !s.rounds) return '';
+    var luck = s.felt - s.ev;
+    function w(v, dec) {
+      return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmtN(Math.abs(v)));
+    }
+    var band = luckBandT(s), sig = luckSigmaT(s);
+    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b>' +
+      ((luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1)) + '</b> luck \u00b7 ' + s.rounds +
+      ' round' + (s.rounds === 1 ? '' : 's') +
+      (sig ? ' \u00b7 <span class="sd">' + sig + '</span>' + (band ? ' ' + band : '') : '');
   }
   /* the hand-off: the felt's misses ride to the practice shoe's
      leak ledger, cell for cell, so the drills there aim at what
@@ -1681,6 +1723,8 @@
                                               the same word the practice pill reads */
     html += '<br>' + (tPct == null ? 'Coach'
       : 'Coach ' + tPct + '% \u00b7 ' + trainStats.book + '/' + trainStats.decisions + tPer + tLuck);
+    var strip = evStripT(trainStats);      /* the reconciliation strip, under the score */
+    if (strip) html += '<div class="evstrip">' + strip + '</div>';
     if (game.dealer.cards.length === 1 && game.dealer.cards[0] && game.dealer.cards[0].rank === 'A') {
       var insTc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
       html += '<br>Insurance turns at true +' + INDEX999.INSURE_AT + ' (now ' + fmtT(insTc) + ')';
@@ -2036,6 +2080,8 @@
       trainStats.rounds++;
       trainStats.ev += evBookT;
       trainStats.felt += myNet;
+      trainStats.sd2 += Math.pow(HAND_SD * (game.hands[YOUR].stake || UNIT_BET), 2);   /* the round's
+                                                          own width, the box's stake */
       saveT();
       renderTrain();
     }
