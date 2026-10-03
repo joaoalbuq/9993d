@@ -8,11 +8,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
-
-const evStart = src.indexOf('var EV999 = (function () {');
-const evEnd = src.indexOf('})();', evStart) + 5;
-const EV999 = eval(src.slice(evStart, evEnd) + '\nEV999;');
+const EV999 = require('../ev999.js');
 
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const val = (r) => r === 'A' ? 11 : (r === '10' || r === 'J' || r === 'Q' || r === 'K') ? 10 : parseInt(r, 10);

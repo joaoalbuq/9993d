@@ -186,7 +186,7 @@ console.log('the ration: a new class opens it, then one class every six hands \u
 /* --- wiring: every miss lands twice, the tabs re-render --- */
 const verdict = grab('  function coachVerdict(choice) {', 'var entry = {');
 if (!verdict.includes('leakMiss(lastCell, cost)')) throw new Error('a hand miss must land in the session ledger');
-if (!/function leakMiss\(cell, cost\) \{[\s\S]{0,700}return sessionMiss\(cell, cost\);/.test(src))
+if (!/function leakMiss\(cell, cost, src\) \{[\s\S]{0,1000}return sessionMiss\(cell, cost, src\);/.test(src))
   throw new Error('the ledger write must be one shared path the quiz can reach too');
 const ins = grab("gradClean('insurance v ace')", 'replay.push({');
 if (!ins.includes("leakMiss('insurance v ace', cost)"))
@@ -295,9 +295,9 @@ if (!d.out.mode || d.out.cell !== 'hard 16 v 10')
 console.log('drillNow: the scorecard\u2019s cells drill \u2014 the ledger\u2019s own, not only this sitting\u2019s');
 
 /* --- wiring: rows carry the flag, session rows carry the tap --- */
-if (!/worseFlag\(c\.cell\)/.test(src))
+if (!/driftFlag\(c\.cell, leakView\)/.test(src))
   throw new Error('both tabs must read each row against the cell\u2019s history');
-if (!/var from = c\.t \? ' \\u00b7 \\uD83C\\uDFB0 '/.test(src) || !/st \+ from \+ worseFlag\(c\.cell\)/.test(src))
+if (!/var from = c\.t \? ' \\u00b7 \\uD83C\\uDFB0 '/.test(src) || !/st \+ from \+ recall \+ driftFlag\(c\.cell, leakView\)/.test(src))
   throw new Error('the all-time rows must badge the felt\u2019s share of a cell\u2019s toll');
 if (!/leakView === 'session' && !c\.m \? ' <span class="drilltap"/.test(src))
   throw new Error('the tap must ride the session tab\u2019s rows only, and never a mastered row');
@@ -315,6 +315,94 @@ if (!/\\u25B2 = bleeding more per miss than its own history/.test(src))
 if (!/tap a row to drill it now \\u2014 the all-time queue waits\./.test(src))
   throw new Error('the footer must name the hand-off');
 console.log('wiring: rows flag drift and badge the felt\u2019s share, session rows tap to drill, the footer explains both');
+
+/* --- allTimeDrift: the all-time tab reads the record, not the
+       sitting — the last CLOSED week against the cell\u2019s own
+       average week, so a class that climbed last month still
+       wears \u25B2 today with no hand played at all. --- */
+const wS = extract('weekStart', '')();
+const pW = extract('prevWeek', '')();
+/* both ledgers travel together: leakedIn must read the very objects
+   allTimeDrift divides by, so they share one pair of references */
+const wbRef = {}, lkRef = {};
+const lI = extract('leakedIn', 'weekBase, leaks, nextWeek, weekStart')(
+  wbRef, lkRef, extract('nextWeek', '')(), wS);
+const ATD = new Function('leaks', 'weekBase', 'weekStart', 'prevWeek', 'leakedIn',
+  grab('  function allTimeDrift(', '\n  }') + '\nreturn allTimeDrift;');
+
+/* a Wednesday, four Mondays of snapshots, so three weeks are measurable */
+const DAY = 24 * 60 * 60 * 1000;
+const WED = new Date(2024, 2, 20, 12, 0, 0).getTime();   /* 20 Mar 2024, a Wednesday */
+const W0 = wS(WED - 21 * DAY), W1 = wS(WED - 14 * DAY),
+  W2 = wS(WED - 7 * DAY), W3 = wS(WED);
+/* the climber: 60 chips a week for three weeks, then 280 last week.
+   leakedIn(ws) is the snapshot AT ws+1 minus the one AT ws, so the
+   W3 snapshot is the close of W2 \u2014 and the open week is whatever
+   the ledger has run past it.                                */
+const atBase = {};
+atBase[W0] = {};                              /* first sighting: nothing before */
+atBase[W1] = { 'hard 16 v 10': 60 };
+atBase[W2] = { 'hard 16 v 10': 120 };
+atBase[W3] = { 'hard 16 v 10': 400 };          /* W2 closed hard: 400 \u2212 120 */
+const led = { 'hard 16 v 10': { n: 20, cost: 480 } };   /* 80 so far this week */
+function driftOf(l, b, cell) {
+  for (const k in lkRef) delete lkRef[k];
+  Object.assign(lkRef, l);
+  for (const k in wbRef) delete wbRef[k];
+  Object.assign(wbRef, b);
+  return ATD(lkRef, wbRef, wS, pW, lI)(cell, WED);
+}
+const atDrift = driftOf(led, atBase, 'hard 16 v 10');
+if (!atDrift || Math.abs(atDrift.was - 280) > 1e-9)
+  throw new Error('last week is the W2\u2192W3 move: ' + JSON.stringify(atDrift));
+if (!atDrift || Math.abs(atDrift.avg - 480 / 4) > 1e-9 || Math.abs(atDrift.x - 280 / 120) > 1e-9)
+  throw new Error('the average week divides the whole toll by the four measurable weeks: ' + JSON.stringify(atDrift));
+const atQuiet = driftOf({ 'hard 12 v 2': { n: 20, cost: 480 } }, atBase, 'hard 12 v 2');
+if (atQuiet !== null) throw new Error('a cell absent from the snapshots cannot drift');
+if (driftOf({}, atBase, 'hard 16 v 10') !== null)
+  throw new Error('an unmissed cell cannot drift');
+/* a flat cell: every week the same 10 chips, never flagged */
+const atFlat = {};
+atFlat[W0] = {}; atFlat[W1] = { 'hard 9 v 2': 10 };
+atFlat[W2] = { 'hard 9 v 2': 20 }; atFlat[W3] = { 'hard 9 v 2': 30 };
+if (driftOf({ 'hard 9 v 2': { n: 4, cost: 40 } }, atFlat, 'hard 9 v 2') !== null)
+  throw new Error('a cell running exactly its average week is not drifting');
+/* the open week must never be the read. That same flat cell then
+   runs up a fortune THIS week, and must stay unflagged \u2014 a
+   part-run week read as the trend would wear the glyph on every
+   cell by Tuesday.                                          */
+const hot = driftOf({ 'hard 9 v 2': { n: 4, cost: 99999 } }, atFlat, 'hard 9 v 2');
+if (hot !== null)
+  throw new Error('the part-run week is not the recent trend: ' + JSON.stringify(hot));
+/* and a loud open week must not silence a real climber either */
+if (driftOf({ 'hard 16 v 10': { n: 20, cost: 99999 } }, atBase, 'hard 16 v 10') !== null)
+  throw new Error('a loud open week must not silence a real climber');
+/* too few weeks to judge: a lone snapshot, no history behind it */
+if (driftOf({ 'hard 10 v 10': { n: 4, cost: 40 } }, { [W3]: {} }, 'hard 10 v 10') !== null)
+  throw new Error('with no measurable history there is nothing to read');
+console.log('allTimeDrift: \u25B2280 last week v 120 a week flags a climber; flat, fresh and open weeks stay quiet');
+
+/* --- driftFlag: one flag per row, strongest read the tab offers --- */
+const driftFlag = new Function('allTimeDrift', 'worseFlag',
+  grab('  function driftFlag(', '\n  }') + '\nreturn driftFlag;')(
+  () => ({ was: 280, avg: 120, x: 2.33 }),
+  () => ' \u00b7 \u25B2fallback');
+const allRow = driftFlag('hard 16 v 10', 'all');
+if (allRow.indexOf('\u25B2280 last week v 120 a week') < 0 || allRow.indexOf('fallback') >= 0)
+  throw new Error('the all-time tab must lead with the record\u2019s own read: ' + allRow);
+if (!/<span class="wk up"/.test(allRow) || !/title="last full week/.test(allRow))
+  throw new Error('the all-time flag tints red and explains itself: ' + allRow);
+if (driftFlag('hard 16 v 10', 'session') !== ' \u00b7 \u25B2fallback')
+  throw new Error('the session tab keeps the sitting\u2019s own flag');
+const thinFlag = new Function('allTimeDrift', 'worseFlag',
+  grab('  function driftFlag(', '\n  }') + '\nreturn driftFlag;')(
+  () => null, () => ' \u00b7 \u25B226 a miss v 10 all time');
+if (thinFlag('hard 16 v 10', 'all') !== ' \u00b7 \u25B226 a miss v 10 all time')
+  throw new Error('too few weeks to judge: the sitting\u2019s flag still speaks');
+if (!/\(leakView === 'session' \? '' : ' Ranks by the freshest tolls/.test(src) ||
+    !/\\u25B2 = last week harder than the cell\\u2019s own average week\./.test(src))
+  throw new Error('the all-time footer must explain its own \u25B2');
+console.log('driftFlag: all time reads the record, the session reads the sitting, and each footer names its glyph');
 
 /* --- the rows carry the week over week, in chips, tinted --- */
 if (!/function weekSplit\(cell, now\) \{/.test(src) ||
@@ -345,10 +433,10 @@ console.log('the pill roster: \u{1F393}N honours beside N still drilling \u2014 
 /* --- wiring: a class's first miss opens the panel by itself --- */
 if (!/var fresh = !sessionLeaks\[cell\];/.test(src) || !/return fresh;/.test(src))
   throw new Error('sessionMiss must report a class\u2019s first appearance');
-if (!/if \(leakMiss\(lastCell, cost\)\) leakAutoOpen\(\);/.test(src))
-  throw new Error('a first-of-its-class hand miss must open the panel');
-if (!/if \(leakMiss\('insurance v ace', cost\)\) leakAutoOpen\(\);/.test(src))
-  throw new Error('a first insurance miss must open the panel too');
+if (!/if \(lastCell && drillFeeds\('felt'\)\) \{[\s\S]{0,220}if \(leakMiss\(lastCell, cost\)\) leakAutoOpen\(\);/.test(src))
+  throw new Error('a first-of-its-class hand miss must open the panel \u2014 when the felt feeds');
+if (!/if \(drillFeeds\('felt'\) && leakMiss\('insurance v ace', cost\)\) leakAutoOpen\(\);/.test(src))
+  throw new Error('a first insurance miss must open the panel too \u2014 when the felt feeds');
 if (!/leaks\[cell\]\.d = gradClock;/.test(src))
   throw new Error('the drill clock must stamp every cell that lands in the ledger');
 if (!/if \(reviewMode\) \{ renderCoach\(\); return; \}/.test(grab('  function leakAutoOpen(', '\n  }')))
@@ -460,6 +548,48 @@ if (!/coolN \? ' \\u2744 marks a row cooled below half its toll\.' : ''/.test(sr
   throw new Error('the all-time footer must explain the snowflake when a row cools');
 console.log('the cooling read: a drilled row shows its retention and fades past half \u2014 fresh rows stay bare');
 
+/* --- the pull beside the honest cost: the ranking's OWN weight, so a
+       heavier cell that has cooled can be SEEN to fall below a
+       lighter one instead of only appearing to                    --- */
+if (!/var leakNow = Date\.now\(\);   \/\* one instant for the ranking and for the halves the row names \*\//.test(src) ||
+    !/var allCells = weakestCells\(leakNow\);/.test(src))
+  throw new Error('the row must name its halves from the same instant the ranking weighed');
+if (!/ts: leaks\[k\]\.ts \|\| 0, d: leaks\[k\]\.d == null \? null : leaks\[k\]\.d,/.test(src))
+  throw new Error('a ranked row must carry both decay terms, the age and the drill stamp');
+if (!/var pull = keep == null \? '' :/.test(src))
+  throw new Error('the pull belongs to the all-time ranking only, like the snowflake');
+if (!/class="pull" title="what the queue weighs this row at, not what it cost: '/.test(src) ||
+    !/ages\.toFixed\(1\) \+ ' half-lives old \(one per ' \+ leakWindowLabel\(\)/.test(src) ||
+    !/served \+ ' hands served since the drill \(one per ' \+ LEAK_DRILL_HALF \+ '\)">pulls ' \+\s*\n\s*Math\.round\(c\.w\)/.test(src))
+  throw new Error('the pull must name what it is, and the two halves that made it');
+if (!/Math\.round\(c\.cost\) \+ '<\/b>' \+ pull \+ st \+ from/.test(src))
+  throw new Error('the pull must sit beside the honest cost, not at the far end of the row');
+if (!/Math\.round\(c\.w\) \+ '<\/span>' \+ cool;/.test(src) || /wkHtml \+ spark \+ cool \+ tap/.test(src))
+  throw new Error('the snowflake must ride with the pull, not drift off on its own');
+if (!/\.leaks \.pull \{ color: rgba\(255,255,255,0\.6\);/.test(src))
+  throw new Error('the pull reads beside the sheet, not shouted');
+if (!/The pull beside each cost is what the queue weighs it at/.test(src))
+  throw new Error('the all-time footer must teach the pull');
+/* the claim itself, on the shipped decay: a heavier cell left long
+   enough must weigh less than a lighter one still warm \u2014 and the
+   numbers the row prints are those two                       */
+{
+  const now = 1e12;
+  const heavyCold = { n: 4, cost: 200, ts: now - 4 * HALF };
+  const lightWarm = { n: 1, cost: 60, ts: now - HALF / 4 };
+  const servedCold = { n: 4, cost: 200, ts: now, d: 0 };            /* the clock stands at 4 halves */
+  if (!(leakWeight(heavyCold, now, 0) < leakWeight(lightWarm, now, 0)))
+    throw new Error('four ages must cool a heavy row below a light warm one');
+  if (!(leakWeight(lightWarm, now, 0) < lightWarm.cost) ||
+      !(leakWeight(heavyCold, now, 0) < heavyCold.cost))
+    throw new Error('the pull must sit under the honest cost once anything has cooled');
+  if (leakWeight(servedCold, now, 4 * DRILL_HALF) > servedCold.cost * 0.07)
+    throw new Error('drilling retires a row on its own half-life too');
+  if (Math.round(coolKeep({ cost: 200, w: leakWeight(heavyCold, now, 0) }) * 100) !== 6)
+    throw new Error('the snowflake must report the same number the pull is made of');
+}
+console.log('the cooled pull: a heavy aged row prints a lower pull than a lighter warm one, beside its honest cost');
+
 /* --- the fade window is the player's: a short memory for a
        grind, a long one for a ledger, kept across reloads and
        named on the panel                                    --- */
@@ -500,9 +630,132 @@ if (!/class="lw' \+ \(w\.ms === LEAK_HALF \? ' on' : ''\)/.test(src))
 if (!/Fade window: '/.test(src)) throw new Error('the panel must label the selector');
 if (!/classList\.contains\('lw'\)\) \{\s*if \(setLeakHalf\(Number\(e\.target\.getAttribute\('data-ms'\)\)\)\) renderLeaks\(\);/.test(src))
   throw new Error('a window pick must retune and re-rank');
-if (!/\.leaks \.leakwin \.lw\.on \{ color: #d8b56a;/.test(src))
-  throw new Error('the live window chip must read gold');
+if (!/\.leaks \.leakwin \.lw\.on, \.leaks \.leakwin \.dh\.on, \.leaks \.leakwin \.df\.on \{ color: #d8b56a;/.test(src))
+  throw new Error('the live half-life chip must read gold \u2014 all three chips share the look');
 console.log('the fade window: presets kept across reloads, the live one named gold on the panel');
+
+/* --- the drill-hands half-life is the player's too, set in the SAME
+       row: two memories, age and hands served, tuned together     --- */
+if (!/'999\.practice\.drillhalf'/.test(src) || !/function saveDrillHalf\(\)/.test(src))
+  throw new Error('the chosen drill half-life must persist');
+if (!/if \(dhRaw && typeof dhRaw\.n === 'number' && dhRaw\.n > 0\) LEAK_DRILL_HALF = dhRaw\.n;/.test(src))
+  throw new Error('the stored drill half-life must load back');
+if (!/var LEAK_DRILLS = \[/.test(src) || !/\{ n: 250, label: '250' \}/.test(src))
+  throw new Error('the drill presets must be a named menu');
+function drillHalfRun(start, saved) {
+  return new Function('LEAK_DRILL_HALF', 'saveDrillHalf',
+    grab('  function setDrillHalf(', '\n  }') +
+    '\nreturn function (n) { var r = setDrillHalf(n); return { r: r, half: LEAK_DRILL_HALF }; };')(
+    start, function () { saved.v = true; });
+}
+let ds = { v: false };
+const dw = drillHalfRun(250, ds);
+if (dw(0).r !== false || dw(0).half !== 250) throw new Error('a zero half-life is refused');
+if (dw(-5).r !== false) throw new Error('a negative half-life is refused');
+if (ds.v) throw new Error('a refused half-life must not persist');
+const dok = dw(500);
+if (!dok.r || dok.half !== 500) throw new Error('a preset half-life takes');
+if (!ds.v) throw new Error('a chosen half-life must persist');
+function drillLabel(half) {
+  return new Function('LEAK_DRILLS', 'LEAK_DRILL_HALF',
+    grab('  function drillHalfLabel(', '\n  }') + '\nreturn drillHalfLabel;')(
+    [{ n: 100, label: '100' }, { n: 250, label: '250' }, { n: 1000, label: '1k' }], half)();
+}
+if (drillLabel(1000) !== '1k') throw new Error('a preset half-life names itself');
+if (drillLabel(375) !== '375') throw new Error('an off-menu half-life falls back to the raw count: ' + drillLabel(375));
+/* both selectors live in ONE row, so neither is set and forgotten */
+const winRow = src.slice(src.indexOf('class="leakwin"'), src.indexOf('class="leakwin"') + 700);
+if (!/Fade window: '/.test(winRow)) throw new Error('the row must label the age menu');
+if (!/Drill hands: '/.test(winRow)) throw new Error('the row must label the drill menu');
+if (winRow.indexOf('LEAK_WINDOWS.map') > winRow.indexOf('LEAK_DRILLS.map'))
+  throw new Error('the age picks must come before the drill picks, one row, one read');
+if (!/class="dh' \+ \(w\.n === LEAK_DRILL_HALF \? ' on' : ''\)/.test(src))
+  throw new Error('the panel must mark the live drill half-life');
+if (!/classList\.contains\('dh'\)\) \{[\s\S]{0,180}setDrillHalf\(Number\(e\.target\.getAttribute\('data-n'\)\)\)\) renderLeaks\(\);/.test(src))
+  throw new Error('a drill pick must retune and re-rank');
+console.log('the drill half-life: presets kept across reloads, set in the fade window\u2019s own row');
+
+/* --- which mistake source feeds the drill: both, felt only, quiz only ---
+       a quiz-only or felt-only ledger is a legitimate want; the switch
+       shut the taps, it does not expel the tolls already in the ledger */
+if (!/'999\.practice\.drillfeed'/.test(src) || !/function setDrillFeed\(src\)/.test(src))
+  throw new Error('the source switch must persist under its own key');
+if (!/var drillFeed = 'both';/.test(src))
+  throw new Error('both sources feed by default \u2014 the old behavior is the default');
+{
+  const FEEDS = [{ id: 'both' }, { id: 'felt' }, { id: 'quiz' }];
+  let saved = false;
+  const setDrillFeed = new Function('drillFeed', 'saveDrillFeed', 'DRILL_FEEDS',
+    grab('  function setDrillFeed(', '\n  }') +
+    '\nreturn function (src) { var r = setDrillFeed(src); return { r: r, src: drillFeed }; };')(
+    'both', function () { saved = true; }, FEEDS);
+  if (setDrillFeed('felt').r !== true || setDrillFeed('felt').r !== false)
+    throw new Error('the source fires once and refuses its no-op');
+  if (!saved) throw new Error('a chosen source must persist');
+  if (setDrillFeed('nope').r !== false || setDrillFeed(3).r !== false)
+    throw new Error('an unknown source must not move the switch');
+}
+{
+  const feeds = new Function('drillFeed', 'return function (src) { return drillFeed === \'both\' || drillFeed === src; };');
+  if (!feeds('both')('felt') || !feeds('both')('quiz')) throw new Error('both feeds everything');
+  if (feeds('felt')('felt') !== true || feeds('felt')('quiz') !== false)
+    throw new Error('felt only takes the felt\u2019s tolls');
+  if (feeds('quiz')('quiz') !== true || feeds('quiz')('felt') !== false)
+    throw new Error('quiz only takes the card\u2019s tolls');
+}
+if (!/if \(lastCell && drillFeeds\('felt'\)\) \{/.test(src))
+  throw new Error('the felt\u2019s hand miss must pass the source gate');
+if (!/drillFeeds\('felt'\) && leakMiss\('insurance v ace', cost\)/.test(src))
+  throw new Error('the felt\u2019s insurance miss must pass the same gate');
+if (!/drillFeeds\('quiz'\) && leakMiss\(k, want\[k\], 'quiz'\)/.test(src))
+  throw new Error('the quiz\u2019s blown cards must pass the source gate, marked as recall');
+const winRow2 = src.slice(src.indexOf('class="leakwin"'), src.indexOf('class="leakwin"') + 1600);
+if (!/Drill feeds: '/.test(winRow2)) throw new Error('the row must label the source menu');
+if (winRow2.indexOf('LEAK_DRILLS.map') > winRow2.indexOf('DRILL_FEEDS.map'))
+  throw new Error('the source menu rides last in the same row');
+if (!/class="df' \+ \(f\.id === drillFeed \? ' on' : ''\)/.test(src))
+  throw new Error('the panel must mark the live source');
+if (!/classList\.contains\('df'\)[\s\S]{0,120}setDrillFeed\(e\.target\.getAttribute\('data-src'\)\)\) renderLeaks\(\);/.test(src))
+  throw new Error('a source pick must retune and redraw');
+console.log('drill feeds: both, felt only, or quiz only \u2014 the ledger\u2019s taps shut, its tolls kept');
+
+/* --- the recall share: a class drilled by remembering a card is
+       marked apart from one the felt itself caught */
+if (!/if \(src === 'quiz'\) leaks\[cell\]\.q = \(leaks\[cell\]\.q \|\| 0\) \+ 1;/.test(src))
+  throw new Error('a quiz-fed toll must stamp the recall share on the cell');
+if (!/if \(src === 'quiz' && e\.q\) e\.q = Math\.max\(0, e\.q - 1\);/.test(src))
+  throw new Error('a relieved quiz toll must take its recall share back');
+if (!/if \(src === 'quiz'\) sessionLeaks\[cell\]\.q = \(sessionLeaks\[cell\]\.q \|\| 0\) \+ 1;/.test(src))
+  throw new Error('the sitting\u2019s own ledger must carry the share too');
+if (!/q: leaks\[k\]\.q \|\| 0/.test(src) || !/cost: map\[k\]\.cost, q: map\[k\]\.q \|\| 0/.test(src))
+  throw new Error('both rankings must carry the share to the rows');
+if (!/var recall = c\.q \? ' \\u00b7 \\uD83D\\uDCDD '/.test(src) || !/\+ ' by recall'\) : '';/.test(src))
+  throw new Error('the rows must badge the recall share');
+{
+  const leaks = {};
+  let saved = 0, graded = 0;
+  const miss = extract('leakMiss', 'leaks, weekMark, saveLeaks, gradClock, gradMiss, sessionMiss, document')(leaks,
+    function () {}, function () { saved++; }, 0, function () { graded++; }, function () { return true; },
+    { getElementById: function () { return null; } });
+  miss('hard 15 v 10', 25);
+  if (leaks['hard 15 v 10'].q !== undefined || leaks['hard 15 v 10'].n !== 1)
+    throw new Error('a felt toll stamps no recall share: ' + JSON.stringify(leaks['hard 15 v 10']));
+  miss('hard 15 v 10', 25, 'quiz');
+  if (leaks['hard 15 v 10'].q !== 1 || leaks['hard 15 v 10'].n !== 2)
+    throw new Error('a quiz toll stamps one recall share: ' + JSON.stringify(leaks['hard 15 v 10']));
+  miss('hard 12 v 3', 25, 'quiz');
+  const row = rankCells(leaks).filter(c => c.cell === 'hard 15 v 10')[0];
+  if (!row || row.q !== 1) throw new Error('the ranking carries the share: ' + JSON.stringify(row));
+  const relief = extract('leakRelief', 'leaks, saveLeaks, sessionRelief')(leaks, function () {}, function () {});
+  relief('hard 15 v 10', 25, 'quiz');
+  if (leaks['hard 15 v 10'].q !== 0 || leaks['hard 15 v 10'].n !== 1)
+    throw new Error('relief takes the share, not the felt\u2019s: ' + JSON.stringify(leaks['hard 15 v 10']));
+  relief('hard 15 v 10', 25);
+  if (leaks['hard 15 v 10'] !== undefined)
+    throw new Error('the last toll standing takes the cell, share and all: ' + JSON.stringify(leaks['hard 15 v 10']));
+  if (saved < 3 || graded !== 3) throw new Error('every toll still persists and prices: ' + saved + '/' + graded);
+}
+console.log('the recall share: \ud83d\udcdd by recall marks what the cards caught, \ud83c\udfc0 what the felt did');
 
 /* --- week over week: the pill follows the worst cell --- */
 const weekStart = extract('weekStart', '')();
@@ -525,19 +778,19 @@ const base = {};
 base[LAST] = { 'hard 16 v 10': 100, 'hard 12 v 2': 20 };
 base[CURR] = { 'hard 16 v 10': 130, 'hard 12 v 2': 25 };
 const live = { 'hard 16 v 10': { n: 4, cost: 160 }, 'hard 12 v 2': { n: 3, cost: 45 } };
-const leakedIn = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
+const liFn = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
   grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(base, live, weekStart, nextWeek);
-if (leakedIn('hard 16 v 10', CURR, NOW) !== 30) throw new Error('this week 16 v 10 leaked 160\u2212130 = 30');
-if (leakedIn('hard 16 v 10', LAST, NOW) !== 30) throw new Error('last week 16 v 10 leaked 130\u2212100 = 30');
-if (leakedIn('hard 12 v 2', CURR, NOW) !== 20) throw new Error('this week 12 v 2 leaked 45\u221225 = 20');
-if (leakedIn('hard 16 v 10', new Date(2026, 8, 21).getTime(), NOW) !== null)
+if (liFn('hard 16 v 10', CURR, NOW) !== 30) throw new Error('this week 16 v 10 leaked 160\u2212130 = 30');
+if (liFn('hard 16 v 10', LAST, NOW) !== 30) throw new Error('last week 16 v 10 leaked 130\u2212100 = 30');
+if (liFn('hard 12 v 2', CURR, NOW) !== 20) throw new Error('this week 12 v 2 leaked 45\u221225 = 20');
+if (liFn('hard 16 v 10', new Date(2026, 8, 21).getTime(), NOW) !== null)
   throw new Error('a week never seen leaks nothing known');
 console.log('leakedIn: a week\u2019s leak is two snapshots apart \u2014 30 this week, 30 last, 20 beside');
 
 /* --- the sparkline: a cell's weekly leak drawn as a shape, so a
        cell bleeding more each week climbs and a drilled-away one
        fades \u2014 read from the same weekly snapshots the chip uses --- */
-if (!/var SPARK_WEEKS = 6;/.test(src)) throw new Error('the sparkline window must be named');
+if (!/var SPARK_WEEKS = 8;/.test(src)) throw new Error('the sparkline window must be named');
 const sparkLine = extract('sparkLine', '')();
 if (sparkLine(null) !== '' || sparkLine([]) !== '' || sparkLine([5]) !== '')
   throw new Error('fewer than two points is no line');
@@ -561,7 +814,8 @@ function sparkOf(cell, wb, live, nowv) {
   const li = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
     grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(wb, live, weekStart, nextWeek);
   return new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
-    grab('  function sparkValues(', '\n  }') + '\nreturn sparkValues;')(wb, li, 6)(cell, nowv);
+    grab('  function sparkWeeks(', '\n  }') + '\n' +
+    grab('  function sparkValues(', '\n  }') + '\nreturn sparkValues;')(wb, li, 8)(cell, nowv);
 }
 const w1 = new Date(2026, 8, 7).getTime();   /* Mon 7 Sep 2026 */
 const w2 = new Date(2026, 8, 14).getTime();
@@ -581,14 +835,88 @@ if (sparkLine(vals) !== '\u2583\u2588\u2583\u2581')
 if (sparkLine([0, 0, 0, 0]) !== '') throw new Error('a cell that never leaked draws no line');
 if (sparkLine(sparkOf('soft 20 v 6', wb, {}, nowv)) !== '')
   throw new Error('a cell with no weekly leak draws no line');
-if (!/var spark = sparkHtml\(sparkValues\(c\.cell\)\);/.test(src))
-  throw new Error('each row must draw its own cell\u2019s line');
+if (!/var spark = sparkHtml\(sparkValues\(c\.cell\), c\.cell\);/.test(src))
+  throw new Error('each row must draw its own cell\u2019s line, and pass the cell so the line can open');
 if (!/class="spark ' \+ \(dir < 0 \? 'down' : dir > 0 \? 'up' : 'flat'\)/.test(src))
   throw new Error('the line must tint by its direction');
 if (!/\.leaks \.spark\.down \{ color: #43c98a; \}/.test(src) ||
     !/\.leaks \.spark\.up \{ color: #e2705f; \}/.test(src))
   throw new Error('the line must read green falling, red climbing');
 console.log('the sparkline: a falling line reads improving in green, a climbing one red \u2014 from the same weekly snapshots');
+
+/* --- the line opens: a tap unrolls the shape into the figures it
+       was drawn from. The shape and the numbers must be ONE series,
+       so the ladder is built from the same key walk the line is.  */
+function weeksOf(cell, wbm, live, nowv) {
+  const li = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
+    grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(wbm, live, weekStart, nextWeek);
+  return new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
+    grab('  function sparkWeeks(', '\n  }') + '\nreturn sparkWeeks;')(wbm, li, 8)(cell, nowv);
+}
+const wkWeeks = weeksOf('hard 16 v 10', wb, { 'hard 16 v 10': { n: 1, cost: 45 } }, nowv);
+if (wkWeeks.map((w) => w.v).join('|') !== vals.join('|'))
+  throw new Error('the ladder and the line must be one series: ' + JSON.stringify(wkWeeks.map((w) => w.v)));
+if (!wkWeeks.every((w, i) => i === 0 || w.ws > wkWeeks[i - 1].ws))
+  throw new Error('the ladder reads oldest to newest, like the line');
+if (wkWeeks.length > 8) throw new Error('the ladder never shows more weeks than the line drew');
+
+const realWeeks = new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
+  grab('  function sparkWeeks(', '\n  }') + '\nreturn sparkWeeks;')(
+  wb, new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
+    grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(wb, { 'hard 16 v 10': { n: 1, cost: 45 } }, weekStart, nextWeek), 8);
+const labelFull = grab('  function weekLabel(ws) {', '\n  }');
+const labelFn = new Function('ws',
+  labelFull.slice(labelFull.indexOf('{') + 1, labelFull.lastIndexOf('}')) + '\nreturn weekLabel;');
+const detail = new Function('sparkWeeks', 'weekLabel', 'sparkLine', 'sparkValues',
+  grab('  function sparkDetail(', '\n  }') + '\nreturn sparkDetail;')(
+  (c, n) => realWeeks(c, n), labelFn, sparkLine,
+  (c, n) => new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
+    grab('  function sparkWeeks(', '\n  }') + '\n' +
+    grab('  function sparkValues(', '\n  }') + '\nreturn sparkValues;')(
+    wb, new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',
+      grab('  function leakedIn(', '\n  }') + '\nreturn leakedIn;')(wb, { 'hard 16 v 10': { n: 1, cost: 45 } }, weekStart, nextWeek), 8)(c, n));
+const det = detail('hard 16 v 10', nowv);
+for (const v of [10, 20, 10, 5]) {
+  if (!det.includes('\u2212' + v)) throw new Error('the ladder must print each week\u2019s own chips: ' + det);
+}
+if (!det.includes('\u221245 over 4 weeks')) throw new Error('the ladder totals its own window: ' + det);
+if (det.includes('\u2212160')) throw new Error('the ladder must not print a week the line never drew');
+/* the ladder is EXACTLY the line: one figure per drawn step, never
+   more (no padding out past the window) and never fewer (no week
+   quietly dropped that the shape already showed)              */
+if (wkWeeks.length !== vals.length) throw new Error('one figure per step on the line');
+const detailSteps = (det.match(/class="sw"/g) || []).length;
+if (detailSteps !== vals.length) throw new Error('the ladder prints one figure per step, got ' + detailSteps);
+/* a cell with no weekly leak opens nothing \u2014 there is no shape */
+if (detail('soft 20 v 6', nowv) !== '') throw new Error('no shape, no ladder');
+
+/* the line is a control, and the figures win over the bar's drill */
+if (!/class="sparktap/.test(src) || !/data-spark="' \+ attrT\(cell\)/.test(src))
+  throw new Error('the line must be tappable, carrying its cell');
+if (!/role="button" tabindex="0" aria-expanded="/.test(src))
+  throw new Error('the line must be a keyboard-reachable control that says its state');
+if (!/var open = sparkOpen === cell;/.test(src)) throw new Error('the open shape must be marked on the control');
+/* on an EV row the line sits INSIDE the bar, and the bar is the tap
+   that drills. The line's own branch must therefore be tested first,
+   or asking "how much did this bleed?" deals a hand instead.   */
+const handler = src.slice(src.indexOf("leakBoxEl.addEventListener('click'"),
+  src.indexOf("leakBoxEl.addEventListener('keydown'"));
+const iSpark = handler.indexOf("closest('.sparktap')");
+const iEvtap = handler.indexOf("closest('.evtap')");
+const iDrill = handler.indexOf('drillNow(');
+if (iSpark < 0 || iEvtap < 0 || iDrill < 0) throw new Error('the panel must bind all three taps');
+if (!(iSpark < iEvtap && iSpark < iDrill))
+  throw new Error('a tapped line must open the figures, not drill the cell behind it');
+const sparkBranch = handler.slice(iSpark, iDrill);
+if (!/renderLeaks\(\)/.test(sparkBranch) || /drillNow\(/.test(sparkBranch))
+  throw new Error('the line\u2019s branch redraws and nothing else');
+if (!/sparkOpen = \(sparkOpen === sc\) \? null : sc;/.test(src))
+  throw new Error('tapping the open line closes it, and only one may be open');
+/* both surfaces wear it, and each opens its own cell */
+if (!/sparkOpen === c\.cell \? sparkDetail\(c\.cell\)/.test(src) ||
+    !/sparkOpen === r4\.cell \? sparkDetail\(r4\.cell\)/.test(src))
+  throw new Error('the leak row and the EV bar must each open their own cell');
+console.log('the line opens: the shape unrolls into the same eight weeks\u2019 own chips, its own total');
 
 function trendOf(weekBaseMap, liveMap) {
   const li = new Function('weekBase', 'leaks', 'weekStart', 'nextWeek',

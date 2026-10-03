@@ -18,10 +18,8 @@ if (paceBlock.split('{').length !== paceBlock.split('}').length) throw new Error
 const paceBody = paceBlock.slice(paceBlock.indexOf('{') + 1, paceBlock.lastIndexOf('}'));
 const nextPace = new Function('pace', 'ok', 'heat', paceBody + '\nreturn nextPace;');
 
-/* --- the canon the stream draws from --- */
-const cStart = src.indexOf('  var SHOE999 = (function () {');
-const cEnd = src.indexOf('})();', cStart) + 5;
-const SHOE999 = (0, eval)('(' + src.slice(cStart, cEnd).replace('var SHOE999 = ', '').replace(/;\s*$/, '') + ')');
+/* --- the canon the stream draws from: the shipped module --- */
+const SHOE999 = require('../shoe999.js');
 const HILO = { '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 0, '8': 0, '9': 0, '10': -1, 'J': -1, 'Q': -1, 'K': -1, 'A': -1 };
 
 /* --- speedTarget and trueTargetFor, exactly as shipped --- */

@@ -1,7 +1,8 @@
 /* The practice floor's sounds found their seat: the single hand
    sits at the felt's center, so the deal's whoosh pans from the
    shoe's screen side to the hand's, the snap lands at the hand,
-   and everything else stays centered. The seat math, the guard
+   and the shoe's own ceremony sits at the shoe, the seat every
+   card then leaves from. The seat math, the guard
    rails and the wiring are the properties under test: center is
    center, a narrow phone never invents width, off-screen and
    layout-less fall back to center, the rails stop at 0.85, and
@@ -96,17 +97,55 @@ new Function('ready', 'burst', 'panSeatClamp', 'master',
   () => s2.c, () => {}, clamp, {})(0.42, -0.3);
 console.log('the snap: both bursts ride the hand\u2019s seat, no API stays centered');
 
-/* --- the wiring: the deal reads the live rects, nothing else pans --- */
+/* --- the wiring: the deal reads the live rects, and the deal's own
+       two card voices are the only ones that follow a seat ------ */
 const deal = grab('  function dealCard(to) {', 'cardSnap(0.42');
 if (!/var seat = panForSeat\(to === 'you' \? elYou : elDealer\);/.test(deal))
   throw new Error('dealCard must read the landing hand\u2019s live rect');
 if (!/cardWhoosh\(0, panForSeat\(document\.getElementById\('shoeBox'\)\), seat\);/.test(deal))
   throw new Error('the whoosh must open at the shoe\u2019s live screen seat');
-for (const fn of ['chipClack(delay)', 'riffleSound()', 'coachCue(ok)', 'stinger(kind)']) {
+for (const fn of ['chipClack(delay)', 'coachCue(ok)', 'stinger(kind)']) {
   const body = grab('  function ' + fn + ' {', '\n  }');
   if (/createStereoPanner/.test(body)) throw new Error(fn + ' must stay centered \u2014 the felt has one seat');
 }
-console.log('wiring: the deal reads live rects (shoe \u2192 hand), clacks/riffle/coach/stinger keep the center');
+console.log('wiring: the deal reads live rects (shoe \u2192 hand); clacks, coach and stinger keep the center');
+
+/* --- the shuffle sits at the shoe: the ceremony that made this deck
+       happens over the shoe box, the same seat every card then
+       leaves from \u2014 all paper standing still, so a held seat --- */
+const rsFull = grab('  function riffleSound(pan) {', '\n  }');
+const rsBody = rsFull.slice(rsFull.indexOf('{') + 1, rsFull.lastIndexOf('}'));
+if (!/if \(pan != null && c\.createStereoPanner\)/.test(rsFull) ||
+    !/out\.pan\.setValueAtTime\(panSeatClamp\(pan, -1, 1\), t\);/.test(rsFull))
+  throw new Error('the shuffle must be seated at the shoe');
+if (/linearRampToValueAtTime/.test(rsFull))
+  throw new Error('the shuffle is paper standing still \u2014 its seat is held, never slid');
+const rsSeen = [];
+const rsCtx = mockCtx(true);
+const rsTones = [];
+new Function('ready', 'burst', 'tone', 'panSeatClamp', 'master',
+  'return function riffleSound(' + rsFull.slice(rsFull.indexOf('(') + 1, rsFull.indexOf(')')) + ') {' + rsBody + '}')(
+  () => rsCtx.c,
+  (c, t, dur, type, freq, q, gain, out) => rsSeen.push(out),
+  (c, freq, t, dur, type, gain, slide, out) => rsTones.push(out),
+  clamp, {})(0.35);
+if (rsSeen.length !== 17 || rsSeen.some((o) => o == null))
+  throw new Error('every burst of the shuffle must come from the shoe: ' + rsSeen.length + ' bursts');
+if (rsTones.length !== 7 || rsTones.some((o) => o == null))
+  throw new Error('every tone of the shuffle must come from the shoe too: ' + rsTones.length + ' tones');
+if (rsCtx.rec.panSets.length !== 1 || rsCtx.rec.panSets[0][0] !== 0.35 || rsCtx.rec.panSets[0][1] !== 10.02)
+  throw new Error('the shoe\u2019s seat must be set once, at the ceremony\u2019s own start: ' + JSON.stringify(rsCtx.rec.panSets));
+const rsNoApi = mockCtx(false);
+const rsPlain = [];
+new Function('ready', 'burst', 'tone', 'panSeatClamp', 'master',
+  'return function riffleSound(' + rsFull.slice(rsFull.indexOf('(') + 1, rsFull.indexOf(')')) + ') {' + rsBody + '}')(
+  () => rsNoApi.c, (c, t, dur, type, freq, q, gain, out) => rsPlain.push(out), () => {}, clamp, {})(0.35);
+if (rsPlain.some((o) => o != null) || rsNoApi.rec.outs.filter((o) => o === 'panner').length)
+  throw new Error('without a panner API the shuffle stays centered');
+const shuf = grab('  function shuffleCeremony(then) {', 'riffleSound(panForSeat(box));');
+if (!/riffleSound\(panForSeat\(box\)\);/.test(shuf))
+  throw new Error('the ceremony must read the shoe box\u2019s own live rect');
+console.log('the shuffle: 17 bursts and 7 tones held at the shoe\u2019s seat, set once, no API stays centered');
 
 /* --- the guard rails exist in the source, once --- */
 if (!/0\.85;/.test(pfBody)) throw new Error('the pan must stop short of the rail');

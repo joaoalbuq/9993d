@@ -30,6 +30,9 @@ const PAGES = {
 /* the PWA shell — same allowlist rule, binary-safe */
 const ASSETS = {
   '/luck999.js': ['luck999.js', 'text/javascript; charset=utf-8'],
+  '/shoe999.js': ['shoe999.js', 'text/javascript; charset=utf-8'],
+  '/ev999.js': ['ev999.js', 'text/javascript; charset=utf-8'],
+  '/index999.js': ['index999.js', 'text/javascript; charset=utf-8'],
   '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json; charset=utf-8'],
   '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
   '/media/icon-180.png': ['media/icon-180.png', 'image/png'],

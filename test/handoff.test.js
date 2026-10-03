@@ -240,13 +240,16 @@ console.log('wiring: miss at the click, ledger and reel at the settle, the felt 
        lands in the practice shoe's ledger, read-merge-written so a
        night at the table and a sitting at the shoe share one book --- */
 const flushReconFull = grab(tableSrc, '  function flushRecon(ev, felt, sd2) {', '\n  }');
+const LUCK = require(path.join(__dirname, '..', 'luck999.js'));   /* the merge reads the book
+                                                                       through the shared
+                                                                       lenient restore */
 function reconRun(storage, ev, felt, sd2) {
   const calls = [];
   const ls = {
     getItem: k => (k in storage ? storage[k] : null),
     setItem: (k, v) => { calls.push(k); storage[k] = v; }
   };
-  new Function('localStorage', flushReconFull + '\nreturn flushRecon;')(ls)(ev, felt, sd2);
+  new Function('localStorage', 'LUCK999', flushReconFull + '\nreturn flushRecon;')(ls, LUCK)(ev, felt, sd2);
   return { storage: storage, calls: calls };
 }
 const seededBook = { rounds: 7, ev: -3.1, felt: -25, sd2: 7 * 13225 };
@@ -269,6 +272,18 @@ const b3 = JSON.parse(rc3.storage['999.practice.evsession']);
 if (b3.rounds !== 1 || b3.ev !== 2 || b3.felt !== -50 || b3.sd2 !== 100)
   throw new Error('a junk book is ignored, not merged: ' + JSON.stringify(b3));
 console.log('recon hand-off: junk on the key is ignored \u2014 the round opens a clean book');
+
+/* a book from before the spread is MIGRATED through the same hand-off:
+   it gains the round and keeps every total it already had          */
+const rc4 = reconRun({ '999.practice.evsession': JSON.stringify({ rounds: 12, ev: -3.1, felt: -25 }) }, -1.5, 120, 13225);
+const b4 = JSON.parse(rc4.storage['999.practice.evsession']);
+if (b4.rounds !== 13 || Math.abs(b4.ev + 4.6) > 1e-9 || b4.felt !== 95 || b4.sd2 !== 13225)
+  throw new Error('an old book must gain the round, not restart: ' + JSON.stringify(b4));
+const rc5 = reconRun({ '999.practice.evsession': JSON.stringify({ rounds: 12, ev: -3.1, felt: -25, sd2: 'x' }) }, -1.5, 120, 13225);
+const b5 = JSON.parse(rc5.storage['999.practice.evsession']);
+if (b5.rounds !== 13 || b5.felt !== 95 || b5.sd2 !== 13225)
+  throw new Error('one stale field must not cost the running book: ' + JSON.stringify(b5));
+console.log('recon hand-off: a book from before the spread is migrated \u2014 12 rounds stay, the band starts fresh');
 
 /* --- wiring: the settle hands the round beside the leak ledger --- */
 if (!/flushRecon\(evBookT, myNet, tWidth\);/.test(tableSrc))

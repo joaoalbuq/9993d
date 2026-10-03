@@ -73,7 +73,7 @@ if (!/1 round\b/.test(half)) throw new Error('singular round: ' + half);
 console.log('halves and singulars: 3:2 payouts keep their half-chip, one round reads singular');
 
 /* --- the wiring: price the first decision, carry insurance, commit once --- */
-if (!/    evRound = !reviewMode; evPriced = false; evRoundExp = 0; evInsExp = 0;/.test(src))
+if (!/    evRound = !reviewMode && !drillFree; evPriced = false; evRoundExp = 0; evInsExp = 0;/.test(src))
   throw new Error('deal() must reset the per-round ledger');
 for (const [fn, play] of [['hit', 'hit'], ['stand', 'stand'], ['doubleDown', 'double']]) {
   const body = grab('  function ' + fn + '() {', 'coachVerdict(\'' + play + '\');');
@@ -96,14 +96,60 @@ if (luckWord({ ev: -2, felt: 10 }) !== '+12.0') throw new Error('hot luck word')
 if (luckWord({ ev: 0, felt: 0 }) !== '+0.0') throw new Error('a perfect reconciliation reads signed');
 if (!/\\u00b7 ' \+ LUCK999\.word\(evSession\) \+ ' luck/.test(src))
   throw new Error('the coach pill must carry the gap');
-if (!/if \(evSession\.rounds\) el\.textContent \+=/.test(src))
+if (!/var luck = evSession\.rounds \? ' \\u00b7 ' \+ LUCK999\.word\(evSession\) \+ ' luck'/.test(src))
   throw new Error('the pill shows the gap only once a round has been priced');
+/* the score line is built in three parts — score, gap, tail — and the
+   gap must be a real node of its own, not text: that is what makes it
+   a control. Run the shipped setScore over a stub element.       */
+{
+  const clause = (t) => ({ clause: t });
+  const fakeDoc = { createTextNode: (t) => ({ text: t }) };
+  const setScore = new Function('luckClause', 'document',
+    grab('  function setScore(', '\n  }').replace(/^  function setScore/, 'return function setScore'))(clause, fakeDoc);
+  const el = { textContent: '', kids: [], appendChild(n) { this.kids.push(n); } };
+  setScore(el, 'Coach 25% · 3/12', ' · −21.9 luck · cold · −2.4σ', ' · best freak hot +5.5σ (round 9)');
+  if (el.textContent !== 'Coach 25% · 3/12') throw new Error('the score must lead the line');
+  if (el.kids.length !== 2 || el.kids[0].clause.indexOf('luck') === -1)
+    throw new Error('the gap must ride as its own node, not as text');
+  if (el.kids[1].text.indexOf('best freak hot') === -1)
+    throw new Error('the rest of the line must follow the gap: ' + JSON.stringify(el.kids));
+  const bare = { textContent: '', kids: [], appendChild(n) { this.kids.push(n); } };
+  setScore(bare, 'Coach off', '', ' · 🩹 hard 13 v 2');
+  if (bare.kids.length !== 1 || bare.kids[0].text === undefined)
+    throw new Error('with nothing priced there must be no clause at all');
+}
 const commit2 = grab('    if (evRound && evPriced) {', 'renderCoach();');
 if (!/renderEvStrip\(\);/.test(commit2))
   throw new Error('the settle commit must refresh both the strip and the pill');
 if (!/LUCK999\.word\(evSession\)/.test(src) || !/LUCK999\.stripLine\(/.test(src))
   throw new Error('the strip and the pill must read the one shared word');
 console.log('the pill: "\u221248.0 luck" rides the coach score \u2014 one source for the gap, refreshed at the commit');
+
+/* --- the gap as a WAY IN: on both score lines the clause is its own
+       control, and opening it brings up the reconciliation strip --- */
+if (!/function luckClause\(text\)/.test(src) || !/s\.className = 'luckclause';/.test(src))
+  throw new Error('the clause must be its own control, not text');
+if (!/s\.setAttribute\('role', 'button'\);/.test(src) || !/s\.tabIndex = 0;/.test(src))
+  throw new Error('the clause must be reachable and announced as a button');
+if (!/e\.stopPropagation\(\); e\.preventDefault\(\); openLuck\(\);/.test(src))
+  throw new Error('the clause must stop the pill\u2019s own toggle firing behind it');
+if (!/if \(e\.key !== 'Enter' && e\.key !== ' '\) return;/.test(src))
+  throw new Error('the clause must answer the keyboard as well as the finger');
+if (!/function openLuck\(\) \{/.test(src) || !/el\.hidden = false;/.test(src))
+  throw new Error('opening the clause must reveal the strip even when it is hidden');
+if (!/renderEvStrip\(\);                       \/\* the line must be there before it is opened \*\//.test(src))
+  throw new Error('the strip must be drawn before it is opened, not after');
+if (!/el\.classList\.add\('flash'\);/.test(src) || !/@keyframes luckopen/.test(src) || !/\.evstrip\.flash \{ animation: luckopen 1\.4s ease-out; \}/.test(src))
+  throw new Error('the opened strip must bloom, so the eye lands on it');
+if (!/The reconciliation opens with the first priced decision/.test(src))
+  throw new Error('an empty reconciliation must say so rather than stay blank');
+if (!/function setStatus\(s, luck\) \{ setScore\(statusTxt, s, luck \|\| '', ''\); \}/.test(src))
+  throw new Error('the settle line must take its clause apart, or the note is flattened into the sentence');
+if (!/setStatus\(kind \+ \(insWin \? ' \\u2014 insurance pays ' \+ fmt\(insWin\) : ''\) \+ spNote \+ bookNote, luckNote\);/.test(src))
+  throw new Error('the settle line must hand its clause over as the clause');
+if (!/\.luckclause \{ cursor: pointer; color: #d8b56a;/.test(src))
+  throw new Error('the clause must read as a control');
+console.log('the gap as a way in: the pill\u2019s clause and the settle note both open the reconciliation, by tap or Enter');
 
 /* --- the band: the gap read as a distance in the engine's spreads --- */
 const card = { rounds: 1, ev: 0, felt: 0, sd2: 13225 };   /* one round at 100: spread 115 */
@@ -187,8 +233,8 @@ if (!/var evSession = \{ rounds: 0, ev: 0, felt: 0, sd2: 0 \};/.test(src))
   throw new Error('the session must carry its accumulated spread');
 if (!/'999\.practice\.evsession'/.test(src) || !/function saveEv\(\)/.test(src))
   throw new Error('the reconciliation must persist, like the reel');
-if (!/typeof evRaw\.rounds === 'number' && typeof evRaw\.ev === 'number' &&\n        typeof evRaw\.felt === 'number' && typeof evRaw\.sd2 === 'number'/.test(src))
-  throw new Error('a restored book must be all numbers or not restored at all');
+if (!/evSession = LUCK999\.evRestore\(JSON\.parse\(localStorage\.getItem\('999\.practice\.evsession'\)/.test(src))
+  throw new Error('the shoe must restore its book through the shared lenient read');
 if (!grab('evSession.sd2 += Math.pow(HAND_SD * (doubled ? 2 * bet : bet), 2);', 'renderEvStrip();').includes('saveEv();'))
   throw new Error('the settle commit must save the book it just banked');
 if (!/  renderCoach\(\);\n  renderCount\(\);\n  renderEvStrip\(\);/.test(src))
@@ -204,7 +250,7 @@ if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD \* \(doubled \? 2 \* bet : bet\), 2\
 if (!/evSession\.sd2 \+= insBet \* insBet \* \(1 \+ 3 \* td - Math\.pow\(3 \* td - 1, 2\)\);/.test(src))
   throw new Error('the insurance leg must bank its own spread');
 if (!/var evBand = evSession\.rounds \? LUCK999\.band\(evSession\) : '', evSig = evSession\.rounds \? LUCK999\.sigma\(evSession\) : '';/.test(src) ||
-    !/el\.textContent \+= ' \\u00b7 ' \+ LUCK999\.word\(evSession\) \+ ' luck'/.test(src) ||
+    !/var luck = evSession\.rounds \? ' \\u00b7 ' \+ LUCK999\.word\(evSession\) \+ ' luck'/.test(src) ||
     !/\(evBand \? ' \\u00b7 ' \+ evBand : ''\) \+ \(evSig \? ' \\u00b7 ' \+ evSig : ''\)/.test(src))
   throw new Error('the pill must name the gap, its band and its sigma');
 console.log('wiring: the spread banks with the legs at settle \u2014 pill and strip read the same band');
@@ -218,10 +264,10 @@ function tgrab(a, b) {
 }
 if (!/var trainStats = \{ decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0, sd2: 0 \};/.test(tsrc))
   throw new Error('the table score must carry the book in its own stats');
-if (!/typeof trainStats\.ev !== 'number' \|\| typeof trainStats\.rounds !== 'number'/.test(tsrc))
-  throw new Error('an old stored score must migrate, not NaN');
-if (!/typeof trainStats\.sd2 !== 'number'\) trainStats\.sd2 = 0;/.test(tsrc))
-  throw new Error('a book from before the spread must keep its totals, its band waiting');
+if (!/var evHalf = LUCK999\.evRestore\(tsRaw\);/.test(tsrc) ||
+    !/trainStats\.ev = evHalf\.ev; trainStats\.felt = evHalf\.felt;/.test(tsrc) ||
+    !/trainStats\.rounds = evHalf\.rounds; trainStats\.sd2 = evHalf\.sd2;/.test(tsrc))
+  throw new Error('an old stored score must migrate field by field, not NaN');
 if (!/var evRoundT = false, evPricedT = false, evBookT = 0;/.test(tsrc))
   throw new Error('the round book must start closed');
 if (!/evRoundT = true; evPricedT = false; evBookT = 0;/.test(tsrc))
@@ -259,6 +305,27 @@ if (!/var tBand = trainStats\.rounds \? LUCK999\.band\(trainStats\) : ''/.test(t
 if (!/LUCK999\.word\(trainStats\)/.test(tsrc))
   throw new Error('the table\u2019s luck is the same shared gap: felt minus engine');
 console.log('the live table: the score line carries the luck \u2014 same engine, same gap, persisted in the trainstats');
+
+/* --- the practice floor's OWN settle line narrates the same luck gap,
+       so both surfaces tell the reconciliation in the same sentence --- */
+if (!/var luckNote = '';/.test(src))
+  throw new Error('the floor\u2019s settle line must carry a luck note');
+if (!/setStatus\(kind \+ \(insWin \? '[\\\s\S]*?luckNote\)/.test(src))
+  throw new Error('the settle line must end on the luck note, the table\u2019s own tail');
+/* built ONLY inside the priced commit: an unpriced round (a review
+   replay, a free drill) narrates nothing it cannot stand behind  */
+const priced = src.slice(src.indexOf('if (evRound && evPriced) {'),
+  src.indexOf("luckNote = ' \\u00b7 ' + LUCK999.word"));
+if (priced.length > 900)
+  throw new Error('the luck note must be built inside the priced commit, not beside it');
+if (!/LUCK999\.word\(\{ felt: myNet \+ insWin \- insStake, ev: evRoundExp \+ evInsExp \}\)/.test(src))
+  throw new Error('the floor\u2019s gap is its OWN round\u2019s legs \u2014 insurance riding both');
+/* and the sentence is the SAME one the table settles with */
+const FLOOR_PHRASE = "' luck, both felts reconcile'";
+if (src.indexOf(FLOOR_PHRASE) < 0 || tsrc.indexOf(FLOOR_PHRASE) < 0)
+  throw new Error('both surfaces must settle on the same words: ' + FLOOR_PHRASE);
+if (!/both felts reconcile/.test(src)) throw new Error('the floor must name the reconciliation');
+console.log('the floor settle line: the round\u2019s own luck gap in the table\u2019s own words \u2014 one sentence, two surfaces');
 
 /* --- the table's own strip: the same reconciliation, measured --- */
 /* the overlay reads the SAME module the floor does — one source */
@@ -319,11 +386,19 @@ function makeFn(fnSrc) {
 }
 const splitFelt = makeFn(grab('  function splitFelt(', '\n  }'));
 const feltTag = makeFn(grab('  function feltTag(', '\n  }'));
-function drawStrip(session, prev, table) {
+function drawStrip(session, prev, table, marks) {
   const el = { hidden: false, innerHTML: 'stale' };
+  if (!marks) marks = { table: null, shoe: null };
   new Function('document', 'LUCK999', 'evSession', 'evOut', 'splitFelt', 'tableBook', 'feltTag',
+    'duelOut',
     'return function renderEvStrip() {' + renderBody + '}')(
-    { getElementById: () => el }, LUCK, session, prev, splitFelt, () => table || null, feltTag)();
+    /* the table book is read the way tableBook() reads it: leniently,
+       through evRestore, so a book from before the spread arrives
+       complete (sd2 0) and the duel never sees an unfinished field. */
+    { getElementById: () => el }, LUCK, session, prev, splitFelt,
+    function () { if (!table) return null; const b = LUCK.evRestore(table); return b.rounds > 0 ? b : null; },
+    feltTag,
+    marks)();
   return el;
 }
 const drawn = drawStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
@@ -339,6 +414,77 @@ if (!/class="luck ok crossed"/.test(pulseStrip.innerHTML))
 const steadyStrip = drawStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 }, true);
 if (/crossed/.test(steadyStrip.innerHTML))
   throw new Error('a steady outlier must not pulse again: ' + steadyStrip.innerHTML);
+/* --- the duel: each side crosses on its OWN spread, and says so --- */
+/* the table's own book; the shoe is what is left of the combined */
+const TABLE_BOOK = { rounds: 4, ev: -40, felt: 180, sd2: 4000 };
+const COMBINED = { rounds: 8, ev: -60, felt: 240, sd2: 8000 };
+/* both sides already past a spread: their first draw banks the
+   mark quietly and must NOT bloom, same rule as the strip's   */
+const quiet = drawStrip(COMBINED, true, TABLE_BOOK);
+if (!/the table/.test(quiet.innerHTML) || !/the shoe/.test(quiet.innerHTML))
+  throw new Error('the duel must name both felts: ' + quiet.innerHTML);
+if (/(the table|the shoe) <b class="luck [^"]*crossed/.test(quiet.innerHTML))
+  throw new Error('a restored book already past a spread must not bloom: ' + quiet.innerHTML);
+/* a NEW crossing on the felt blooms THAT side, and only that one.
+   drawStrip's third argument is the TABLE'S OWN BOOK — the shoe is
+   what splitFelt has left of the combined book.               */
+const hotFelt = drawStrip({ rounds: 9, ev: -60, felt: 240, sd2: 8000 }, true,
+  { rounds: 5, ev: -40, felt: 400, sd2: 4000 },
+  /* the table's felt was inside its spread last draw; the shoe's already was not */
+  { table: false, shoe: true });
+function sideClass(html, label) {
+  const m = html.match(new RegExp(label + ' <b class="([^"]*)"'));
+  return m ? m[1] : '';
+}
+const tableCls = sideClass(hotFelt.innerHTML, 'the table');
+const shoeCls = sideClass(hotFelt.innerHTML, 'the shoe');
+if (!/crossed/.test(tableCls))
+  throw new Error('the felt that first tops its OWN spread must bloom: ' + hotFelt.innerHTML);
+if (/crossed/.test(shoeCls))
+  throw new Error('the other side of the duel must not bloom with it: ' + hotFelt.innerHTML);
+/* and the side that stays inside its own spread never blooms, even
+   on the very draw the OTHER side crosses                     */
+const calmFelt = drawStrip(COMBINED, true,
+  { rounds: 4, ev: 0, felt: 0, sd2: 4000 },        /* the table: dead even  */
+  { table: false, shoe: false });
+if (/crossed/.test(sideClass(calmFelt.innerHTML, 'the table')))
+  throw new Error('a side inside its own spread never blooms: ' + calmFelt.innerHTML);
+/* the marks are banked apart, so the strip's own crossing and a
+   felt's never stand in for one another                    */
+if (!/LUCK999\.cross\(duelOut\.table, duel\.table\)/.test(src) ||
+    !/LUCK999\.cross\(duelOut\.shoe, duel\.shoe\)/.test(src))
+  throw new Error('each side must read its OWN mark, not the strip\u2019s');
+if (!/var duelOut = \{ table: null, shoe: null \};/.test(src))
+  throw new Error('the duel banks a mark per side');
+if (!/duelOut = \{ table: null, shoe: null \};/.test(src.split('function resetEv')[1] || ''))
+  throw new Error('a fresh book must return both duel marks to null');
+console.log('the duel: each felt blooms on the draw it first tops its OWN spread, once, independently');
+
+/* --- each side names HOW MANY spreads it has run, not just the sign:
+       a book from before the spread says so rather than standing
+       there as a bare number the player could misread         --- */
+if (!/sg \|\| 'no spread yet'/.test(src))
+  throw new Error('a felt with no width banked must say so, not go silent');
+if (!/class="sd' \+ \(sg \? '' : ' na'\)/.test(src))
+  throw new Error('the absence must read quieter than a measurement');
+if (!/\.evstrip \.sd\.na \{ opacity: 0\.6;/.test(src))
+  throw new Error('the no-spread marker must wear its own quiet weight');
+/* a book WITH a spread keeps its real sigma, never the marker */
+const withSpread = drawStrip(COMBINED, true, { rounds: 4, ev: -40, felt: 400, sd2: 4000 });
+if (!/the table [^<]*<b[^>]*>\+440\.0<\/b> freak hot <span class="sd">\+7\.0σ<\/span>/.test(withSpread.innerHTML))
+  throw new Error('a spread-backed felt names its own sigma: ' + withSpread.innerHTML);
+if (/no spread yet/.test(withSpread.innerHTML))
+  throw new Error('the marker must never replace a real sigma: ' + withSpread.innerHTML);
+/* a migrated book (rounds, no sd2) names the absence on ITS side only */
+const migDuel = drawStrip({ rounds: 9, ev: -60, felt: 460, sd2: 9000 }, true,
+  { rounds: 4, ev: -40, felt: 400 });
+const migTable = migDuel.innerHTML.match(/the table ([^·]*)/) || ['',''];
+if (!/no spread yet/.test(migTable[1]))
+  throw new Error('a felt with no banked width must say so: ' + migDuel.innerHTML);
+if (/the shoe [^·]*no spread yet/.test(migDuel.innerHTML))
+  throw new Error('the other side keeps its own sigma: ' + migDuel.innerHTML);
+console.log('the duel names its spreads: sigma per felt, and a pre-spread book says so instead of standing mute');
+
 if (!/LUCK999\.cross\(evOut, evSession\)/.test(src) || !/LUCK999\.stripLine\(evSession, cross\.fire\)/.test(src))
   throw new Error('the strip must read the crossing before it draws');
 if (!/\.evstrip b\.luck\.crossed \{ animation: luckpulse/.test(src) || !/@keyframes luckpulse/.test(src))
@@ -386,8 +532,8 @@ if (!/var bd = LUCK999\.band\(s\), sg = LUCK999\.sigma\(s\);/.test(src))
 const oneFelt = drawStrip(combined, null, null);
 if (/the table/.test(oneFelt.innerHTML))
   throw new Error('with no hand-off, the strip stays one felt: ' + oneFelt.innerHTML);
-if (!/splitFelt\(evSession, tableBook\(\)\)/.test(src) || !/feltTag\('the shoe', duel\.shoe\)/.test(src))
-  throw new Error('the strip must draw the duel through splitFelt and feltTag');
+if (!/splitFelt\(evSession, tableBook\(\)\)/.test(src) || !/feltTag\('the shoe', duel\.shoe, cs\.fire\)/.test(src))
+  throw new Error('the strip must draw the duel through splitFelt and feltTag, each side carrying its own crossing');
 console.log('two felts: each banded by its OWN spread \u2014 the table\u2019s and the shoe\u2019s luck as sizes, one felt until a hand-off');
 
 /* --- the band's far ends: the best and worst z the gap has EVER
@@ -400,15 +546,21 @@ function noteRun(book, range) {
     noteSrc + '\nreturn function () { noteLuck(); return luckRange; };')(
     LUCK, book, range, function () {})();
 }
-const r0 = noteRun({ rounds: 1, ev: 0, felt: 115, sd2: 13225 }, { hi: null, lo: null });
+const r0 = noteRun({ rounds: 7, ev: 0, felt: 115, sd2: 13225 }, { hi: null, lo: null, hiAt: null, loAt: null });
 if (Math.abs(r0.hi - 1) > 1e-9 || Math.abs(r0.lo - 1) > 1e-9)
   throw new Error('a first read sets both ends: ' + JSON.stringify(r0));
-const r1 = noteRun({ rounds: 1, ev: 0, felt: -230, sd2: 13225 }, { hi: 2.5, lo: 0.2 });
+if (r0.hiAt !== 7 || r0.loAt !== 7)
+  throw new Error('each remembered extreme is stamped with the round it happened on: ' + JSON.stringify(r0));
+const r1 = noteRun({ rounds: 12, ev: 0, felt: -230, sd2: 13225 }, { hi: 2.5, hiAt: 9, lo: 0.2, loAt: 4 });
 if (r1.hi !== 2.5 || Math.abs(r1.lo + 2) > 1e-9)
   throw new Error('a colder read moves only the floor: ' + JSON.stringify(r1));
-const r2 = noteRun({ rounds: 1, ev: 0, felt: 345, sd2: 13225 }, { hi: 2.5, lo: -1 });
+if (r1.hiAt !== 9 || r1.loAt !== 12)
+  throw new Error('an untouched end keeps its own round; a moved one takes the new round: ' + JSON.stringify(r1));
+const r2 = noteRun({ rounds: 21, ev: 0, felt: 345, sd2: 13225 }, { hi: 2.5, hiAt: 9, lo: -1, loAt: 3 });
 if (Math.abs(r2.hi - 3) > 1e-9 || r2.lo !== -1)
   throw new Error('a hotter read moves only the ceiling: ' + JSON.stringify(r2));
+if (r2.hiAt !== 21 || r2.loAt !== 3)
+  throw new Error('the ceiling re-stamps, the floor keeps its own round: ' + JSON.stringify(r2));
 if (noteRun({ rounds: 0, ev: 0, felt: 0, sd2: 0 }, { hi: null, lo: null }).hi !== null)
   throw new Error('a book with no spread sets no extreme');
 if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD[\s\S]{0,400}noteLuck\(\);[\s\S]{0,300}renderCoach\(\);/.test(src))
@@ -418,10 +570,137 @@ if (!/' \\u00b7 best ' \+ LUCK999\.bandOf\(luckRange\.hi\) \+ ' ' \+ LUCK999\.zS
   throw new Error('the pill must name the best and worst bands beside the current one');
 if (!/evSession\.rounds && luckRange\.hi != null && luckRange\.lo != null/.test(src))
   throw new Error('the extremes wait for a priced round');
-console.log('the far ends: the best and worst z ever read \u2014 kept across sessions, named beside the current band');
+/* the pill says WHEN, not just how big */
+const roundTxt = makeFn(grab('  function luckRoundTxt(', '\n  }'));
+if (roundTxt(42) !== ' (round 42)') throw new Error('a stamped extreme names its round: ' + JSON.stringify(roundTxt(42)));
+if (roundTxt(0) !== ' (round 0)') throw new Error('round zero is a real round: ' + JSON.stringify(roundTxt(0)));
+if (roundTxt(null) !== '' || roundTxt(undefined) !== '')
+  throw new Error('an unstamped extreme keeps its silence \u2014 a legacy save names no round');
+if (roundTxt(NaN) !== '' || roundTxt(Infinity) !== '')
+  throw new Error('a stamp that is not a number is no stamp');
+if (!/luckRoundTxt\(luckRange\.hiAt\)/.test(src) || !/luckRoundTxt\(luckRange\.loAt\)/.test(src))
+  throw new Error('the pill must read each end\u2019s own stamp');
+if (!/luckRange\.hiAt = evSession\.rounds/.test(src) || !/luckRange\.loAt = evSession\.rounds/.test(src))
+  throw new Error('the stamp must be the book\u2019s own round count');
+console.log('the far ends: the best and worst z ever read \u2014 kept across sessions, named beside the current band, stamped with the round');
 if (!/\.evstrip \.newbook \{ cursor: pointer;/.test(src))
   throw new Error('the practice new-book tap must read as a control');
 console.log('practice new book: \u21ba one tap zeroes rounds, engine, felt and spread \u2014 the band falls back to gold');
+
+/* --- the fresh shoe: the whole training session over, beside the
+       new book but never inside it \u2014 the strip hides itself when
+       nothing has crossed, and a reset a player cannot reach on a
+       fresh page is no reset at all                          --- */
+if (!/<p class="evstrip" id="shoeReset"><\/p>/.test(src))
+  throw new Error('the fresh shoe must have a home of its own');
+if (!/<p class="evstrip" id="evStrip" hidden><\/p>/.test(src))
+  throw new Error('the strip must still hide itself when nothing has crossed');
+if (!/shoeReset'\);[\s\S]*?id === 'evFreshShoe'\) freshShoe\(\);/.test(src))
+  throw new Error('the chip must route its tap to the fresh shoe');
+const shoeChip = grab('  function renderShoeReset() {', '\n  }');
+if (!/shoeArmed \? '\\u21ba tap again to wipe it all' : '\\u21ba fresh shoe'/.test(shoeChip))
+  throw new Error('the chip must say what it takes and what the next tap does: ' + shoeChip);
+if (!/id="evFreshShoe"/.test(shoeChip) || !/class="newbook"/.test(shoeChip))
+  throw new Error('the fresh shoe must read as the same control the new book is');
+const shoeTap = grab('  function freshShoe() {', '\n  }');
+if (!/if \(armShoe\(\)\) return;/.test(shoeTap))
+  throw new Error('the first tap must only arm \u2014 nothing may be wiped on one click');
+if (!/shuffleCeremony\(function \(\) \{ resetTraining\(\); \}\)/.test(shoeTap))
+  throw new Error('the second tap must reshuffle and wipe');
+const armShoe = grab('  function armShoe() {', '\n  }');
+if (!/if \(shoeArmed && Date\.now\(\) - shoeArmed < 6000\) return false;/.test(armShoe) ||
+    !/later\(6000, function \(\) \{ if \(shoeArmed\) \{ shoeArmed = 0; renderShoeReset\(\); \} \}\)/.test(armShoe))
+  throw new Error('the arming must expire on its own, so a stale tap cannot fire a wipe');
+
+/* the wipe itself, run on the shipped body: every ledger the session
+   built must be gone, and nothing else                             */
+const shoeBody = grab('  function resetTraining() {', '\n  }');
+const shoeFields = ['bank', 'bet', 'doubled', 'leaks', 'sessionLeaks', 'leakCell', 'leakUnseen',
+  'weekBase', 'gradClock', 'drillReport', 'drillChart', 'drillFree', 'drillReopen',
+  'replay', 'reviewIdx', 'fork', 'forkStats', 'coachStats', 'countStats', 'ixStats', 'ixLog',
+  'lastFlip', 'quizStats', 'indexQuiz', 'leakMode', 'indexMode', 'reviewMode',
+  'token', 'you', 'dealerArr', 'hands', 'splitActive', 'drillOpen', 'phase'];
+const shoeHooks = ['buildShoe', 'saveBank', 'saveLeaks', 'saveGrad', 'saveWeek', 'saveReplay', 'saveForks',
+  'saveCoach', 'saveCount', 'saveIx', 'saveIxLog', 'saveQuizStats', 'resetEv', 'refillQueue',
+  'closeDrill', 'renderShoe', 'renderCount', 'renderLeaks', 'renderCoach', 'syncUI', 'setStatus'];
+for (const n of shoeHooks) if (shoeBody.indexOf(n) === -1)
+  throw new Error('the fresh shoe must call ' + n);
+if (!/^ {4}buildShoe\(\);/m.test(shoeBody))
+  throw new Error('the fresh shoe must reshuffle and zero the count, standing alone');
+let built = 0, evReset = 0, refilled = 0, synced = 0, drewShoe = 0, counted = 0, closed = 0,
+  drewLeaks = 0, drewCoach = 0, said = '';
+const saved = [];
+const live = {
+  bank: 425, bet: 100, doubled: true,
+  leaks: { 'hard 16 v 10': { n: 2, cost: 40, ts: 1 } }, sessionLeaks: { 'hard 12 v 3': { n: 1, cost: 25, ts: 1 } },
+  leakCell: 'hard 16 v 10', leakUnseen: 3, weekBase: { 1700000000000: { 'hard 16 v 10': 40 } },
+  gradClock: 412, drillReport: { recovered: 20 }, drillChart: { cell: 'hard 16 v 10' },
+  drillFree: true, drillReopen: true, replay: [{ card: 'A' }], reviewIdx: 3, fork: { kind: 'hit' },
+  forkStats: { forks: 4, book: 3 },
+  coachStats: { decisions: 30, book: 20, streak: 2, best: 5, loss: 9, lossBase: 1 },
+  countStats: { guesses: 9, right: 6, offBy: 3, tGuesses: 4, tRight: 3, tOffBy: 1, pGuesses: 2, pRight: 1, pOffBy: 1 },
+  ixStats: { asked: 8, followed: 3, byCell: { 'hard 15 v 10': { asked: 4, followed: 0 } } },
+  ixLog: [{ cell: 'hard 15 v 10', tc: 4, taken: 0 }], lastFlip: { cell: 'hard 15 v 10', tc: 4 },
+  quizStats: { asked: 5, clean: 3 }, indexQuiz: { tc: 4 },
+  leakMode: true, indexMode: true, reviewMode: true,
+  token: 7, you: [{ rank: 'K' }], dealerArr: [{ rank: 'Q' }],
+  hands: [{ cards: [{ rank: 'K' }], stake: 100 }], splitActive: 1, drillOpen: true, phase: 'acting'
+};
+const args = shoeFields.concat(shoeHooks);
+const vals = shoeFields.map(n => live[n]).concat([
+  () => { built++; }, () => saved.push('bank'), () => saved.push('leaks'), () => saved.push('grad'),
+  () => saved.push('week'), () => saved.push('replay'), () => saved.push('forks'), () => saved.push('coach'),
+  () => saved.push('count'), () => saved.push('ix'), () => saved.push('ixlog'), () => saved.push('quiz'),
+  () => { evReset++; }, () => { refilled++; }, () => { closed++; }, () => { drewShoe++; },
+  () => { counted++; }, () => { drewLeaks++; }, () => { drewCoach++; }, () => { synced++; },
+  (s) => { said = s; }
+]);
+const snap = 'return { ' + shoeFields.map(n => n + ': ' + n).join(', ') + ' };';
+const runShoe = new Function(...args, 'return function resetTraining() {' + shoeBody.slice(shoeBody.indexOf('{') + 1, shoeBody.lastIndexOf('}')) + snap + ' };')(...vals);
+const after = runShoe();
+if (built !== 1) throw new Error('the fresh shoe must build exactly one fresh stack: ' + built);
+if (evReset !== 1 || refilled !== 1 || synced !== 1 || drewShoe !== 1 || counted !== 1 ||
+    closed !== 1 || drewLeaks !== 1 || drewCoach !== 1)
+  throw new Error('the wipe must clear, redraw and refill its own queues');
+/* the FELT, not just the books: shuffleCeremony leaves the phase at
+   'shuffling' for its caller to finish, so a wipe that forgets it
+   leaves every control dead on a page that looks reset */
+if (after.phase !== 'betting') throw new Error('the felt must reopen for betting: ' + after.phase);
+if (after.token <= 7) throw new Error('the old round\u2019s token must be spent, so nothing of it still fires');
+if (after.you.length || after.dealerArr.length || after.hands.length || after.splitActive)
+  throw new Error('the hand in flight must go with the session');
+if (after.drillOpen) throw new Error('the count drill must close with the session');
+if (!/^ {4}phase = 'betting';$/m.test(shoeBody) || !/^ {4}token\+\+;/m.test(shoeBody))
+  throw new Error('the wipe must reopen the felt and cancel the old round itself');
+if (!said || !/session starts over/.test(said)) throw new Error('the wipe must say what it did: ' + said);
+if (after.bank !== 1000 || after.bet !== 0 || after.doubled) throw new Error('the tray must refill to the boot bank');
+if (Object.keys(after.leaks).length || Object.keys(after.sessionLeaks).length || after.leakCell)
+  throw new Error('both leak ledgers must go');
+if (Object.keys(after.weekBase).length || after.gradClock !== 0) throw new Error('the week baselines and the drill clock must go');
+if (after.leakUnseen !== 0 || after.drillReport || after.drillChart || after.drillFree || after.drillReopen)
+  throw new Error('the sitting\u2019s drill state must go');
+if (after.replay.length || after.reviewIdx !== 0 || after.fork || after.forkStats.forks || after.forkStats.book)
+  throw new Error('the replay and its fork tally must go');
+if (after.coachStats.decisions || after.coachStats.book || after.coachStats.loss || after.coachStats.lossBase ||
+    after.coachStats.streak || after.coachStats.best)
+  throw new Error('the coach\u2019s record must go');
+if (after.countStats.guesses || after.countStats.right || after.countStats.offBy ||
+    after.countStats.tGuesses || after.countStats.tRight || after.countStats.tOffBy ||
+    after.countStats.pGuesses || after.countStats.pRight || after.countStats.pOffBy)
+  throw new Error('the count\u2019s own guesses must go');
+if (after.ixStats.asked || after.ixStats.followed || Object.keys(after.ixStats.byCell).length ||
+    after.ixLog.length || after.lastFlip)
+  throw new Error('the index discipline and its recent asks must go');
+if (after.quizStats.asked || after.quizStats.clean || after.indexQuiz)
+  throw new Error('the quiz score and any open card must go');
+if (after.leakMode || after.indexMode || after.reviewMode)
+  throw new Error('every panel must close, or the next draw reads a cleared sheet');
+if (saved.length !== 11) throw new Error('every wiped ledger must be persisted, not just dropped: ' + saved.length);
+/* and the SETTINGS are not the session: nothing above may touch them */
+for (const keep of ['quizLean', 'quizBiasId', 'drillFeed', 'LEAK_HALF', 'countingOn', 'coachOn', 'leakView', 'speedMode'])
+  if (shoeBody.indexOf(keep) !== -1)
+    throw new Error('a setting must survive the fresh shoe: ' + keep);
+console.log('practice fresh shoe: \u21ba reshuffles, zeroes the count, and wipes every session ledger \u2014 the settings stay');
 
 /* --- the table's own tap: same reset, from its own books --- */
 const tResetFull = tgrab('  function resetT() {', '\n  }');
@@ -469,5 +748,94 @@ if (!/e\.target\.id === 'clearBookT'\) clearBookT\(\);/.test(tsrc))
 if (!/\.training \.bookreset-tap \{ cursor: pointer;/.test(tsrc))
   throw new Error('the fresh-book control must read as a control');
 console.log('table fresh book: \u232b one tap wipes the whole persisted ledger \u2014 decisions, cost and reconciliation');
+
+/* --- the lenient restore: field by field, in the reel's spirit. A
+       stored field that cannot be used is repaired ALONE; the rest
+       of the book rides on. A book written before the spread is
+       migBook, never discarded.                              --- */
+const evRestore = LUCK.evRestore, evMigrated = LUCK.evMigrated;
+const ZERO = { rounds: 0, ev: 0, felt: 0, sd2: 0 };
+function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+if (!same(evRestore(null), ZERO) || !same(evRestore(undefined), ZERO) ||
+    !same(evRestore('nonsense'), ZERO) || !same(evRestore(7), ZERO) || !same(evRestore({}), ZERO))
+  throw new Error('nothing stored is a fresh book, whole — but only because there was nothing to keep');
+/* the migration: a book saved before sd2 existed keeps every total
+   it had, and only the spread starts at nothing                */
+const oldBook = { rounds: 12, ev: -3.1, felt: -25 };
+const migBook = evRestore(oldBook);
+if (!same(migBook, { rounds: 12, ev: -3.1, felt: -25, sd2: 0 }))
+  throw new Error('a book from before the spread must keep its rounds, engine and felt: ' + JSON.stringify(migBook));
+if (evMigrated(oldBook) !== true) throw new Error('a missing sd2 must report as a migration');
+if (evMigrated(ZERO) !== false) throw new Error('a whole book needs no migration');
+/* the repaired field is the ONLY thing that changes: a broken sd2
+   costs the band, never the round count, price or felt          */
+const halfBroken = evRestore({ rounds: 5, ev: 10, felt: -80, sd2: null });
+if (!same(halfBroken, { rounds: 5, ev: 10, felt: -80, sd2: 0 }))
+  throw new Error('one stale field must be repaired alone: ' + JSON.stringify(halfBroken));
+if (evMigrated({ rounds: 5, ev: 10, felt: -80, sd2: null }) !== true)
+  throw new Error('a stale sd2 must report as a migration');
+const evBroken = evRestore({ rounds: 5, ev: 'x', felt: -80, sd2: 2000 });
+if (!same(evBroken, { rounds: 5, ev: 0, felt: -80, sd2: 2000 }))
+  throw new Error('a stale engine leg must be repaired alone: ' + JSON.stringify(evBroken));
+/* nonsense and impossible numbers are repaired, not inherited    */
+if (evRestore({ rounds: NaN, ev: Infinity, felt: -80, sd2: 2000 }).rounds !== 0 ||
+    evRestore({ rounds: 5, ev: 10, felt: -80, sd2: NaN }).sd2 !== 0)
+  throw new Error('a number that is not finite is not a number to keep');
+if (evRestore({ rounds: -4, ev: 10, felt: -80, sd2: -9 }).rounds !== 0 ||
+    evRestore({ rounds: -4, ev: 10, felt: -80, sd2: -9 }).sd2 !== 0)
+  throw new Error('a count and a sum of squares are never negative');
+if (evRestore({ rounds: -4, ev: 10, felt: -80, sd2: -9 }).ev !== 10)
+  throw new Error('repairing a count must not touch the legs beside it');
+if (evMigrated({ rounds: -4, ev: 10, felt: -80, sd2: -9 }) !== true)
+  throw new Error('an impossible count must report as a migration');
+/* the signed legs ride through untouched — the gap is still the
+   gap, and a book with no spread simply claims no band          */
+if (luckWord(migBook) !== '\u221221.9' || luckBand(migBook) !== '' || luckSigma(migBook) !== '' ||
+    luckTone(migBook) !== '')
+  throw new Error('a migBook book keeps its gap and claims no band: ' + luckWord(migBook));
+if (!/12 rounds$/.test(evStripLine(migBook)))
+  throw new Error('a migBook book still draws its strip: ' + evStripLine(migBook));
+/* the very next round's spread lands on the migBook book whole  */
+const regrown = Object.assign({}, migBook, { rounds: 13, felt: -225, sd2: 13225 });
+if (luckBand(regrown) !== 'cool')
+  throw new Error('one measured round gives the migBook book a band: ' + luckBand(regrown));
+if (Math.abs(LUCK.z(regrown) + 1.93) > 0.01)
+  throw new Error('the band reads against the spread actually measured: ' + LUCK.z(regrown));
+/* every restore on both surfaces goes through the one read        */
+if (!/evSession = LUCK999\.evRestore\(/.test(src)) throw new Error('the shoe must restore through evRestore');
+if (!/LUCK999\.evRestore\(JSON\.parse\(localStorage\.getItem\('999\.practice\.evsession'\)/.test(src))
+  throw new Error('the shoe must read its own key through evRestore');
+if (!/book = LUCK999\.evRestore\(JSON\.parse\(localStorage\.getItem\('999\.practice\.evsession'\)/.test(tsrc))
+  throw new Error('the hand-off must merge into the shoe book through evRestore');
+if (!/var b = LUCK999\.evRestore\(t\);/.test(src) || !/if \(b\.rounds > 0\) return b;/.test(src))
+  throw new Error('the table book must be read leniently too, so a duel from before the spread still reads');
+/* the hand-off's merge: an old book gains a round, it does not
+   restart — the whole point of the migration                  */
+const flushSrc = tgrab('  function flushRecon(ev, felt, sd2) {', '\n  }');
+function flushOn(stored) {
+  const mem = { '999.practice.evsession': stored };
+  const fakeLS = {
+    getItem: (k) => (k in mem ? mem[k] : null),
+    setItem: (k, v) => { mem[k] = v; }
+  };
+  new Function('localStorage', 'LUCK999', flushSrc + '\nflushRecon(10, 40, 200);')(
+    fakeLS, LUCK);
+  return JSON.parse(mem['999.practice.evsession']);
+}
+const merged = flushOn(JSON.stringify(oldBook));
+if (!same(merged, { rounds: 13, ev: 6.9, felt: 15, sd2: 200 }))
+  throw new Error('the hand-off must add a round to a migBook book, not restart it: ' + JSON.stringify(merged));
+const mergedFull = flushOn(JSON.stringify({ rounds: 5, ev: 10, felt: 90, sd2: 5000 }));
+if (!same(mergedFull, { rounds: 6, ev: 20, felt: 130, sd2: 5200 }))
+  throw new Error('a whole book must merge exactly as before: ' + JSON.stringify(mergedFull));
+const mergedBroken = flushOn(JSON.stringify({ rounds: 5, ev: 10, felt: 90, sd2: 'x' }));
+if (!same(mergedBroken, { rounds: 6, ev: 20, felt: 130, sd2: 200 }))
+  throw new Error('a stale spread must not cost the shoe its running book: ' + JSON.stringify(mergedBroken));
+/* nothing on either page may gate a book on all four fields at
+   once — that is the whole bug this replaced                 */
+if (/typeof \w+\.sd2 === 'number'/.test(src) || /typeof \w+\.sd2 === 'number'/.test(tsrc))
+  throw new Error('no page may demand all four fields at once: one stale field must not cost the whole book');
+console.log('the restore: field by field, like the reel \u2014 a book from before the spread is migBook, not thrown away');
+console.log('the hand-off: an old book gains a round and keeps everything it had \u2014 12 rounds stay 12, and 13 next');
 
 console.log('\nev strip verified');

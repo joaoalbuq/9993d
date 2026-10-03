@@ -108,8 +108,17 @@ if (!/back in ' \+ Math\.max\(0, c\.back - gradClock\)/.test(src))
   throw new Error('the panel must count down a graduate\u2019s return');
 if (!/trim: leaks\[k\]\.trim \|\| 0/.test(src))
   throw new Error('the ranking must carry the trimmed-rest flag to the row');
-if (!/\(c\.trim \? ' \(soft miss\)' : ''\)/.test(src))
-  throw new Error('a trimmed rest must name its shortening on the row');
+if (!/\(c\.trim \? ' \\u00b7 ' \+ trimText\(c\.trim\) \+ '\\u00d7 rest' : ''\)/.test(src))
+  throw new Error('a trimmed rest must name its FACTOR on the row, not just that it was trimmed');
+const trimText = extract('trimText', '')();
+if (trimText(0.5) !== '0.5') throw new Error('a half rest reads 0.5×: ' + trimText(0.5));
+if (trimText(0.4) !== '0.4') throw new Error('the floor trim reads 0.4×: ' + trimText(0.4));
+if (trimText(0.6288) !== '0.6') throw new Error('the tenth carries the meaning, the hundredth is bookkeeping: ' + trimText(0.6288));
+if (trimText('0.75') !== '0.8') throw new Error('a factor arriving as text still reads: ' + trimText('0.75'));
+if (Math.abs(trimText(refresherTrim(12.5)) - 0.5) > 1e-9)
+  throw new Error('the row\u2019s factor is the one retirement stamped \u2014 12.5 chips halves it');
+if (Math.abs(trimText(refresherTrim(6)) - 0.4) > 1e-9)
+  throw new Error('a cheap yank sits on the 0.4 floor');
 if (!/e\.trim = trim < 1 \? trim : 0;/.test(src))
   throw new Error('retirement must stamp the trim factor');
 

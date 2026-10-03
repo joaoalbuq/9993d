@@ -9,10 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
-/* --- the canon, from the page --- */
-const cStart = src.indexOf('  var SHOE999 = (function () {');
-const cEnd = src.indexOf('})();', cStart) + 5;
-const SHOE999 = (0, eval)('(' + src.slice(cStart, cEnd).replace('var SHOE999 = ', '').replace(/;\s*$/, '') + ')');
+/* --- the canon: the shipped module itself, not a page copy --- */
+const SHOE999 = require('../shoe999.js');
 
 /* --- forkWord, exactly as shipped --- */
 function grab(a, b) {

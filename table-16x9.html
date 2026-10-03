@@ -382,6 +382,9 @@
 </div>
 
 <script src="luck999.js"></script>
+<script src="shoe999.js"></script>
+<script src="ev999.js"></script>
+<script src="index999.js"></script>
 <script>
 (function () {
   'use strict';
@@ -646,7 +649,7 @@
          settled never does (and never orphans a bet). */
       var live = game.hands[YOUR];
       if (live && !live.betChain && !live.result && game.phase !== 'pause' && game.phase !== 'idle') {
-        placeBet(live, false);
+        placeBet(live, false, YOUR);
       }
     });
   }
@@ -705,11 +708,16 @@
   }
   function bonusWin(amount) {
     /* one two-note chime (the betsOpen shape, one octave apart) for
-       the wheel's answer — quiet, like every voice here (spec 4.5) */
+       the wheel's answer — quiet, like every voice here (spec 4.5).
+       It is the same shape as the betting chime, so it answers the
+       room like one, but a little under it: the wheel pays out, it
+       does not call a round — a small bloom, not a bloom-and-call.
+       And it pays for the tail out of its own dry level, so the
+       send never buys loudness.                              */
     var c = ready(); if (!c) return;
     var t = c.currentTime + 0.02;
-    tone(c, 659.25, t, 0.3, 'triangle', 0.05);
-    tone(c, 1318.5, t + 0.12, 0.3, 'triangle', 0.035);
+    tone(c, 659.25, t, 0.3, 'triangle', 0.038, null, null, BONUS_ROOM);
+    tone(c, 1318.5, t + 0.12, 0.3, 'triangle', 0.026, null, null, BONUS_ROOM);
     var b = document.getElementById('bonusBtn');
     if (b && typeof amount === 'number') {
       b.hidden = false;
@@ -742,7 +750,7 @@
       return null;
     });
   }
-  function placeBet(h, extra) {
+  function placeBet(h, extra, seat) {
     if (!you.sub) return;                            /* nobody signed in — no stakes */
     if (!extra) {
       you.hand++;                                    /* one hand number per round */
@@ -755,7 +763,13 @@
           /* the felt keeps the ledger: a chip lands at the box
              when — and only when — the debit actually lands   */
           h.chipT0 = (h.chipT0 || []).concat(performance.now());
-          chipClack(0.42 * pace);        /* ...and the chip clacks as it lands (its fall stretched with it) */
+          var sp = chipSpot(seat == null ? YOUR : seat, 0);
+          /* ...and the chip clacks as it lands, at ITS OWN seat —
+             projected by the same camera as the deal's whooshes,
+             so your wager sounds from the box the camera holds it,
+             never out of the middle whatever seat that is. The
+             fall still stretches with the cinematic           */
+          chipClack(0.42 * pace, 1, null, panFor({ x: sp[0], y: 0.12, z: sp[1] }));
         }
         return bal;
       });
@@ -1220,71 +1234,6 @@
     }
   }
 
-    /* ==== SHOE999 canon - one shoe + settlement for both pages ====
-     The 3D table and the practice shoe deal from the same stack
-     and settle by the same rules. This block must stay
-     byte-identical in table-16x9.html and offline.html;
-     test/shoe999.test.js fails if the copies drift.             */
-  var SHOE999 = (function () {
-    var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    var TEN = { '10': 1, 'J': 1, 'Q': 1, 'K': 1 };
-    function build(decks) {
-      var a = [], d, s, r, i, j, t;
-      for (d = 0; d < decks; d++)
-        for (s = 0; s < 4; s++)
-          for (r = 0; r < RANKS.length; r++) a.push({ rank: RANKS[r], suit: s });
-      for (i = a.length - 1; i > 0; i--) {           /* Fisher-Yates */
-        j = Math.floor(Math.random() * (i + 1));
-        t = a[i]; a[i] = a[j]; a[j] = t;
-      }
-      return a;
-    }
-    function draw(stack) {
-      return stack.length ? stack.pop() : null;    /* pages reshuffle at their cut */
-    }
-    function cutBetween(cards, lo, hi) {           /* where the cut card lands */
-      return Math.round(cards * (lo + Math.random() * (hi - lo)));
-    }
-    function value(cards, rname) {                 /* best total; soft = an ace still counts 11 */
-      var rk = rname || 'rank', t = 0, aces = 0, i, r;
-      for (i = 0; i < cards.length; i++) {
-        r = cards[i][rk];
-        if (r === 'A') { aces++; t += 11; }
-        else if (TEN[r]) t += 10;
-        else t += parseInt(r, 10);
-      }
-      while (t > 21 && aces) { t -= 10; aces--; }
-      return { total: t, soft: aces > 0 };
-    }
-    function total(cards, rname) { return value(cards, rname).total; }
-    /* the floor's one settlement (spec 5): bust 0, blackjack 3:2,
-       win 2:1, push returns the stake. The European no-peek
-       flavor both pages play: a dealer's natural takes the stake,
-       naturals cancel to a push, a player natural pays 3:2.       */
-    function settle(you, dealer, stake, rname) {
-      var p = total(you, rname), d = total(dealer, rname);
-      var nat = you.length === 2 && p === 21;
-      var dn = dealer.length === 2 && d === 21;
-      var kind;
-      if (p > 21) kind = 'bust';
-      else if (nat && dn) kind = 'push';
-      else if (nat) kind = 'blackjack';
-      else if (dn) kind = 'lose';
-      else if (d > 21 || p > d) kind = 'win';
-      else if (p === d) kind = 'push';
-      else kind = 'lose';
-      var mult = kind === 'blackjack' ? 2.5 : kind === 'win' ? 2 : kind === 'push' ? 1 : 0;
-      return { kind: kind, mult: mult, prize: stake * mult, net: stake * mult - stake };
-    }
-    function chips(prize) {                        /* the money edge: integer chips, house rounds up */
-      return Math.ceil(prize - 1e-9) + 0;
-    }
-    return { RANKS: RANKS, build: build, draw: draw, cutBetween: cutBetween,
-             value: value, total: total, settle: settle, chips: chips };
-  })();
-  /* ==== SHOE999 end ==== */
-
-
   /* ================= cards & scoring ======================= */
   var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   function score(cards) {
@@ -1362,169 +1311,6 @@
     }
   }
 
-  /* ==== EV999 canon - one pricing engine for both floors ====
-     The practice floor's engine prices the live table's misses
-     too. The block must stay byte-identical in table-16x9.html
-     and offline.html; test/index999.test.js fails if the
-     copies drift.                                              */
-  /* ---- EV999: what a deviation costs ---------------------- */
-  /* An infinite-deck engine in the floor's own flavor (S17,
-     European no-peek: a dealer natural takes everything): from
-     the upcard it builds the dealer's final distribution, then
-     prices every play as the chips it expects back per unit
-     staked. The gap between the book play and the click is
-     the price of the mistake — accuracy alone never showed
-     that. The engine shares the canon's rules; it only ever
-     judges, never deals.                                     */
-  var EV999 = (function () {
-    var RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    function val(r) {
-      return r === 'A' ? 11 : (r === '10' || r === 'J' || r === 'Q' || r === 'K') ? 10 : parseInt(r, 10);
-    }
-    var dists = {};                      /* up rank -> dealer final distribution */
-    function dealerDist(up) {
-      if (dists[up]) return dists[up];
-      var d = {};
-      function step(t, aces, nc, p) {    /* aces = live aces still counting 11 */
-        if (t >= 17) {                   /* S17: every 17 stands */
-          var k = t + '|' + (nc === 2 ? 2 : 3);
-          d[k] = (d[k] || 0) + p;
-          return;
-        }
-        for (var i = 0; i < RANKS.length; i++) {
-          var r = RANKS[i], t2 = t + val(r), a2 = aces;
-          if (r === 'A') a2++;
-          while (t2 > 21 && a2) { t2 -= 10; a2--; }
-          if (t2 > 21) d.bust = (d.bust || 0) + p / 13;
-          else step(t2, a2, nc + 1, p / 13);
-        }
-      }
-      step(val(up), up === 'A' ? 1 : 0, 1, 1);
-      dists[up] = d;
-      return d;
-    }
-    var tables = {};                     /* up rank -> the stand/hit return tables */
-    function tbl(up) {
-      if (tables[up]) return tables[up];
-      var d = dealerDist(up), S = {}, W = {};
-      function pay(t, f) {
-        if (f === 'bust') return 2;
-        var fv = parseInt(f, 10);
-        return t > fv ? 2 : t === fv ? 1 : 0;
-      }
-      /* stand: every final but the dealer's two-card natural
-         pays — the natural itself returns zero (European)     */
-      for (var t = 4; t <= 21; t++) {
-        var s = 0;
-        for (var k in d) if (k !== '21|2') s += d[k] * pay(t, k);
-        S[t] = s;
-      }
-      function hitCont(t, aces) {        /* the return of drawing, then playing on */
-        var key = t + '|' + aces;
-        if (W[key] != null) return W[key];
-        var h = 0;
-        for (var i = 0; i < RANKS.length; i++) {
-          var r = RANKS[i], t2 = t + val(r), a2 = aces;
-          if (r === 'A') a2++;
-          while (t2 > 21 && a2) { t2 -= 10; a2--; }
-          if (t2 > 21) continue;         /* the draw busts: zero back */
-          h += (1 / 13) * Math.max(S[t2], hitCont(t2, a2));
-        }
-        W[key] = h;
-        return h;
-      }
-      tables[up] = { S: S, hit: hitCont };
-      return tables[up];
-    }
-    function prices(t, soft, up, canDouble) {
-      /* every price is the expected PROFIT per unit staked —
-         the stake itself is netted out, so stand, hit and double
-         are comparable in the chips they actually make or lose  */
-      var aces = soft ? 1 : 0;           /* two aces can never both count 11 (22>21):
-                                            a non-bust hand holds 0 or 1 live ace   */
-      var T = tbl(up);
-      var dbl = null;
-      if (canDouble) {
-        var e = 0;
-        for (var i = 0; i < RANKS.length; i++) {
-          var r = RANKS[i], t2 = t + val(r), a2 = aces;
-          if (r === 'A') a2++;
-          while (t2 > 21 && a2) { t2 -= 10; a2--; }
-          if (t2 > 21) continue;
-          e += (1 / 13) * T.S[t2];
-        }
-        dbl = 2 * e - 2;             /* two units STAKED: the price is the
-                                        PROFIT, never the raw return — the
-                                        extra unit is real money out        */
-      }
-      return { stand: T.S[t] - 1, hit: T.hit(t, aces) - 1, double: dbl };
-    }
-    return { prices: prices, dealerDist: dealerDist };
-  })();
-  /* ==== EV999 end ==== */
-  /* ==== INDEX999 canon - the count's corrections, both floors ====
-     Hi-Lo's true count re-prices the shoe: as small cards leave,
-     tens and aces crowd what remains, and a few of the chart's
-     losing plays turn into winners. These are the corrections
-     this floor teaches — the famous indices: hard 16 v 10 stands
-     at +1, 15 v 10 at +4, 12 v 2 at +1 and 12 v 3 at +2 stand,
-     11 v A doubles at +1, 10 v 10 at +4, 9 v 2 at +1 — and one
-     runs the other way: 13 v 2 is a chart stand that the count
-     turns into a hit once the shoe goes cold (true −1 or
-     lower). Insurance, the count's own bet, turns at +3.
-     Below the threshold the chart rules. The block must stay
-     byte-identical in table-16x9.html and offline.html;
-     test/index999.test.js fails if the copies drift.            */
-  var INDEX999 = (function () {
-    var INDICES = {
-      'hard 16 v 10': { play: 'stand', at: 1,
-        why: 'tens left make a draw bust too often to chase' },
-      'hard 15 v 10': { play: 'stand', at: 4,
-        why: 'the same tens logic, but 15 needs a richer deck to stand' },
-      'hard 13 v 2': { play: 'hit', at: -1, below: true,
-        why: 'a cold shoe keeps the dealer alive \u2014 better to draw small cards' },
-      'hard 12 v 2': { play: 'stand', at: 1,
-        why: 'tens left turn the dealer\'s weak 2 into busts' },
-      'hard 12 v 3': { play: 'stand', at: 2,
-        why: 'the 3 busts later than the 2 \u2014 it takes a richer deck' },
-      'hard 11 v A': { play: 'double', at: 1,
-        why: 'fewer aces left make the unseen natural cheaper to chase' },
-      'hard 10 v 10': { play: 'double', at: 4,
-        why: 'ten-rich shoes outdraw the dealer\'s 20 \u2014 two units on it' },
-      'hard 9 v 2': { play: 'double', at: 1,
-        why: 'tens land your 19 often enough to press a weak 2' }
-    };
-    var INSURE_AT = 3;                 /* the count's own bet: insurance turns at +3 */
-    var INS_WHY_IN = 'more than a third of the deck is tens \u2014 the 2:1 pays';
-    var INS_WHY_OUT = 'it pays only past a third tens \u2014 true +3 is that rich';
-    function cell(t, soft, up) {
-      return (soft ? 'soft ' : 'hard ') + t + ' v ' + (up === 11 ? 'A' : up);
-    }
-    function flip(t, soft, up, tc, canD) {
-      var ix = INDICES[cell(t, soft, up)];
-      if (!ix) return null;
-      if (ix.play === 'double' && !canD) return null;   /* a double that isn't legal
-                                                           is the chart's stand-in  */
-      return (ix.below ? tc <= ix.at : tc >= ix.at) ? ix.play : null;
-    }
-    function tenDensity(stack) {       /* the exact share of ten-valued cards left */
-      var tens = 0, i;
-      for (i = 0; i < stack.length; i++) {
-        var r = stack[i].rank;
-        if (r === '10' || r === 'J' || r === 'Q' || r === 'K') tens++;
-      }
-      return stack.length ? tens / stack.length : 0;
-    }
-    function insEdge(stack) {          /* insurance pays 2:1: EV per unit = 3p − 1,
-                                          breakeven at p = 1/3, near true +3       */
-      return 3 * tenDensity(stack) - 1;
-    }
-    return { INDICES: INDICES, INSURE_AT: INSURE_AT, INS_WHY_IN: INS_WHY_IN,
-             INS_WHY_OUT: INS_WHY_OUT, cell: cell,
-             flip: flip, tenDensity: tenDensity, insEdge: insEdge };
-  })();
-  /* ==== INDEX999 end ==== */
-
   /* ---- the training overlay (optional, 🎓) -----------------
      The practice shoe's two quiet tutors ride the live table:
      the Hi-Lo meter counts EVERY card the shoe releases — the
@@ -1544,20 +1330,39 @@
      the practice shoe (999.table.trainstats vs the practice
      keys), so a night at the felt never muddies the drills.  */
   var trainStats = { decisions: 0, book: 0, loss: 0, lossBase: 0, ev: 0, felt: 0, rounds: 0, sd2: 0 };
+  function plainNum(v) { return (typeof v === 'number' && isFinite(v) && v > 0) ? v : 0; }   /* a
+     stored count is kept only if it is a real one; a count that was
+     never written, or was written broken, starts at nothing — and
+     only that field, the way the reel repairs its own entries   */
   try {
     var tsRaw = JSON.parse(localStorage.getItem('999.table.trainstats') || 'null');
-    if (tsRaw && typeof tsRaw.decisions === 'number' && typeof tsRaw.book === 'number') {
-      trainStats = tsRaw;
-      if (typeof trainStats.loss !== 'number') {
+    if (tsRaw && typeof tsRaw === 'object') {
+      /* the coach's own two fields gate the book — a book with no
+         decisions has nothing to reconcile — but once inside, every
+         field is read on its own, the lenient way the practice floor
+         reads hers: a score from before the luck keeps its decisions
+         and its cost, and a book from before the spread keeps its
+         rounds, engine and felt while its sd2 starts at nothing. The
+         shared restore is what does the walking.                  */
+      trainStats = {
+        decisions: plainNum(tsRaw.decisions),
+        book: plainNum(tsRaw.book),
+        loss: typeof tsRaw.loss === 'number' && isFinite(tsRaw.loss) ? tsRaw.loss : null,
+        lossBase: plainNum(tsRaw.lossBase),
+        ev: 0, felt: 0, rounds: 0, sd2: 0
+      };
+      var evHalf = LUCK999.evRestore(tsRaw);
+      trainStats.ev = evHalf.ev; trainStats.felt = evHalf.felt;
+      trainStats.rounds = evHalf.rounds; trainStats.sd2 = evHalf.sd2;
+      if (trainStats.loss == null) {   /* a book from before the cost was
+                                           tracked: the decisions that
+                                           missed were always the gap   */
         trainStats.loss = 0;
-        trainStats.lossBase = Math.max(0, (tsRaw.decisions - tsRaw.book) || 0);
+        trainStats.lossBase = Math.max(0, (trainStats.decisions - trainStats.book) || 0);
       }
-      if (typeof trainStats.ev !== 'number' || typeof trainStats.rounds !== 'number') {
-        trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;   /* a score from
-                                            before the luck: the old book stays honest */
-      }
-      if (typeof trainStats.sd2 !== 'number') trainStats.sd2 = 0;   /* a book from before
-                                            the spread: the totals stay, the band waits */
+      if (trainStats.decisions < trainStats.book) trainStats.book = trainStats.decisions;  /* a
+                                           book cannot have judged more
+                                           hands than it was asked about */
     }
   } catch (e) { }
   /* the luck: the first decision's chosen play, priced by the same
@@ -1700,9 +1505,12 @@
                                        one running book.                      */
     var book = { rounds: 0, ev: 0, felt: 0, sd2: 0 };
     try {
-      var raw = JSON.parse(localStorage.getItem('999.practice.evsession') || 'null');
-      if (raw && typeof raw.rounds === 'number' && typeof raw.ev === 'number' &&
-          typeof raw.felt === 'number' && typeof raw.sd2 === 'number') book = raw;
+      /* read leniently, field by field, the way the reel above reads
+         its own: a stored field that is not a number is started at
+         zero ALONE, and the running book survives it. A shoe's book
+         from before the spread is migrated here, not discarded —
+         its rounds, engine price and felt ride straight through.  */
+      book = LUCK999.evRestore(JSON.parse(localStorage.getItem('999.practice.evsession') || 'null'));
     } catch (e) { }
     book.rounds += 1;
     book.ev += ev;
@@ -1760,7 +1568,7 @@
      the chips fixing that cell wins back, scaled to the worst.  */
   function scoreT(map) {
     var cells = [], k, total = 0;
-    for (k in map) if (map[k] && map[k].n) { cells.push({ cell: k, cost: map[k].cost }); total += map[k].cost; }
+    for (k in map) if (map[k] && map[k].n) { cells.push({ cell: k, cost: map[k].cost, n: map[k].n }); total += map[k].cost; }
     if (!cells.length) return null;
     cells.sort(function (a, b) { return b.cost - a.cost; });
     var rows = [], run = 0;
@@ -1771,6 +1579,20 @@
     }
     return { total: total, rows: rows, cells: cells.length };
   }
+  function attrTT(s) {
+    /* a cell name rides into a title attribute, so it is escaped
+       for one — same job as the practice floor's attrT, its own
+       copy because these are two documents */
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function evBarTitleT(cell, cost, n, cum) {
+    /* the bar's own name, said plainly on hover: the chips behind
+       THIS bar, how many misses the cell carries, and what fixing
+       every bar down to here hands back                  */
+    return attrTT(cell) + ' \u00b7 \u2212' + Math.round(cost) + ' chips behind this bar \u00b7 ' +
+      n + ' miss' + (n === 1 ? '' : 'es') + ' in this cell \u00b7 ' +
+      Math.round(cum) + ' back if you fix every bar down to here';
+  }
   function evLeftT() {
     var sc = scoreT(tSession);
     if (!sc || !sc.rows.length) return '';
@@ -1779,7 +1601,8 @@
     for (i = 0; i < sc.rows.length; i++) {
       var c = sc.rows[i].cost;
       cum += c;
-      bars += '<div class="evrow"><span class="evcell">' + sc.rows[i].cell + '</span>' +
+      bars += '<div class="evrow" title="' + evBarTitleT(sc.rows[i].cell, c, sc.rows[i].n, cum) + '">' +
+        '<span class="evcell">' + sc.rows[i].cell + '</span>' +
         '<span class="evbar"><i style="width:' + Math.round(100 * (mx ? c / mx : 0)) + '%"></i></span>' +
         '<b>\u2212' + Math.round(c) + '</b></div>';
     }
@@ -1910,6 +1733,7 @@
   }
   function makeCard(isDealer, box, idx) {
     shoeDealt++;             /* every card leaving the shoe counts toward the cut */
+    shoeTap();               /* ...and the stack is heard letting it go */
     if (!cutT0 && shoeDealt >= shoeCut - CUT_NEAR) {
       cutT0 = performance.now();   /* the cut card surfaces — the shuffle is near */
       cutCue();
@@ -1931,17 +1755,21 @@
     /* the flight duration is the one knob (the cinematic deal):
        the whoosh swells over it, the snap lands at its end —
        stretch the flight and its sound stretches with it        */
-    cardWhoosh(0, (c.dur - 30) / 1000, flightDist(false, box, c.idx),
+    var fd = flightDist(false, box, c.idx);   /* one flight, one distance: the
+       whoosh flies it and the snap lands it, so the impact arrives
+       through the same air the card just crossed              */
+    cardWhoosh(0, (c.dur - 30) / 1000, fd,
       panFor(cardTarget(c)), panFor({ x: SHOE[0], y: SHOE[1], z: SHOE[2] }));
-    cardSnap((c.dur - 10) / 1000);  /* the snap lands with the card */
+    cardSnap((c.dur - 10) / 1000, fd);  /* the snap lands with the card, from that flight's distance */
   }
   function dealToDealer() {
     var d = game.dealer;
     var c = makeCard(true, -1, d.cards.length);
     d.cards.push(c);
-    cardWhoosh(0, (c.dur - 30) / 1000, flightDist(true, -1, c.idx),
+    var fd = flightDist(true, -1, c.idx);   /* the dealer's fan is its own flight */
+    cardWhoosh(0, (c.dur - 30) / 1000, fd,
       panFor(cardTarget(c)), panFor({ x: SHOE[0], y: SHOE[1], z: SHOE[2] }));  /* one whoosh per flight — sound stretched with it */
-    cardSnap((c.dur - 10) / 1000);  /* the snap lands with the card */
+    cardSnap((c.dur - 10) / 1000, fd);  /* the snap lands with the card, from that flight's distance */
   }
 
   /* ================= the round machine ===================== */
@@ -2060,9 +1888,14 @@
     for (var i = 0; i < BOX_N; i++) {
       if (i === YOUR) continue;
       game.hands[i].chipT0 = [performance.now()];
-      chipClack(0.42 + i * 0.06, 0.7);  /* the bots' chips land in a soft cascade */
+      var bs = chipSpot(i, 0);
+      /* the bots' chips land in a soft cascade, and each carries
+         its OWN seat: six boxes sweep the arc in stereo the way
+         the payout walk sweeps them back, so the opening wager
+         crosses the channels as it crosses the felt           */
+      chipClack(0.42 + i * 0.06, 0.7, null, panFor({ x: bs[0], y: 0.12, z: bs[1] }));
     }
-    placeBet(game.hands[YOUR], false);   /* real stakes: the bet is in before the cards */
+    placeBet(game.hands[YOUR], false, YOUR);   /* real stakes: the bet is in before the cards */
 
     /* Deal order (spec 4.5, European): one card each to boxes
        1…6, one to the dealer, then a second to boxes 1…6.       */
@@ -2131,7 +1964,7 @@
     var h = game.hands[YOUR];
     if (h.cards.length !== 2) return;
     h.doubled = true;
-    placeBet(h, true);   /* a double is a second stake */
+    placeBet(h, true, YOUR);   /* a double is a second stake, at the same box */
     dealTo(YOUR);
     playerStand();
   }
@@ -2636,6 +2469,12 @@
   document.addEventListener('keydown', wakeAudio);
 
   var RIFFLE_ROOM = 1.7, STINGER_ROOM = 1.4, WHOOSH_ROOM = 1.5, CLACK_ROOM = 0.6;
+  /* the three small voices, each sent for its own moment: the
+     whisper leans in because paper is nearly all room, the
+     chime leans in hardest because calling a round across a
+     quiet felt IS the room, and the shoe's tap stays nearly dry
+     because it fires on every card and must never stack. */
+  var CUT_ROOM = 1.25, BETS_ROOM = 1.6, TAP_ROOM = 0.45, BONUS_ROOM = 1.3;
   /* the ceremony fills the air, the whoosh IS air and swims, the
      verdict blooms, and the clacks stay dry-ish near the cloth */
   function toRoom(node, room) {
@@ -2711,12 +2550,34 @@
     burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out, CLACK_ROOM);
     tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out, CLACK_ROOM);
   }
-  function cardSnap(delay) {
-    /* the card hits the cloth at the end of its 430ms flight */
+  function cardSnap(delay, dist) {
+    /* The card hits the cloth at the end of its 430ms flight —
+       and it lands where it flew. The whoosh already arrives
+       through the flight's air; the IMPACT was announcing every
+       card at the same brightness and level however far it came,
+       so a card to the far rail flew in dark and then snapped as
+       if it had landed at your elbow. The snap now rides the
+       same near model: a far box's card lands dark and a shade
+       down, a near one lands crisp, and the veil is subtler
+       still than the whoosh's because cloth eats less air than
+       the flight does. Still the felt's ONE dry voice — no room
+       send, the snap lands close on the cloth whatever flew it.
+       No distance: the plain snap the felt has always had.    */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0);
-    burst(c, t, 0.045, 'bandpass', 3000, 0.9, 0.22);
-    burst(c, t, 0.02, 'highpass', 5200, 0, 0.10);
+    var far = dist != null;
+    var near = far ? clamp(1 - (dist - 2.4) / 4.0, 0, 1) : 1;
+    var lv = lerp(0.68, 1, near);          /* the landing's own, smaller ladder */
+    var out = null;
+    if (far && c.createBiquadFilter) {
+      var lp = c.createBiquadFilter();     /* the last of the flight's air */
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(lerp(2200, 16500, near), t);
+      out = c.createGain();
+      out.connect(lp); lp.connect(master);   /* dry: the snap never rides the room */
+    }
+    burst(c, t, 0.045, 'bandpass', far ? lerp(1750, 3000, near) : 3000, 0.9, 0.22 * lv, out);
+    burst(c, t, 0.02, 'highpass', far ? lerp(3400, 5200, near) : 5200, 0, 0.10 * lv, out);
   }
   function cardWhoosh(delay, dur, dist, pan, panFrom) {
     /* the slide rides the whole flight: a soft swell of shaped
@@ -2797,21 +2658,48 @@
     burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11, null, RIFFLE_ROOM);
     tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105, null, RIFFLE_ROOM);
   }
-  /* the new-shoe chime: two soft notes over "place your bets",
-     quiet enough to sit under the room (spec 4.5 vocabulary)  */
+  /* the betting chime: two soft notes over "place your bets".
+     Of the three small voices this is the one whose moment IS
+     the room — the house calling a round across a quiet felt —
+     so it takes the biggest send of the three and hands the
+     same amount of dry level back, so the tail it borrows
+     never buys loudness.                                     */
   function betsOpen(delay) {
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0);
-    tone(c, 783.99, t, 0.34, 'triangle', 0.05, 659.25);
-    tone(c, 1046.5, t + 0.12, 0.3, 'triangle', 0.03);
+    tone(c, 783.99, t, 0.34, 'triangle', 0.038, 659.25, null, BETS_ROOM);
+    tone(c, 1046.5, t + 0.12, 0.3, 'triangle', 0.022, null, null, BETS_ROOM);
   }
   function cutCue() {
     /* the cut card surfaces at the shoe: one soft paper whisper
-       and a low tick — quiet enough to sit under the round     */
+       and a low tick. It lands mid-round, so the level stays a
+       whisper — but paper has almost no body of its own, and
+       what a whisper borrows is air, so it leans into the room
+       further than it looks and gives the dry half back.      */
     var c = ready(); if (!c) return;
     var t = c.currentTime + 0.02;
-    burst(c, t, 0.32, 'bandpass', 900, 0.8, 0.05);
-    tone(c, 233.08, t + 0.14, 0.12, 'triangle', 0.055, 155);
+    burst(c, t, 0.32, 'bandpass', 900, 0.8, 0.04, null, CUT_ROOM);
+    tone(c, 233.08, t + 0.14, 0.12, 'triangle', 0.044, 155, null, CUT_ROOM);
+  }
+  function shoeTap(delay) {
+    /* the card LEAVES the shoe: one dry click of the stack
+       handing it over. The smallest moment on the table, and it
+       fires on every single card — so it sits lowest in the mix
+       and answers the room least, or one deal would read as a
+       machine rather than a shoe. It carries the shoe's SEAT and
+       is panned BEFORE it sends, so the reflection keeps the
+       shoe's side of the room the way the clacks keep theirs.  */
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + (delay || 0);
+    var out = null;
+    if (c.createStereoPanner) {
+      out = c.createStereoPanner();
+      out.pan.setValueAtTime(clamp(panFor({ x: SHOE[0], y: SHOE[1], z: SHOE[2] }), -1, 1), t);
+      out.connect(master);
+      toRoom(out, TAP_ROOM);          /* the send sits after the pan, like the clack */
+    }
+    burst(c, t, 0.028, 'bandpass', 2100, 2.2, 0.055, out, TAP_ROOM);
+    tone(c, 196, t, 0.05, 'triangle', 0.028, 150, out, TAP_ROOM);
   }
   function stinger(result) {
     /* one stinger per round is ceremony; six would be noise —

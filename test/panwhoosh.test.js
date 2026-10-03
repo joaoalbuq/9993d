@@ -202,6 +202,48 @@ if (JSON.stringify(w7.rec.links.slice(0, 2)) !== JSON.stringify([['bandpass', 'l
 console.log('the veil: 16.5kHz near \u2192 1.3kHz far on the same near model, in-chain \u2014 darker, not just quieter');
 
 /* --- the payout walk crosses the channels the way the deal does --- */
+/* --- the landing keeps the flight's distance: the whoosh flies in
+       dark from the far rail, so the snap that ends it must not
+       announce the card as if it had landed at your elbow --- */
+const csFull = grab('  function cardSnap(delay, dist) {', '\n  }');
+const csBody = csFull.slice(csFull.indexOf('{') + 1, csFull.lastIndexOf('}'));
+function makeSnap() {
+  const m = mockCtx(true);
+  const rec = [];
+  const master = { __tag: 'master', connect() {} };   /* the felt's mix bus, named so the chain reads */
+  const burst = (c, t, dur, type, freq, q, gain, out) => rec.push({ dur, type, freq, q, gain, out: out || null });
+  const snap = new Function('ready', 'burst', 'clamp', 'lerp', 'master',
+    'return function cardSnap(' + csFull.slice(csFull.indexOf('(') + 1, csFull.indexOf(')')) + ') {' + csBody + '}')(
+    () => m.c, burst, clamp, (a, b, t) => a + (b - a) * t, master);
+  return { snap, rec, m };
+}
+const sNear = makeSnap(); sNear.snap(0, 2.4);      /* the closest flight */
+const sFar = makeSnap(); sFar.snap(0, 6.4);        /* the farthest          */
+const sPlain = makeSnap(); sPlain.snap(0);         /* no distance at all    */
+const sLps = (r) => r.m.rec.fSets.filter((f) => f.type === 'lowpass').map((f) => f.v);
+if (sLps(sNear).length !== 1 || sLps(sFar).length !== 1)
+  throw new Error('a snap that flew must carry its own veil');
+if (sLps(sNear)[0] !== 16500) throw new Error('a near card lands with its air open: ' + sLps(sNear)[0]);
+if (sLps(sFar)[0] !== 2200) throw new Error('a far card must land behind the veil: ' + sLps(sFar)[0]);
+if (sLps(sPlain).length) throw new Error('a seatless snap is the plain voice \u2014 no veil, no filter');
+if (sFar.rec[0].freq !== 1750 || sNear.rec[0].freq !== 3000)
+  throw new Error('the tick must drop with distance: ' + sFar.rec[0].freq + ' vs ' + sNear.rec[0].freq);
+if (sFar.rec[1].freq !== 3400 || sNear.rec[1].freq !== 5200)
+  throw new Error('the crack must drop with distance: ' + sFar.rec[1].freq + ' vs ' + sNear.rec[1].freq);
+if (Math.abs(sFar.rec[0].gain - 0.22 * 0.68) > 1e-9 || Math.abs(sNear.rec[0].gain - 0.22) > 1e-9)
+  throw new Error('the landing\u2019s own ladder, subtler than the flight\u2019s: ' + sFar.rec[0].gain + ' / ' + sNear.rec[0].gain);
+if (sPlain.rec[0].freq !== 3000 || sPlain.rec[1].freq !== 5200 ||
+    sPlain.rec[0].gain !== 0.22 || sPlain.rec[1].gain !== 0.10)
+  throw new Error('with no distance the snap is exactly the felt\u2019s old plain voice: ' + JSON.stringify(sPlain.rec));
+if (sPlain.rec.some(r => r.out !== null)) throw new Error('a plain snap sits straight on the master');
+if (sFar.rec[0].out !== sFar.rec[1].out || sFar.rec[0].out === null)
+  throw new Error('both voices of a veiled snap must share one veil');
+if (JSON.stringify(sFar.m.rec.links.slice(0, 2)) !== JSON.stringify([['gain', 'lowpass'], ['lowpass', 'master']]))
+  throw new Error('the veil must sit in the snap\u2019s chain: ' + JSON.stringify(sFar.m.rec.links.slice(0, 3)));
+if (/_ROOM/.test(csFull)) throw new Error('the snap must never take a room send \u2014 it lands close on the cloth');
+console.log('the landing: 16.5kHz \u2192 2.2kHz on the snap\u2019s own subtler ladder \u2014 a far card lands dark, not just quiet');
+console.log('and seatless: the plain snap is unchanged, 3000/5200 at full level, still the felt\u2019s one dry voice');
+
 const cfFull = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
 const cfBody = cfFull.slice(cfFull.indexOf('{') + 1, cfFull.lastIndexOf('}'));
 function makeFan() {

@@ -1,10 +1,10 @@
-/* INDEX999: the count's corrections, exactly as shipped from the
-   canon both pages share. The index table is driven at its exact
-   boundaries (below the threshold the chart says hit, at and above
-   it the flip lands), the chart it corrects is extracted and
-   composed the way bookPlay composes them, insurance's 2:1 math is
-   checked against real shoes, and the two page copies must stay
-   byte-identical or the suite fails.                            */
+/* INDEX999: the count's corrections, exactly as shipped. The index
+   table is driven at its exact boundaries (below the threshold the
+   chart says hit, at and above it the flip lands), the chart it
+   corrects is extracted and composed the way bookPlay composes
+   them, and insurance's 2:1 math is checked against real shoes.
+   The engine is one shipped file both pages load, so the
+   single-source guard lives in engines.test.js.                 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -12,35 +12,8 @@ const path = require('path');
 const A = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 const B = fs.readFileSync(path.join(__dirname, '..', 'table-16x9.html'), 'utf8');
 
-/* --- drift guard: the canon block is byte-identical in both pages --- */
-const BEGIN = '  /* ==== INDEX999 canon';
-const END = '/* ==== INDEX999 end ==== */\n';
-function block(src, name) {
-  const i = src.indexOf(BEGIN);
-  if (i < 0) throw new Error(name + ': INDEX999 begin marker missing');
-  const j = src.indexOf(END, i);
-  if (j < 0) throw new Error(name + ': INDEX999 end marker missing');
-  return src.slice(i, j + END.length);
-}
-const a = block(A, 'offline.html'), b = block(B, 'table-16x9.html');
-if (a !== b) throw new Error('INDEX999 canon drifts between pages');
-console.log('canon byte-identical across both pages (' + a.length + ' bytes)');
-
-/* --- EV999 drift guard: the pricing engine is a canon too --- */
-const EB = '  /* ==== EV999 canon', EE = '/* ==== EV999 end ==== */\n';
-function eblock(s, name) {
-  const i = s.indexOf(EB);
-  if (i < 0) throw new Error(name + ': EV999 begin marker missing');
-  const j = s.indexOf(EE, i);
-  if (j < 0) throw new Error(name + ': EV999 end marker missing');
-  return s.slice(i, j + EE.length);
-}
-if (eblock(A, 'offline.html') !== eblock(B, 'table-16x9.html')) throw new Error('EV999 canon drifts between pages');
-console.log('EV999 canon byte-identical across both pages (' + eblock(A, 'offline.html').length + ' bytes)');
-
-/* --- the canon itself, evaluated --- */
-const body = a.slice(a.indexOf('var INDEX999 = (function () {'), a.indexOf('})();', a.indexOf('var INDEX999 = (function () {')) + 5);
-const INDEX999 = (0, eval)('(' + body.replace('var INDEX999 = ', '').replace(/;\s*$/, '') + ')');
+/* --- the engine itself, exactly as shipped --- */
+const INDEX999 = require('../index999.js');
 const I = INDEX999.INDICES;
 
 /* --- the why layer: every index explains itself, insurance both ways --- */
@@ -148,7 +121,7 @@ console.log('chartPlay extracted from the page: flip cells are chart-hits (13 v 
 
 /* --- composition: chart + flip == bookPlay's decision (hit-family only) --- */
 const bookSrc = grab('  function bookPlay() {', "\n  }");
-const SHOE999mod = (0, eval)('(' + grab('  var SHOE999 = (function () {', '})();').replace('var SHOE999 = ', '').replace(/;\s*$/, '') + ')');
+const SHOE999mod = require('../shoe999.js');
 const bookFactory = new Function('TC', 'INDEX999', 'SHOE999', 'CHART', 'handCards', 'dealerUp',
   'var dealerArr = [{ rank: dealerUp, suit: 0 }];' +
   'var you = handCards;' +

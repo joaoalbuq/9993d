@@ -15,9 +15,8 @@ function grab(a, b) {
   return src.slice(i, j + b.length);
 }
 
-/* --- the canon, from the page --- */
-const SHOE999 = (0, eval)('(' + grab('  var SHOE999 = (function () {', '})();')
-  .replace('var SHOE999 = ', '').replace(/;\s*$/, '') + ')');
+/* --- the canon: the shipped module itself, not a page copy --- */
+const SHOE999 = require('../shoe999.js');
 const total = (h) => SHOE999.total(h);
 const isSoft = (h) => SHOE999.value(h).soft;
 

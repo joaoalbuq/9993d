@@ -9,10 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
-/* the canon, from the page */
-const cStart = src.indexOf('  var SHOE999 = (function () {');
-const cEnd = src.indexOf('})();', cStart) + 5;
-const SHOE999 = (0, eval)('(' + src.slice(cStart, cEnd).replace('var SHOE999 = ', '').replace(/;\s*$/, '') + ')');
+/* the canon: the shipped module itself, not a page copy */
+const SHOE999 = require('../shoe999.js');
 
 /* mimic the page's module state */
 let shoeArr = [];
@@ -121,5 +119,105 @@ const noHole = { yc: ['8', '8'], ys: [0, 1], up: '6', us: 2 };
   if (p1.rank !== '8' || p2.rank !== '8' || up.rank !== '6' || up.suit !== 2) throw new Error('review stack (no hole): ' + [p1.rank, up.rank, p2.rank].join(','));
   console.log('review stacker: hole-less entries replay as before — nothing extra owed');
 }
+
+/* --- a tapped EV bar stacks its cell at once, and the panel comes
+       back on the next hand \u2014 no bet in between, and the hand is
+       never booked, so nothing is invented for it ------------- */
+function grab(a, b) {
+  const i = src.indexOf(a), j = src.indexOf(b, i);
+  if (i < 0 || j < 0) throw new Error('anchor miss: ' + a);
+  return src.slice(i, j + b.length);
+}
+/* the whole tap, over stub state: does it deal, does it book?
+   the two tap flags are function locals, so the built function
+   hands them back rather than the harness guessing */
+const dnFull = grab('  function drillNow(cell, now) {', '\n  }');
+const dnFlags = ' { drillFree: drillFree, drillReopen: drillReopen, leakCell: leakCell }';
+const dnBody = dnFull.slice(dnFull.indexOf('{') + 1, dnFull.lastIndexOf('}'))
+  /* every early exit hands the two flags back, so the harness can read them */
+  .replace(/return;/g, 'return' + dnFlags + ';')
+  + '\nreturn' + dnFlags + ';';
+const dnSrc = dnFull;
+const buildDrillNow = new Function('sessionLeaks', 'leaks', 'reviewMode', 'leakMode', 'leakQueue',
+  'refillQueue', 'leakCell', 'saveLeaks', 'renderCoach', 'renderLeaks', 'phase', 'bet',
+  'placeChip', 'deal', 'setStatus', 'DRILLFREE', 'DRILLREOPEN',
+  'var drillFree = DRILLFREE, drillReopen = DRILLREOPEN;\n' +
+  'return function drillNow(cell, now) {' + dnBody + '};');
+function tapBar(cell, st) {
+  const drillNow = buildDrillNow(st.sessionLeaks, st.leaks, st.reviewMode, st.leakMode,
+    st.leakQueue, () => { st.refilled = (st.refilled || 0) + 1; }, st.leakCell, function () {},
+    () => {}, () => {}, st.phase, st.bet,
+    (v) => { st.placed = (st.placed || 0) + v; st.bet += v; },
+    () => { st.dealt = (st.dealt || 0) + 1; }, (s) => { st.status = s; },
+    !!st.drillFree, !!st.drillReopen);
+  st.flags = drillNow(cell, st.now !== false);
+  return st;
+}
+/* the free hand: dealt, house-staked, and NOT booked */
+const t1 = tapBar('hard 16 v 10', {
+  sessionLeaks: { 'hard 16 v 10': { n: 3, cost: 60 } }, leaks: { 'hard 16 v 10': { n: 3, cost: 60 } },
+  reviewMode: true, leakMode: false, leakQueue: [], leakCell: null,
+  phase: 'betting', bet: 0, drillFree: false, drillReopen: false
+});
+if (t1.dealt !== 1) throw new Error('a tapped bar must deal its cell at once');
+if (t1.placed !== 25) throw new Error('the house must stake the hand itself: ' + t1.placed);
+if (!t1.flags.drillFree) throw new Error('the hand must be marked free');
+if (!t1.flags.drillReopen) throw new Error('the panel must be asked to come back');
+if (t1.flags.leakCell !== 'hard 16 v 10') throw new Error('the tapped cell must be the forced one');
+if (t1.refilled !== 1) throw new Error('arming the drill must build its queue');
+if (!/house staked this one/.test(t1.status)) throw new Error('the status must say who staked it: ' + t1.status);
+/* with the player's own bet already down, the house adds nothing */
+const t2 = tapBar('hard 16 v 10', {
+  sessionLeaks: { 'hard 16 v 10': {} }, leaks: { 'hard 16 v 10': {} },
+  reviewMode: true, leakMode: false, leakQueue: [], leakCell: null,
+  phase: 'betting', bet: 100, drillFree: false, drillReopen: false
+});
+if (t2.placed !== undefined) throw new Error('a bet already down must not be topped up: ' + t2.placed);
+if (t2.dealt !== 1 || !t2.flags.drillFree) throw new Error('the hand still deals, still free');
+/* mid-round: the tap arms the cell and the panel, and waits its turn */
+const t3 = tapBar('hard 16 v 10', {
+  sessionLeaks: { 'hard 16 v 10': {} }, leaks: { 'hard 16 v 10': {} },
+  reviewMode: false, leakMode: true, leakQueue: [], leakCell: null,
+  phase: 'acting', bet: 0, drillFree: false, drillReopen: false
+});
+if (t3.dealt) throw new Error('a mid-round tap must not deal over a live hand');
+if (!t3.flags.drillReopen || t3.flags.leakCell !== 'hard 16 v 10') throw new Error('a mid-round tap still arms both');
+if (!/next hand stacks it/.test(t3.status)) throw new Error('a mid-round tap waits its turn: ' + t3.status);
+/* a name tap (the scorecard, the row link) keeps the old, bet-gated path */
+const t4 = tapBar('hard 16 v 10', {
+  sessionLeaks: { 'hard 16 v 10': {} }, leaks: { 'hard 16 v 10': {} },
+  reviewMode: false, leakMode: true, leakQueue: [], leakCell: null,
+  phase: 'betting', bet: 0, drillFree: false, drillReopen: false, now: false
+});
+if (t4.dealt || t4.flags.drillReopen) throw new Error('a named cell still waits for a bet, as before');
+if (!/place any bet/.test(t4.status)) throw new Error('a named cell keeps the bet prompt: ' + t4.status);
+/* a mastered cell is still refused, and still never dealt */
+const t5 = tapBar('hard 16 v 10', {
+  sessionLeaks: { 'hard 16 v 10': {} }, leaks: { 'hard 16 v 10': { m: 1 } },
+  reviewMode: true, leakMode: false, leakQueue: [], leakCell: null,
+  phase: 'betting', bet: 0, drillFree: false, drillReopen: false
+});
+if (t5.dealt || t5.flags.drillReopen) throw new Error('a master has left the drill for good');
+console.log('the bar tap: stacks its cell at once, the house stakes it, the panel comes back \u2014 no bet in between');
+
+/* the free hand never books: the round is closed to the EV strip
+   and the luck figures, exactly as a replay is */
+if (!/var drillFree = false;/.test(src) || !/var drillReopen = false;/.test(src))
+  throw new Error('the two tap flags must exist');
+if (dnSrc.indexOf('drillFree = true;') > dnSrc.indexOf('deal();'))
+  throw new Error('the hand must be marked free BEFORE it is dealt');
+if (!/drillReopen = true;/.test(dnSrc) || !/drillFree = true;/.test(dnSrc))
+  throw new Error('the tap must ask for its panel back');
+if (!/if \(phase !== 'betting' \|\| \(!bet && !drillFree\)\) return;/.test(src))
+  throw new Error('deal must admit the house-staked hand');
+if (!/evRound = !reviewMode && !drillFree;/.test(src))
+  throw new Error('the free hand must never be priced \u2014 no luck figure, no EV-left entry');
+if (!/drillNow\(e\.target\.closest\('\.evtap'\)\.getAttribute\('data-cell'\), true\);/.test(src))
+  throw new Error('the EV bar tap is the immediate one; a named cell is not');
+const nr = grab('  function newRound() {', '\n  }');
+if (!/if \(drillReopen\) \{/.test(nr) || !/drillReopen = false;\s*drillFree = false;/.test(nr))
+  throw new Error('the next hand must close the free hand and reopen the panel');
+if (!/leakView = 'session';/.test(nr)) throw new Error('the panel must come back on its session view');
+console.log('the free hand: priced by nothing \u2014 no chips, no luck figure, no EV entry invented');
 
 console.log('\nleak drill: every forced deal lands in its target cell');

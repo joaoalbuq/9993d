@@ -11,7 +11,7 @@ const grab = (a, b) => {
   if (i < 0 || j < 0) throw new Error('anchor miss: ' + a);
   return src.slice(i, j + b.length);
 };
-const S9 = (0, eval)('(' + grab('  var SHOE999 = (function () {', '})();').replace('var SHOE999 = ', '').replace(/;\s*$/, '') + ')');
+const S9 = require('../shoe999.js');
 
 const countBlock =
   grab('  function decksLeft()', 'return tc <= 1 ? 1 : Math.min(6, tc - 1);\n  }');

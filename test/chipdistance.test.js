@@ -4,7 +4,9 @@
    one keeps the plain voice the rest of the felt has always
    had. The mapping, the plain fallback, the real tray-to-box
    distances, and the walkCue wiring are the properties under
-   test.                                                   */
+   test. The seats are part of it too: every chip that lands on
+   the felt is panned by the same camera as the deal's whooshes,
+   so the wager cascade and the payout walk sweep one arc.   */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -155,10 +157,64 @@ if (!/later\(CHIP_DELAY \* pace, function \(\) \{ stinger\(youHand\.result\); \}
   throw new Error('the unstaked verdict must wait the stretched beat too');
 if (!/\(CHIP_POP \* pace\)/.test(src))
   throw new Error('the bet drop must stretch with its clack');
-if (!/chipClack\(0\.42 \* pace\)/.test(src))
-  throw new Error('the drop clack must stretch with the fall');
+if (!/chipClack\(0\.42 \* pace, 1, null, panFor\(/.test(src))
+  throw new Error('the drop clack must stretch with its fall, and carry its seat');
 if (!/\(PAY_LIFE \* pace\)/.test(src))
   throw new Error('the +delta plank must ride the stretched beat');
 console.log('wiring: beats, walk end, flights, drops, clacks and the plank all read the same pace');
+
+/* --- the seats: every chip that LANDS on the felt is seated by the
+   same camera the deal's whooshes use, so the wager cascade at the
+   deal and the payout walk at the settle sweep the same arc across
+   the channels. Only the bet bar's own click stays centred \u2014 that
+   one is an interface sound, not a chip on the cloth.          --- */
+const pfFull = grab('  function panFor(spot) {', '\n  }');
+const pfBody = pfFull.slice(pfFull.indexOf('{') + 1, pfFull.lastIndexOf('}'));
+const boxXF = grab('  function boxX(i) {', '\n  }');
+const chipSpotF = grab('  function chipSpot(b, slot) {', '\n  }');
+function seatPan(b) {
+  const panFor = new Function('project', 'VW', 'clamp', 'BOX_N', 'BOX_Z',
+    boxXF + '\n' + chipSpotF + '\nreturn function panFor(spot) {' + pfBody + '};')(
+    /* a camera that frames the near arc edge to edge, standing in for
+       the live one: the boxes then spread across the stereo field in
+       the same order, and the same 0.85 rails catch the outside   */
+    (p) => ({ x: (p[0] / 3.2) * 800 + 800, y: 0 }), 1600, clamp, 6, 1.28);
+  const s = chipSpot(b, 0);
+  return panFor({ x: s[0], y: 0.12, z: s[1] });
+}
+const seatPans = [0, 1, 2, 3, 4, 5].map(seatPan);
+for (let i = 1; i < seatPans.length; i++)
+  if (!(seatPans[i] > seatPans[i - 1]))
+    throw new Error('the six boxes must sweep left to right: ' + JSON.stringify(seatPans));
+if (new Set(seatPans).size !== 6)
+  throw new Error('every box needs its own seat, none shared: ' + JSON.stringify(seatPans));
+if (seatPans[0] > -0.6 || seatPans[5] < 0.6)
+  throw new Error('the outside boxes must sit out in the wings: ' + JSON.stringify(seatPans));
+if (seatPans.some(p => Math.abs(p) > 0.85 + 1e-9))
+  throw new Error('no box may pan past the rail: ' + JSON.stringify(seatPans));
+if (seatPans[5] - seatPans[0] < 1.2)
+  throw new Error('the arc must genuinely cross the channels: ' + JSON.stringify(seatPans));
+console.log('the six seats: [' + seatPans.map(p => p.toFixed(2)).join(' ') +
+  '] \u2014 each box its own place, the arc spanning ' +
+  (seatPans[5] - seatPans[0]).toFixed(2) + ' of stereo');
+
+/* the wiring: the wager cascade, the player's own chip and the double
+   all seat themselves; the bet bar's click never does              */
+if (!/function placeBet\(h, extra, seat\)/.test(src))
+  throw new Error('a placed bet must know WHICH box it landed on');
+const pb = grab('  function placeBet(h, extra, seat) {', '\n  }');
+if (!/var sp = chipSpot\(seat == null \? YOUR : seat, 0\);/.test(pb) ||
+    !/chipClack\(0\.42 \* pace, 1, null, panFor/.test(pb))
+  throw new Error('the placed chip must clack at its own seat');
+if (!/var bs = chipSpot\(i, 0\);/.test(src) ||
+    !/chipClack\(0\.42 \+ i \* 0\.06, 0\.7, null, panFor\(\{ x: bs\[0\], y: 0\.12, z: bs\[1\] \}\)\)/.test(src))
+  throw new Error('the bots\u2019 cascade must seat each chip at its own box');
+const bets = src.match(/placeBet\([^)]*\);/g) || [];   /* calls only, not the declaration */
+if (bets.length !== 3 || bets.some(b => !/YOUR\)/.test(b)))
+  throw new Error('every placed stake names the seat it belongs to: ' + JSON.stringify(bets));
+if (!/chipClack\(0\.02, 0\.8\);/.test(src))
+  throw new Error('the bet bar\u2019s own click stays centred \u2014 an interface sound, not a chip');
+console.log('the wager cascade: six boxes clack across six places, your own stake lands where the camera holds it');
+console.log('the bet bar stays centred \u2014 selecting a denomination is not a chip on the cloth');
 
 console.log('\nchip distance verified');

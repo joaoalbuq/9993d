@@ -1,31 +1,14 @@
-/* SHOE999 drift guard + canon behavior.
-   The canon block must stay byte-identical in table-16x9.html
-   and offline.html — this test fails if either copy drifts.   */
+/* SHOE999 behavior. The engine is one shipped file both pages
+   load, so there is no second copy to drift — engines.test.js
+   now guards the single source. This suite exercises it.     */
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-const root = path.join(__dirname, '..');
-const canon = fs.readFileSync(path.join(__dirname, 'shoe999.canon.js'), 'utf8');
-const BEGIN = '  /* ==== SHOE999 canon';          /* with its indent */
-const END = '/* ==== SHOE999 end ==== */\n';   /* with its newline */
-
-function canonFrom(file) {
-  const s = fs.readFileSync(path.join(root, file), 'utf8');
-  const i = s.indexOf(BEGIN), j = s.indexOf(END);
-  assert.ok(i >= 0 && j > i, file + ': canon block present');
-  return s.slice(i, j + END.length);
-}
-
-/* ---- the copies are the canon, byte for byte ---- */
-assert.strictEqual(canonFrom('table-16x9.html'), canon, 'table copy drifted');
-assert.strictEqual(canonFrom('offline.html'), canon, 'practice copy drifted');
-console.log('drift guard: canon byte-identical in both pages');
-
-/* ---- evaluate the canon exactly as shipped ---- */
-const SHOE999 = eval(canon + '\nSHOE999;');
-assert.ok(SHOE999 && SHOE999.build && SHOE999.settle, 'canon evaluates');
+/* the engine, exactly as shipped */
+const SHOE999 = require('../shoe999.js');
+assert.ok(SHOE999 && SHOE999.build && SHOE999.settle, 'module loads');
 
 /* build: composition exact for any deck count */
 for (const decks of [1, 2, 4, 6]) {
@@ -101,4 +84,4 @@ console.log('cutBetween: 5000 draws inside 75-85% bounds');
 
 function pick(st) { return { kind: st.kind, mult: st.mult, prize: st.prize, net: st.net }; }
 
-console.log('\nSHOE999 canon: all checks green');
+console.log('\nSHOE999: all checks green');

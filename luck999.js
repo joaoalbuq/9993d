@@ -2,8 +2,11 @@
    table both read the same luck arithmetic — the signed word, the
    band (the gap as a distance in the session's own spreads), the
    sigma that measures it, the sign-only colour, the crossing mark,
-   and the reconciliation strip those all draw into. They load this
-   one file so the two surfaces cannot drift.
+   and the reconciliation strip those all draw into — plus the one
+   lenient restore they both read their book through, so a book
+   saved by an older build is migrated field by field instead of
+   being thrown away whole. They load this one file so the two
+   surfaces cannot drift.
 
    Shipped as a plain <script> (window.LUCK999) on both pages, and
    required directly by the tests.                            */
@@ -86,6 +89,42 @@
     var now = out(s);
     return { out: now, fire: prev !== null && now && !prev };
   }
+  /* The book, restored the lenient way, the way the replay reel
+     reads its own: a stored entry that cannot be used is repaired
+     or dropped ALONE and the rest of the record rides on. So the
+     reconciliation walks its four fields one at a time, keeps every
+     one that is a real number, and starts a fresh book only when
+     there was nothing to keep. A book written before the spread —
+     rounds, engine and felt but no sd2 — is MIGRATED, not thrown
+     away: its totals stay exactly as they were and the band simply
+     has nothing to measure against until the next round adds one.
+     Returns a complete book, whatever was stored.               */
+  var EV_FIELDS = ['rounds', 'ev', 'felt', 'sd2'];
+  function plain(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+  function evRestore(raw) {
+    var b = { rounds: 0, ev: 0, felt: 0, sd2: 0 }, i, v;
+    if (raw && typeof raw === 'object') {
+      for (i = 0; i < EV_FIELDS.length; i++) {
+        v = plain(raw[EV_FIELDS[i]]);
+        if (v != null) b[EV_FIELDS[i]] = v;
+      }
+    }
+    if (b.rounds < 0) b.rounds = 0;   /* a count and a sum of squares
+                                          are never negative: a book
+                                          that says so is repaired
+                                          here, not discarded    */
+    if (b.sd2 < 0) b.sd2 = 0;
+    return b;
+  }
+  /* did a stored book need repairing or migrating on the way in?
+     The two surfaces say so in their own words when they did.   */
+  function evMigrated(raw) {
+    if (!raw || typeof raw !== 'object') return false;
+    for (var i = 0; i < EV_FIELDS.length; i++) {
+      if (plain(raw[EV_FIELDS[i]]) == null) return true;
+    }
+    return raw.rounds < 0 || raw.sd2 < 0;
+  }
   /* the reconciliation strip: engine and felt, the gap, the rounds,
      the signed sigma and the band — the same markup on both
      surfaces. `crossed` adds the pulse class on the one draw the
@@ -104,5 +143,6 @@
   }
   return { HAND_SD: HAND_SD, chips: chips, word: word, band: band, sigma: sigma,
            tone: tone, out: out, cross: cross, stripLine: stripLine,
-           z: z, bandOf: bandOf, zSig: zSig };
+           z: z, bandOf: bandOf, zSig: zSig,
+           evFields: EV_FIELDS.slice(), evRestore: evRestore, evMigrated: evMigrated };
 });

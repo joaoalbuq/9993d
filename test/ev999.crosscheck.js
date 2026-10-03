@@ -8,19 +8,14 @@ const fs = require('fs');
 const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
-/* ---- extract EV999 exactly as shipped ---- */
-const evStart = src.indexOf('var EV999 = (function () {');
-const evEnd = src.indexOf('})();', evStart) + 5;
-if (evStart < 0) throw new Error('EV999 not found');
-const EV999 = eval(src.slice(evStart, evEnd) + '\nEV999;');
+/* ---- the engine, exactly as shipped ---- */
+const EV999 = require('../ev999.js');
 
 /* ---- extract bookPlay and run it against a mock floor ---- */
 const bpStart = src.indexOf('function bookPlay() {');
 const bpEnd = src.indexOf('return play;', bpStart) + 'return play;'.length + 4;   /* close the function too */
 if (bpStart < 0) throw new Error('bookPlay not found');
-const cStart = src.indexOf('  var SHOE999 = (function () {');
-const cEnd = src.indexOf('})();', cStart) + 5;
-const SHOE999 = eval(src.slice(cStart, cEnd) + '\nSHOE999;');
+const SHOE999 = require('../shoe999.js');
 
 const bookPlay = eval('(' + src.slice(bpStart, bpEnd)
   .replace('function bookPlay() {',
