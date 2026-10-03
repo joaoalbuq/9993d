@@ -284,16 +284,43 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   decision the book play is badged on its button ("book"), each click is
   judged — "✓ Book play" or "Book says Stand", with a soft cue — and the
   running score persists with the tray. The book is the shoe's own (two
-  decks, S17, no split, doubles degrading gracefully when they aren't
-  legal), and the 🎓 pill turns the whole mentor off. The **🩹 Leaks**
+  decks, S17, doubles degrading gracefully when they aren't legal), and
+  the 🎓 pill turns the whole mentor off. **Pairs split**: a two-card
+  pair turns the pair lines on — aces and eights always, 9s stand only
+  to a 7, 10, or ace, 7s and 6s and 3s and 2s split low, 4s split 5–6
+  (DAS), and 5s and tens fall through to their hard totals — so the book
+  badges Split. DAS is on, a fresh pair may be re-split to four hands,
+  and split aces take one card and stand. Each split hand draws its own
+  card and stakes on its own (a split double lays the hand's stake
+  again), the felt shows every hand with its own total and lights the
+  one in play, and settle prices each hand by the canon against the
+  same dealer hand; a split has no placed price, so the round steps out
+  of the EV strip's reconciliation. The **🩹 Leaks**
   mode is where misses go to die: every priced miss lands in a persisted
-  leak ledger (book cell → count + chips thrown away), a panel ranks your
+  leak ledger (book cell → count + chips thrown away) through one shared
+  write — `leakMiss(cell, cost)` stamps the drill clock, prices the yank
+  against any graduation, feeds the sitting's map and reveals the panel,
+  so a miss named anywhere is drilled the same way (the felt, the
+  insurance decision, or the index quiz's own wrong answers), and
+  `leakRelief` takes the same toll back when a lesson is corrected. A
+  panel ranks your
   worst cells by cost, and toggling it deals those EXACT hands — the shoe
   is stacked at deal time (three cards lifted from the shoe: hand, hand,
   upcard; a spent shoe earns a fresh shuffle) so "hard 16 v 10" returns
   whole, not something like it. The panel's two tabs compare this sitting
   against the whole ledger — a ▲ marks any class bleeding worse than its
   own history, and each sitting row carries a one-tap drill-now hand-off.
+  Every row also carries its **week over week in chips**: the chips leaked
+  this week against last week ("▼ 20 v 40"), tinted green when the leak is
+  shrinking and red when it is growing — the pill's arrow, opened up to
+  the whole panel with the money behind it. Beside the chip rides a
+  **trend sparkline**: the cell's leak per week, oldest to newest, drawn
+  as eight steps of ink scaled to its own range and tinted by direction
+  (green falling, red climbing, grey flat). Where the chip gives the
+  last delta in chips, the spark gives the line behind it — a cell
+  bleeding more each week climbs, one being drilled away fades — and
+  both read the same weekly snapshots (`999.practice.weekbase`, the last
+  six weeks; a cell that never leaked draws no line).
   A class's FIRST miss of the sitting opens the panel by itself, ranked
   on the session tab — a leak you didn't know you make is seen, not
   hunted for. With an empty ledger it teaches the
@@ -309,13 +336,42 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   in and locks it — recall, never recognition — or asks for it outright;
   the ♠ pill keeps the score (right % and the average miss) and turns the
   whole drill off.  The **Index sheet quizzes too**: the sheet's live line carries a
-  "quiz me — a fresh count" tap that deals a random true count (−6 to +10,
-  spread riding on the card), the player taps every play they believe is
-  LIVE at it — nine classes plus insurance by name — and the lock grades
-  against the canon both ways ("missed: hard 10 v 10" or "a clean card").
-  A card can be fixed and re-locked (the card scores once, the re-lock
-  replaces its grade), the score rides the sheet as clean cards over
-  cards graded, and "a fresh count" deals again. On the teach sheet
+  "quiz me — a fresh count" tap that deals a true count (−6 to +10),
+  the player taps every play they believe is LIVE at it — nine classes
+  plus insurance by name — and the lock grades against the canon both
+  ways ("missed: hard 10 v 10" or "a clean card"). **It also asks what
+  the count is worth.** The card used to print the stake ("· 4 units
+  riding on it"), which handed over the answer it was meant to test; now
+  it asks instead: "which plays are LIVE, and what is the count worth?"
+  with a tappable ladder of units beside it, 1 through the top rung the
+  spread ever lays (`SPREAD_TOP`, read off `spreadUnits` itself rather
+  than written twice). Both halves ride the grade — naming every live
+  play and staking a unit at true +5 is still a miss ("1 unit staked"),
+  staking six at true +3 is an over-name ("+ 6 units staked"), and
+  saying nothing is neither right nor wrong but never clean ("every live
+  play named — the spread left unanswered"). The grade then reveals what
+  the spread would have laid. **And a blown card drills itself**: every
+  cell the card named wrong — over-named or missed alike — lands in the
+  leak ledgers at the floor's smallest bet (25 chips, flat by design so
+  the quiz never out-shouts the felt's own misses), through the same
+  `leakMiss` path a hand miss uses, so the toll is stamped by the drill
+  clock, priced against any graduation, and the drill queue rebuilds to
+  serve it. A wrong *stake* feeds nothing — there is no hand to deal for
+  it. The card remembers what it has already fed, so grading twice never
+  double-charges, and a re-lock that fixes the picks takes the old tolls
+  back out and prunes them from the queue; a class new to the sitting
+  opens the leak panel on its own, exactly as a first felt miss does. A
+  card can be fixed and re-locked (the card
+  scores once, the re-lock replaces its grade), the score rides the sheet
+  as clean cards over cards graded, and "a fresh count" deals again.
+  **That score is
+  remembered**: it persists in `999.practice.quizscore` beside the coach's
+  and the count's, so the record of what you KNOW survives the reload
+  rather than resetting to whatever card happens to be open. Every card
+  holds that same score object rather than a copy, so a graded card (and
+  a re-lock that breaks it again) writes straight through, and the
+  teaching footer names it whenever the sheet is not mid-quiz ("· quiz
+  0/3 clean (0%)"). On the teach sheet
   itself the flips announce themselves: each row goes gold with a ▸
   the count it crosses — the live rows read gold beside the footer's
   live line, refreshed with every dealt card. **Index discipline is
@@ -324,7 +380,34 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   against the chart's decline — asks the player, and the follow rate
   rides the ♠ pill ("· ix 5/7") and the sheet's footer ("count plays
   followed 5/7"), persisted apart from the coach score: the chart's
-  easy answers never pad it. The panels read and
+  easy answers never pad it. **And that rate is split by cell**: each
+  index row carries your own record for that flip ("hard 16 v 10 — stand
+  at true +1 · … · 3/3", green when you take every offer it gave you,
+  red when you never did, plain in between), the count's insurance ask
+  included, and the footer tallies the split ("· you take 3 · never 2")
+  — so a cell you always take beside one you always miss no longer
+  cancel in the total. Kept in the same `999.practice.ixstats`, one
+  counter pair per cell. **The quiz aims itself at those blind spots**:
+  the fresh count is drawn from the same −6 to +10 ladder but weighted,
+  not uniform — each rung is scored by the live cells it puts on the
+  card and how weak each of those cells is, so a true count that lights
+  up a cell you always get wrong is dealt far more often. Every rung
+  keeps a flat floor weight so a cold shoe's lone 13 v 2 and a flat zero
+  are never starved. **Weakness is the worse of two signals, not their
+  sum**: the discipline you have shown on a cell (how often you refused
+  the count's play there) and the tolls that cell has taken off the felt
+  and off earlier cards (`leakRatios`, the leak ledger's own decayed
+  ranking folded to 0–1 against the worst leak — so a cell you take
+  every single time but keep losing still pulls the draw, and a cell
+  that has cooled or been mastered out of the drill stops pulling it).
+  A 0/4 record on hard 15 v 10, or 120 chips of ledger on the same cell,
+  each sends ~70% of cards to +4 and above. The status line names the
+  aim: "the count's quiz — true +5 on the card; name the live plays ·
+  drills hard 15 v 10". **And the last few asks are named**: the sheet
+  keeps the most recent five (`999.practice.ixlog`, newest first) — the
+  cell, the true count it fired at, and whether you took it or refused,
+  tinted green taken / red refused ("Recent asks: hard 16 v 10 at true
+  +2 taken · hard 15 v 10 at true +4 refused"). The panels read and
   take taps above the shoe's right edge, which used to swallow clicks.
   The drill teaches the **true count** too: the meter
   reads out decks left ("Shoe 99% · 2.0 dk"), questions ALTERNATE running →
@@ -574,9 +657,22 @@ answers with CORS headers.
   the reel holding the last twelve across both tables. The overlay's score
   line carries the luck gap too — the first decision prices the
   round's book with the same EV999 (at the box's own stake), the
-  settle banks it against the player box's felt movement, and  the score line reads "Coach 83% · 19/23 · −2.9/dev · −13.1 luck" —
-  the same word the practice pill reads, persisted in the trainstats
-  and silent on a stakeless round. **And the measured strip rides the
+  settle banks it against the player box's felt movement, and the score line reads
+  "Coach 83% · 19/23 · −2.9/dev · −13.1 luck · even · −0.1σ" — the same
+  word, band and sigma the practice pill reads, persisted in the trainstats
+  and silent on a stakeless round. **And that same round hands off to the
+  practice book**: at settle the round's price, felt movement and spread are
+  read-merge-written into the floor's reconciliation
+  (`999.practice.evsession`) — the same merge the leak ledger and reel
+  already use, one settle at a time — so a night at the felt and a sitting
+  at the shoe read one running ledger, every staked round adding while the
+  floor's own rounds stay untouched. **And the settle line carries the
+  round's own gap**: the payout-walk status reads the misses handed over
+  and this round's luck in one sentence — "Round settles — the payout walk
+  · 1 miss to the practice shoe · −8.5 luck, both felts reconcile" — the
+  felt against the engine, the one number both books now bank, so the
+  table's felt and the floor's book reconcile in the same breath.
+  **And the measured strip rides the
   overlay too**: beneath the score the practice floor's reconciliation
   runs off the table's own books — "EV −2.0 engine · +400 felt · +402.0
   luck · 3 rounds · +2.0σ hot" — the gap divided by the session's
@@ -584,7 +680,15 @@ answers with CORS headers.
   1.15 units, a double riding as a wider stake), signed and banded, the
   σ kept lowercase against the overlay's uppercasing; the table banks
   no insurance leg, so only the hand widens it, and a book from before
-  the spread keeps its totals with the band waiting. Live on the practice floor: the stacked "insurance v ace"
+  the spread keeps its totals with the band waiting. **And the overlay
+  folds the felt's own recoverable money**: the same EV-left chart the
+  review draws — the sitting's miss cells cut to the few behind most of
+  the loss (Pareto, at most three rows), each bar the chips fixing that
+  cell wins back, scaled to the worst, with the recovery tail ("Fix it:
+  +5 back · 3 still behind the rest.") — rides under the strip, its
+  bars growing in red as the score redraws. The table keeps its own
+  sitting in memory (wiped on reload), apart from the ledger and reel
+  it hands to the practice shoe. Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
   "Book: Decline — insurance turns at true +3 (now true −1)", decline
   "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray
@@ -625,7 +729,21 @@ answers with CORS headers.
   without clobbering the hand's status; an open panel re-ranks instead,
   and the review reel keeps its box. Live: a hit against the book's
   Stand on 16 v 6 opened the panel on the spot with "hard 16 v 6 ×1 ·
-  −139" ranked first. **The drill now
+  −139" ranked first. **And it is rationed, because a panel that
+  nags is a panel nobody reads**: one opening per new class is a
+  lesson, but a streak of them is an interruption, so the opening is
+  capped at one every six hands (`LEAK_OPEN_EVERY`), counted on the
+  round clock — which ticks whether the panel is open or shut, so the
+  cap cannot wedge itself shut. What the cap never suppresses is the
+  work: the drill stillarms, the 🩹 pill still appears, the ledger still grows. Only the
+  telling is held — and the holding is itself visible: the pill badges
+  what the panel is not showing ("🩹 Leaks · 3 new", the button in house
+  gold, and kept on screen even when the ledger would otherwise leave
+  it nothing to say). The count is spent once, naming itself in the
+  session footer the next time the panel is read ("· 3 more classes
+  found while this was shut — the drill has them all"), so the badge
+  never nags twice for the same discovery and nothing is lost, only
+  delayed. **The drill now
   graduates its students**:  a cell that answers with the book three
   times running retires from the queue — the pill carries the roster
   ("· 🎓2 · 4 drilling"), honours beside the cells still at it — and
@@ -638,8 +756,20 @@ answers with CORS headers.
   the miss is recorded with the chips it threw away, and re-retirement
   scales the ladder by it (full from 25 chips up, floored at 0.4×), so
   a cheap yank is a lesson nearly held and soft cells come back sooner
-  than expensive ones, each generation measuring its own refresher;
-  the panel showing the live streak meanwhile
+  than expensive ones, each generation measuring its own refresher —
+  and the panel's graduate row names it ("🎓1 · back in 3 (soft miss)"),
+  so a shortened return explains itself rather than looking arbitrary.
+  **And the queue bends by the same price**: a trimmed cell — a lesson
+  nearly held — serves AHEAD of the full-ladder ones when it returns,
+  the softer (cheaper the yank) the sooner; the drill's schedule weighs
+  the refresher price, while the panel's ranking stays the honest leak
+  size. **And the roster watches how the re-yanks come**: every yanked
+  generation logs its softness (`yk`, the last six kept per cell, the
+  log riding the felt's merge as its own copy), so the pill reads how
+  many re-yanks came cheap across the whole ledger and which way each
+  cell's latest moved against its own run — "· ↻ 2/5 cheap ↘" softening,
+  "↗" hardening, read quietly with the rate when the two tie. The panel
+  shows the live streak meanwhile
   ("clean 1/3"). **And there is a top of the ladder**: a cell that
   survives two spaced refreshers — the third graduation — is a MASTER
   with honours, 🏅 on the panel in gold, gone from the drill for good;
@@ -652,17 +782,43 @@ answers with CORS headers.
   classic hands, and the woken cell was dealt again the moment its rest
   was up — with the wake starving nothing when the classic loop held
   the queue (found live, fixed at the serve). **And the queue follows
-  this week's leaks, not last month's**: a cell's pull on the ranking
-  is its toll decayed by age — a week's half-life — and capped, so one
-  distant disaster can never sit at the top for good; every miss dates
-  its cell (`999.practice.leaks` cells carry a `ts` stamp, the felt's
-  misses riding in with their own at settle, other cells untouched),
-  the panel keeps the honest all-time `−cost` and only the order cools
-  ("Ranks by the freshest tolls — a month-old blow cools."), and the
-  drill's queue and "Next hand" read that same decayed ranking. Live:
-  a fresh −30 leapt a month-old −120 ("soft 18 v 9 ×2 · −30" first),
-  and a live miss on the fresh cell re-dated it while the stale one
-  kept its old stamp. **And the pill watches the trend, not just the
+  this week's leaks, not last month's — decaying by age *and* by the
+  drill itself**: a cell's pull on the ranking is its toll decayed
+  twice and capped, so neither one distant disaster nor a stale leak
+  can sit at the top for good. The first factor is
+  the wall clock — a week's half-life (`LEAK_HALF`). The second is the
+  drill: every drill hand served ticks the graduation clock
+  (`gradClock`, `999.practice.grad`), and the pull halves every
+  `LEAK_DRILL_HALF` (250) hands served since the cell was last
+  stamped — so heavy drilling retires its own stale leaks with no
+  wall-clock wait. Every miss stamps both clocks: `ts` (date) and `d`
+  (the drill clock at the miss), at the felt's settle, the fork
+  queue, and the insurance side bet. The felt keeps no drill clock,
+  so its hand-off carries `ts`/`d` for *untouched* cells through
+  `leakMerge` and clears only the cell it missed — the floor's load
+  then backfills any cell with no `d` to the current clock, so the new
+  decay never retires a cell for drilling it never saw. The panel
+  keeps the honest all-time `−cost` and only the order cools ("Ranks
+  by the freshest tolls — age and the drill both cool a leak."), and
+  the drill's queue and "Next hand" read that same decayed ranking.
+  Live: a fresh −30 leapt a month-old −120 ("soft 18 v 9 ×2 · −30"
+  first), and a live miss on the fresh cell re-dated it while the
+  stale one kept its old stamp. **And the cooling is visible**: the
+  all-time rows carry the share of the toll the queue still weighs
+  ("❄ 25%"), so a stale heavy cell reads as fading rather than merely
+  ranking lower — a fresh row (nothing lost) stays bare, and a cell
+  cooled past half its toll (`COOL_AT`) fades entire, its ❄ chip in
+  cool grey, the footer adding "❄ marks a row cooled below half its
+  toll." The felt's hand-off leaves the ratio intact because cost and
+  weight ride the same merge; only the all-time ranking weighs a row,
+  so only it shows the cooling. **And the window is the player's**:
+  the age half-life is a preset menu — 3d · 1w · 2w · 1m, a week by
+  default — picked on the all-time panel's "Fade window:" row, where
+  the live pick reads gold; the choice persists
+  (`999.practice.leakhalf`) and the ranking, the cooling read and the
+  drill's queue all follow it, so a grind-heavy stretch can keep a
+  short memory and a long-running ledger a long one (an off-menu value
+  still names itself in days). **And the pill watches the trend, not just the
   toll**: a snapshot of the ledger's cumulative costs at each week's
   first sighting (`999.practice.weekbase`, Monday-to-Monday, the last
   eight kept) gives each week's leak by subtraction — the felt's
@@ -726,11 +882,33 @@ answers with CORS headers.
   both sides, so the two always reconcile over the hands the engine
   can see; the book persists beside the reel (`999.practice.evsession`),
   so the pill's luck and the strip survive reloads and the band widens
-  as the rounds pile up. **The
-  gap rides the coach pill too**: after each settle the score line
-  carries it ("Coach 83% · 19/23 · −2.9/dev · −9.0 luck"), the strip
-  and the pill reading one source for the word, live-verified against
+  as the rounds pile up. **And after a hand-off the shoe names both
+  felts**: once a priced table round hands over, the strip lays the live
+  table's own book (`999.table.trainstats`) beside the shoe's own — the
+  combined reconciliation less the table's rounds — each read the pill's
+  way, the signed gap in its own sign's colour banded by ITS OWN
+  accumulated spread with the sigma that measures it ("… +2.0σ hot · 🎰
+  the table +36.0 even +0.8σ · the shoe +44.0 even +0.8σ luck"), so the
+  table's hot and cold are sizes too, not just a sign. It reads as one
+  felt until a hand-off, and a reset on either side (the counts
+  disagreeing, or a shoe holding no rounds of its own) falls back
+  quietly to the single line. **And the math itself lives in one file**
+  both surfaces load (`luck999.js`, `window.LUCK999`): the word, the
+  band, the sigma, the sign-only colour, the crossing and the strip
+  markup are a single source, so the floor and the live overlay read
+  the same measured gap by construction rather than by copy-paste.
+  **The gap rides the coach pill too**: after each settle the score line
+  carries it ("Coach 83% · 19/23 · −2.9/dev · −9.0 luck · even · −0.1σ"),
+  the strip and the pill reading one source for the word, the band and the
+  sigma,  live-verified against
   a stood 17 v A (engine −16.0 · felt −25 · −9.0 both places). **And
+  the pill remembers the band's far ends**: the best (highest) and
+  worst (lowest) signed gap the reconciliation has EVER read, kept as
+  z-scores across sessions (`999.practice.luckrange` — a new book does
+  not erase what luck has already shown), named beside where the gap
+  stands now ("… even · −0.1σ · best freak hot +3.4σ · worst freak cold
+  −4.1σ"), each end's band read from the z alone by the shared module.
+  **And
   the luck is banded by its own spread**: each round banks a width —
   1.15 betting units of stake, doubled riding twice, insurance riding
   the ten density — so the gap reads as a distance in spreads: even
@@ -744,13 +922,38 @@ answers with CORS headers.
   knows HOW hot; the σ stays lowercase against the strip's
   uppercasing (a sum's Σ would confuse the read), the band still
   naming the size beside it, and sessions banked without a spread
-  read exactly as before. **And the luck number is coloured by how
-  ordinary it is**: inside one spread — the engine's edge simply
-  holding — it prints green (`#43c98a`); past one the gap is an
-  outlier and prints red (`#e2705f`), hot or cold alike; with no
-  spread yet it keeps the strip's gold. Live: `+2.0σ` over three
-  rounds read red and `+50.0` inside one spread read green, on the
-  practice strip and the table overlay both.
+  read exactly as before. **And the luck number is coloured by its
+  sign, not its distance**: run-good — a felt above the engine —
+  always prints green (`#43c98a`), however far it runs; only a COLD
+  gap, the felt behind the engine, prints red (`#e2705f`); dead even
+  is no call, and with no spread yet it keeps the strip's gold. Live:
+  a `+236.0` runaway over two rounds read green while a `−120` cold
+  gap read red, on the practice strip and the table overlay both.
+  **And the crossing catches the eye without a word**: the moment the
+  gap tops its first spread — the band leaving `even` — the number
+  gives one soft bloom in its own colour (green run-good, red cold),
+  a `1.2s` glow keyed on the `crossed` class the strip wears for that
+  one draw; a steady outlier never pulses again, and a book restored
+  already past a spread sets its mark quietly on load, so the pulse
+  fires on the crossing itself, on the practice strip and the table
+  overlay both.
+  **And the reconciliation starts over on demand**: a small
+  `↺ new book` tap sits at the end of the strip — one tap
+  zeroes the rounds, the engine's expectation, the felt and the
+  accumulated spread, so the luck band and its sigma fall back to
+  nothing (gold) and the pill drops its gap, without touching the
+  coach's own decisions; it is drawn inside the strip's rebuilt line
+  and caught by delegation on the felt (and the table overlay's box),
+  lifted above the shoe that overlays a narrow floor, and live on both
+  strips a seeded “−21.9 luck · even” wiped back to an empty book.
+  **And the overlay wipes the whole book on tap**: a small
+  `⌫ clear the book` control sits at the foot of the training overlay —
+  one tap zeroes the ENTIRE persisted book (the coach's decisions, the
+  chips they cost and the reconciliation, plus this sitting's own
+  chart), where the strip's `↺ new book` keeps the decisions and clears
+  only the gap; live, a seeded `19/23 · −891.0 luck · cold` overlay
+  clicked down to a bare `Coach` with `999.table.trainstats` back to all
+  zeros.
   **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle
@@ -769,11 +972,24 @@ answers with CORS headers.
   from the one you made now deals BOTH — first as you played it, then
   the book's way against the SAME dealer hand, the book leg popping the
   very card the shoe was holding (a stand book draws nothing, a double
-  stakes twice and draws its second card) — and the settle line names
+  stakes twice and draws its second card, a split book separates the
+  pair and plays each hand out by the chart on that same dealer hand —
+  DAS, resplit to four, aces one card) — and the settle line names
   the divergence ("— the book's hit would have won +50"); the review
   panel files the hand under "Same hand, both plays: yours (stand) lost
   −25 · book ('hit') lost −25", with `forkYou`/`forkBook` persisted on
-  the entry so the both-ways verdict survives reloads. **The review
+  the entry so the both-ways verdict survives reloads. **And the
+  divergence feeds the drill**: the ♠ pill carries the book's win-rate
+  across those forks (`fork 75%`), and every divergent hand is queued
+  back — its cell merged into the ledger, a graduate woken, a master
+  left alone — then forced ahead of the queue, so the next leak hand
+  deals that exact class and the coach expects the book's line; the
+  settle line names it ("— the book's hit would have lost −25 · queued
+  for the drill: hard 16 v 9") and the panel names the hand it will
+  serve ("Next hand: hard 16 v 9") even when a heavier leak outranks
+  it. Live: a replayed stand against the book's hit on hard 16 v 9
+  queued that cell and the drill dealt 6+10 against the 9 ahead of a
+  −90 hard 12 v 2. **The review
   ends on a scorecard**: the reel folds into the few cells behind
   most of the loss — cells named exactly like the ledger so the
   drills can aim at them, the walk stopping once it has passed
@@ -790,9 +1006,16 @@ answers with CORS headers.
   shoe dealt 6+10 against the 10). **And an EV-left chart closes the
   panel**: under the scorecard each named cell draws a bar — the chips
   that fixing it wins back, scaled to the worst leak — with the recovery
-  tail ("Fix all 2: +55 back · 10 still behind the rest."), so the
-  money on the table is read at a glance, not summed in the head; the
-  bars wear the house red beside the gold drill taps.
+  tail ("Fix all 2: +55 back · 10 still behind the rest. Tap a bar to
+  drill it."), so the money on the table is read at a glance, not summed
+  in the head; the bars wear the house red beside the gold drill taps,
+  and — like the scorecard's names — every bar is its own tap: one click
+  drops straight into drilling that cell (a mastered cell keeps its bar
+  and loses the tap). The bars grow in as the panel opens (a 0.55s
+  width sweep), and each carries the cell's week over week as a small
+  marker — ▼ green when the leak is bleeding less than last week, ▲ red
+  when it is bleeding more, · when it is flat — so the chart shows which
+  fixes are actually holding.
 
 ## Layout
 
@@ -806,6 +1029,7 @@ answers with CORS headers.
 | `sw.js` | Installability service worker (network-first, `/hub/` untouched) |
 | `make-icons.js` | Draws the PWA icons procedurally → `media/icon-*.png` |
 | `serve.js` | Static host + same-origin `/hub` proxy (zero-dep Node) |
+| `luck999.js` | The measured-gap module both pages load as `window.LUCK999` — the luck word, band, sigma, sign-only colour, crossing mark and strip markup in one source, so the two surfaces cannot drift |
 | `test/shoe999.canon.js` | The SHOE999 canon — one shoe + settlement module, byte-identical in both pages |
 | `test/shoe999.test.js` | Drift guard (byte-equality against both pages) + settlement/shoe math |
 | `test/ev999.mc.js` | Monte-Carlo + exact-recursion ground truth for the EV999 pricing engine |

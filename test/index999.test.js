@@ -127,9 +127,9 @@ function grab(a2, b2) {
   if (i < 0 || j < 0) throw new Error('anchor miss');
   return A.slice(i, j + b2.length);
 }
-const chartFull = grab('  function chartPlay(t, soft, up, canD) {', "\n  }");
+const chartFull = grab('  function chartPlay(t, soft, up, canD, pair) {', "\n  }");
 const chartBody = chartFull.slice(chartFull.indexOf('{') + 1, chartFull.lastIndexOf('}'));
-const chart = new Function('t', 'soft', 'up', 'canD', chartBody + '\nreturn play;');
+const chart = new Function('t', 'soft', 'up', 'canD', 'pair', chartBody + '\nreturn play;');
 const probe = [[16, 10], [15, 10], [12, 2], [12, 3], [10, 10], [9, 2]];
 for (const [t, up] of probe) {
   const got = chart(t, false, up, true);
@@ -157,6 +157,9 @@ const bookFactory = new Function('TC', 'INDEX999', 'SHOE999', 'CHART', 'handCard
   'function total(h) { return SHOE999.total(h); }' +
   'function isSoft(h) { return SHOE999.value(h).soft; }' +
   'function trueCount() { return TC; }' +
+  'function activeHand() { return null; }' +
+  'function canSplitHand() { return false; }' +
+  'function pairRank() { return null; }' +
   'var EV999 = { prices: function () { return { stand: -1, hit: -1, double: null }; } };' +
   bookSrc + '\nreturn bookPlay;');
 for (const [cell, at, play, dbl] of cases) {

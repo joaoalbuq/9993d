@@ -89,6 +89,33 @@ if (yanked['soft 13 v Q'].r || yanked['soft 13 v Q'].back)
   throw new Error('a felt miss on a graduate must yank it back: ' + JSON.stringify(yanked['soft 13 v Q']));
 console.log('graduation rides the merge: honours kept, felt misses yank graduates back');
 
+/* --- a trimmed rest's reason rides too, so the row still explains
+       its shortened return; a felt yank on the graduate drops it --- */
+const trimmed = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40, r: 1, back: 9, g: 1, trim: 0.5 } },
+  { cell: 'hard 16 v 10', cost: 2 });
+if (trimmed['soft 13 v Q'].trim !== 0.5 || trimmed['soft 13 v Q'].back !== 9)
+  throw new Error('a trimmed rest\u2019s factor must ride the felt\u2019s merge: ' + JSON.stringify(trimmed['soft 13 v Q']));
+const yankTrim = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40, r: 1, back: 9, g: 1, trim: 0.5 } },
+  { cell: 'soft 13 v Q', cost: 2 });
+if (yankTrim['soft 13 v Q'].trim)
+  throw new Error('a felt yank must drop the trim factor with the rest');
+console.log('trim factor: rides other misses, dropped when the felt yanks the graduate');
+
+/* --- the re-yank log rides too, so the floor's roster trend survives --- */
+const logRode = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40, yk: [1, 0.5] } },
+  { cell: 'hard 16 v 10', cost: 2 });
+if (!Array.isArray(logRode['soft 13 v Q'].yk) || logRode['soft 13 v Q'].yk.join(',') !== '1,0.5')
+  throw new Error('the re-yank log must ride the felt merge: ' + JSON.stringify(logRode['soft 13 v Q']));
+const copySrc = { 'soft 13 v Q': { n: 4, cost: 40, yk: [1, 0.5] } };
+const copied = leakMerge(copySrc, { cell: 'hard 16 v 10', cost: 2 });
+copySrc['soft 13 v Q'].yk.push(0.4);
+if (copied['soft 13 v Q'].yk.length !== 2)
+  throw new Error('the log must be copied, not aliased to the floor\u2019s array');
+console.log('re-yank log: rides the merge as its own copy, so the roster trend survives the felt');
+
 /* --- a felt miss on a MASTER must not strip its honours --- */
 const mastered = leakMerge(
   { 'hard 16 v 10': { n: 6, cost: 60, g: 3, m: 1, r: 0, s: 0, back: 0 } },
@@ -119,6 +146,23 @@ const reDated = leakMerge(
 if (reDated['hard 16 v 10'].ts !== 1700000000000)
   throw new Error('a fresh miss must re-date its own cell: ' + JSON.stringify(reDated['hard 16 v 10']));
 console.log('freshness: the felt dates its misses, dates ride the merge, a fresh miss re-dates its cell');
+
+/* --- the drill clock rides too: a felt hand-off must NOT reset
+       another cell's served-hands decay \u2014 only the cell that
+       missed loses its stamp, so the floor re-baselines it   --- */
+const clockRode = leakMerge(
+  { 'soft 13 v Q': { n: 4, cost: 40, d: 900 } },
+  { cell: 'hard 16 v 10', cost: 2 });
+if (clockRode['soft 13 v Q'].d !== 900)
+  throw new Error('an untouched cell must keep its drill stamp: ' + JSON.stringify(clockRode['soft 13 v Q']));
+const ownCell = leakMerge(
+  { 'hard 16 v 10': { n: 1, cost: 5, d: 900 } },
+  { cell: 'hard 16 v 10', cost: 2 });
+if ('d' in ownCell['hard 16 v 10'])
+  throw new Error('a felt miss must clear its own drill stamp, so the floor re-baselines it');
+if (typeof ownCell['hard 16 v 10'].ts !== 'number')
+  throw new Error('the re-baselined cell is still dated');
+console.log('drill clock: the felt keeps other cells\u2019 stamps, clears only the cell it missed');
 
 /* --- the reel rides the same settle: the felt's whole hands land
        in the practice shoe's reel and replay with the fork     --- */
@@ -190,5 +234,48 @@ if (!/r2\.felt \? ' \\u00b7 \\uD83C\\uDFB0 the felt' : ''/.test(floorSrc))
 if (!/crossed over from the live table/.test(floorSrc))
   throw new Error('the review footer must count the felt\u2019s crossings');
 console.log('wiring: miss at the click, ledger and reel at the settle, the felt says what it handed over');
+
+/* --- the reconciliation rides the same settle: the felt's own book
+       — a round, the engine's price, the felt's move and the spread —
+       lands in the practice shoe's ledger, read-merge-written so a
+       night at the table and a sitting at the shoe share one book --- */
+const flushReconFull = grab(tableSrc, '  function flushRecon(ev, felt, sd2) {', '\n  }');
+function reconRun(storage, ev, felt, sd2) {
+  const calls = [];
+  const ls = {
+    getItem: k => (k in storage ? storage[k] : null),
+    setItem: (k, v) => { calls.push(k); storage[k] = v; }
+  };
+  new Function('localStorage', flushReconFull + '\nreturn flushRecon;')(ls)(ev, felt, sd2);
+  return { storage: storage, calls: calls };
+}
+const seededBook = { rounds: 7, ev: -3.1, felt: -25, sd2: 7 * 13225 };
+const rc1 = reconRun({ '999.practice.evsession': JSON.stringify(seededBook) }, -1.5, 120, 13225);
+const b1 = JSON.parse(rc1.storage['999.practice.evsession']);
+if (b1.rounds !== 8 || Math.abs(b1.ev + 4.6) > 1e-9 || b1.felt !== 95)
+  throw new Error('the felt\u2019s round must land on the floor\u2019s book: ' + JSON.stringify(b1));
+if (Math.abs(b1.sd2 - 8 * 13225) > 1e-9) throw new Error('the spread must add, not replace');
+if (rc1.calls[0] !== '999.practice.evsession') throw new Error('the hand-off must write the practice book key');
+console.log('recon hand-off: the felt\u2019s round rides onto the floor\u2019s book \u2014 rounds, price, felt and spread all add');
+
+const rc2 = reconRun({}, -1.5, 120, 13225);
+const b2 = JSON.parse(rc2.storage['999.practice.evsession']);
+if (b2.rounds !== 1 || b2.ev !== -1.5 || b2.felt !== 120 || b2.sd2 !== 13225)
+  throw new Error('an empty book opens with the felt\u2019s first round: ' + JSON.stringify(b2));
+console.log('recon hand-off: an empty book opens with the round \u2014 1 round, the price, the felt, the width');
+
+const rc3 = reconRun({ '999.practice.evsession': '{"rounds":"x"}' }, 2, -50, 100);
+const b3 = JSON.parse(rc3.storage['999.practice.evsession']);
+if (b3.rounds !== 1 || b3.ev !== 2 || b3.felt !== -50 || b3.sd2 !== 100)
+  throw new Error('a junk book is ignored, not merged: ' + JSON.stringify(b3));
+console.log('recon hand-off: junk on the key is ignored \u2014 the round opens a clean book');
+
+/* --- wiring: the settle hands the round beside the leak ledger --- */
+if (!/flushRecon\(evBookT, myNet, tWidth\);/.test(tableSrc))
+  throw new Error('the settle must hand the reconciliation to the floor\u2019s book');
+const tCommitSrc = grab(tableSrc, 'if (evRoundT && evPricedT) {', 'renderTrain();');
+if (!/var tWidth = Math\.pow\(HAND_SD \* tStake, 2\)/.test(tCommitSrc) || !/trainStats\.sd2 \+= tWidth;/.test(tCommitSrc))
+  throw new Error('the table settle must bank the round\u2019s width off one stake');
+console.log('wiring: the round banks on the table and rides to the floor\u2019s book at the same settle');
 
 console.log('\nhand-off verified');

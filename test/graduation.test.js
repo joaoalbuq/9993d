@@ -46,7 +46,7 @@ function harness(clock) {
   const leaks = {};
   return {
     leaks,
-    gradClean: extract('gradClean', 'GRAD_AT, gradClock, gradGap, saveLeaks, leaks, refresherTrim, GRAD_MASTER')(3, clock, gradGap, function () {}, leaks, refresherTrim, 2),
+    gradClean: extract('gradClean', 'GRAD_AT, gradClock, gradGap, saveLeaks, leaks, refresherTrim, GRAD_MASTER, YANK_KEEP')(3, clock, gradGap, function () {}, leaks, refresherTrim, 2, 6),
     gradMiss: extract('gradMiss', 'saveLeaks, leaks')(function () {}, leaks),
     gradWakeDue: extract('gradWakeDue', 'gradClock, saveLeaks, leaks')(clock, function () {}, leaks)
   };
@@ -90,9 +90,11 @@ console.log('the yank: one miss undoes the streak \u2014 a graduate returns to t
 
 /* --- wiring: hooks, the queue skips retired, the panel shows both --- */
 const verdict = grab('  function coachVerdict(choice) {', 'var entry = {');
-if (!verdict.includes('gradClean(lastCell)') || !verdict.includes('gradMiss(lastCell, cost)'))
+if (!verdict.includes('gradClean(lastCell)') || !verdict.includes('leakMiss(lastCell, cost)'))
   throw new Error('the hand verdict must feed graduation both ways, the yank priced');
-const ins = grab("      gradClean('insurance v ace')", "gradMiss('insurance v ace', cost)");
+if (!/gradMiss\(cell, cost\);\s+\/\* the miss undoes any graduation, priced \*\//.test(src))
+  throw new Error('gradMiss must ride the shared ledger write, yank still priced');
+const ins = grab("      gradClean('insurance v ace')", "leakMiss('insurance v ace', cost)");
 if (!ins) throw new Error('the insurance verdict must graduate its cell too');
 if (!/refillQueue\(\);/.test(src) || !/function refillQueue\(\) \{[\s\S]*?return !c\.r && !c\.m;/.test(src))
   throw new Error('the drill queue must wake the due and skip the retired and mastered');
@@ -100,10 +102,70 @@ if (!/if \(gradWakeDue\(\)\) leakQueue = \[\];/.test(src))
   throw new Error('every served hand must check the clock — the classic loop must not starve a wake');
 if (!/gradClock\+\+;[\s\S]{0,160}saveGrad\(\);/.test(src))
   throw new Error('the drill must tick its clock per served hand');
-if (!/class="grad"/.test(src) || !/li\.grad \{ opacity/.test(src))
+if (!/var cls = c\.r \? 'grad' : c\.m \? 'master' : '';/.test(src) || !/li\.grad \{ opacity/.test(src))
   throw new Error('the panel must mute retired cells');
 if (!/back in ' \+ Math\.max\(0, c\.back - gradClock\)/.test(src))
   throw new Error('the panel must count down a graduate\u2019s return');
+if (!/trim: leaks\[k\]\.trim \|\| 0/.test(src))
+  throw new Error('the ranking must carry the trimmed-rest flag to the row');
+if (!/\(c\.trim \? ' \(soft miss\)' : ''\)/.test(src))
+  throw new Error('a trimmed rest must name its shortening on the row');
+if (!/e\.trim = trim < 1 \? trim : 0;/.test(src))
+  throw new Error('retirement must stamp the trim factor');
+
+/* --- the queue weighs the refresher price: a soft cell serves
+       ahead of full-ladder ones, the softer the sooner --- */
+const queueOrder = extract('queueOrder', '')();
+const LADDER = { cell: 'hard 16 v 10', w: 80 };
+const SOFT = { cell: 'soft 16 v 10', w: 5, trim: 0.5 };
+const SOFTER = { cell: 'soft 15 v 10', w: 1, trim: 0.4 };
+if (queueOrder(LADDER, SOFT) !== 1 || queueOrder(SOFT, LADDER) !== -1)
+  throw new Error('a trimmed cell must serve before a full-ladder one, however big its leak');
+if (queueOrder(SOFTER, SOFT) >= 0 || queueOrder(SOFT, SOFTER) <= 0)
+  throw new Error('the softer cell (cheaper yank) serves first');
+if (queueOrder({ w: 5 }, { w: 9 }) !== 4) throw new Error('untouched cells still rank by the bigger leak');
+if (queueOrder(SOFT, { w: 90, trim: 0.5 }) !== 85)
+  throw new Error('among equal trims the bigger leak leads: ' + queueOrder(SOFT, { w: 90, trim: 0.5 }));
+if (!/\.sort\(queueOrder\)/.test(src) ||
+    !/leakQueue = weakestCells\(\)\.filter\(function \(c\) \{ return !c\.r && !c\.m; \}\)[\s\S]{0,40}\.sort\(queueOrder\)/.test(src))
+  throw new Error('the drill queue must sort by the refresher price, not the raw leak weight');
+if (!/var at = a\.trim \|\| 0, bt = b\.trim \|\| 0;/.test(src))
+  throw new Error('the queue order must read the trim factor off the row');
+console.log('queue order: a soft cell serves first, softer sooner \u2014 the drill schedule bends, the ranking does not');
+
+/* --- how the re-yanks come: a yanked generation logs its softness,
+       and the roster reads how many came cheap and which way the
+       latest on each cell moved --- */
+if (!/var YANK_KEEP = 6;/.test(src)) throw new Error('the yank log must be capped by a named constant');
+if (!/if \(e\.rc > 0\) \{/.test(src) || !/e\.yk = \(e\.yk \|\| \[\]\)\.concat\(trim\);/.test(src))
+  throw new Error('a yanked generation must append its trim to the log');
+const yk = harness(40);
+yk.leaks['soft 16 v 10'] = { n: 4, cost: 37, r: 1, back: 999, g: 1, s: 0 };
+yk.gradMiss('soft 16 v 10', 12.5);          /* cheap yank: trim 0.5 */
+yk.leaks['soft 16 v 10'].s = 2;
+yk.gradClean('soft 16 v 10');                /* re-retires: logs 0.5 */
+const yk2 = harness(40);
+yk2.leaks['hard 16 v 10'] = { n: 4, cost: 100, g: 1, s: 2 };   /* passed the refresher clean */
+yk2.gradClean('hard 16 v 10');
+if (yk2.leaks['hard 16 v 10'].yk) throw new Error('a clean refresher is no yank \u2014 nothing logged');
+const log = yk.leaks['soft 16 v 10'].yk;
+if (!log || log.length !== 1 || Math.abs(log[0] - 0.5) > 1e-9)
+  throw new Error('a cheap yank must log its factor: ' + JSON.stringify(log));
+const yankTrend = extract('yankTrend', 'leaks')(yk.leaks);
+let yd = yankTrend();
+if (yd.n !== 1 || yd.cheap !== 1 || yd.dir !== 0)
+  throw new Error('one cheap yank: 1/1 cheap, no direction yet: ' + JSON.stringify(yd));
+yk.leaks['hard 16 v 10'] = { n: 4, cost: 100, g: 1, yk: [1, 1, 0.5] };
+yd = yankTrend();
+if (yd.n !== 4 || yd.cheap !== 2) throw new Error('the roster counts cheap yanks across cells: ' + JSON.stringify(yd));
+if (yd.dir !== -1) throw new Error('a latest yank softer than the run reads softening: ' + JSON.stringify(yd));
+yk.leaks['hard 12 v 2'] = { n: 2, cost: 10, g: 1, yk: [0.5, 0.6, 1] };
+if (yankTrend().dir !== 0) throw new Error('one softening cell and one hardening cell read steady: ' + JSON.stringify(yankTrend()));
+if (!/var yt = yankTrend\(\);/.test(src) || !/yt\.cheap \+ '\/' \+ yt\.n \+ ' cheap'/.test(src))
+  throw new Error('the pill roster must show the cheap re-yank rate');
+if (!/yt\.dir < 0 \? ' \\u2198' : yt\.dir > 0 \? ' \\u2197' : ''/.test(src))
+  throw new Error('the pill roster must point the yank trend down or up');
+console.log('re-yank log: cheap generations counted across cells \u2014 the roster reads softening \u2198 or hardening \u2197');
 if (!/clean ' \+ c\.s \+ '\/' \+ GRAD_AT/.test(src))
   throw new Error('the panel must show the clean streak');
 if (!/All graduated \\u2014 the classic 16 v 10 keeps the drill honest\./.test(src))
@@ -120,6 +182,7 @@ h5.leaks['soft 16 v 10'].s = 2;              /* two cleans already banked this s
 h5.gradClean('soft 16 v 10');                /* the third: re-retires */
 const g5 = h5.leaks['soft 16 v 10'];
 if (g5.back !== 46) throw new Error('a cheap yank trims the second-gen ladder twelve to six: back at ' + g5.back);
+if (Math.abs(g5.trim - 0.5) > 1e-9) throw new Error('a trimmed rest must record its factor \u2014 12.5 chips halves it: ' + JSON.stringify(g5));
 if (g5.rc !== 0) throw new Error('this generation priced its own refresher \u2014 the record resets');
 const h6 = harness(40);
 h6.leaks['hard 16 v 10'] = { n: 4, cost: 100, r: 1, back: 999, g: 1, s: 0 };
@@ -128,6 +191,7 @@ h6.leaks['hard 16 v 10'].s = 2;
 h6.gradClean('hard 16 v 10');
 if (h6.leaks['hard 16 v 10'].back !== 52)
   throw new Error('a full-price yank keeps the second-gen ladder at twelve: back at ' + h6.leaks['hard 16 v 10'].back);
+if (h6.leaks['hard 16 v 10'].trim) throw new Error('a full rest carries no trim factor');
 const h7 = harness(40);
 h7.leaks['hard 15 v 10'] = { n: 4, cost: 100, r: 1, back: 999, g: 1, s: 0 };
 h7.gradMiss('hard 15 v 10', 5000);           /* a monstrous yank is capped at the record */

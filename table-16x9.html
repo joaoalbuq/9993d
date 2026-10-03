@@ -210,6 +210,28 @@
   .training .evstrip .sd { text-transform: none; }   /* the sigma keeps its case: σ, not sum's Σ */
   .training .evstrip b.luck.ok { color: #43c98a; }   /* inside one spread: the edge holds */
   .training .evstrip b.luck.out { color: #e2705f; }  /* past one: an outlier, either way */
+  .training .evstrip b.luck.crossed { animation: luckpulse 1.2s ease-out; }   /* the draw the gap tops a spread */
+  @keyframes luckpulse { 0%, 100% { text-shadow: 0 0 0 currentColor; } 40% { text-shadow: 0 0 0.7em currentColor; } }   /* a soft bloom in the tone's own colour */
+  .training .evleft { margin-top: 0.5em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.45em;
+    min-width: 15em; }
+  .training .evleft .evtitle { margin: 0 0 0.35em; color: rgba(255,255,255,0.55); letter-spacing: 0.12em;
+    text-transform: uppercase; font-size: 0.9em; }
+  .training .evleft .evrow { display: flex; align-items: center; gap: 0.5em; margin: 0.2em 0; }
+  .training .evleft .evrow .evcell { flex: 0 0 38%; color: rgba(255,255,255,0.85); white-space: nowrap; }
+  .training .evleft .evrow .evbar { flex: 1; height: 0.62em; border-radius: 999px;
+    background: rgba(255,255,255,0.12); overflow: hidden; }
+  .training .evleft .evrow .evbar i { display: block; height: 100%; background: #e2705f;
+    animation: evgrow 0.55s ease-out both; }   /* the bars grow in with the score */
+  .training .evleft .evrow b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  .training .evleft .evtotal { margin: 0.36em 0 0; color: rgba(255,255,255,0.6); }
+  @keyframes evgrow { from { width: 0%; } }
+  .training .evstrip .newbook { cursor: pointer; color: #d8b56a; text-decoration: underline dotted;
+    text-decoration-color: rgba(216,181,106,0.5); position: relative; z-index: 3; }   /* the strip's own
+    tap: a fresh book — lifted above the shoe, which overlays the strip on narrow felt */
+  .training .bookreset { margin: 0.6em 0 0; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 0.85em; }
+  .training .bookreset-tap { cursor: pointer; color: #d8b56a; text-decoration: underline dotted;
+    text-decoration-color: rgba(216,181,106,0.5); }   /* the overlay's own wipe: the whole persisted book */
   .act.chip.on {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
@@ -359,6 +381,7 @@
   </footer>
 </div>
 
+<script src="luck999.js"></script>
 <script>
 (function () {
   'use strict';
@@ -1553,55 +1576,39 @@
     if (p == null) { evRoundT = false; return; }         /* unpriced: the round stays out */
     evBookT = p * (h.stake || UNIT_BET);
   }
-  function luckT() {
-    var luck = trainStats.felt - trainStats.ev;
-    return (luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1);
-  }
   function saveT() {
     try { localStorage.setItem('999.table.trainstats', JSON.stringify(trainStats)); } catch (e) { }
   }
-  /* the reconciliation, measured: the practice floor's strip rides
-     the overlay too, off its OWN books — the felt-minus-engine gap
-     divided by the session's accumulated spread, signed and banded,
-     so the felt's hot nights know how hot they are. The table banks
-     no insurance leg, so only the hand's stake widens the spread.  */
-  var HAND_SD = 1.15;                    /* a blackjack hand's spread, in betting units */
-  function luckBandT(s) {
-    var sd = Math.sqrt(s.sd2 || 0);
-    if (!sd) return '';
-    var luck = s.felt - s.ev, z = Math.abs(luck) / sd;
-    if (z < 1) return 'even';
-    if (z < 2) return luck < 0 ? 'cool' : 'warm';
-    if (z < 3) return luck < 0 ? 'cold' : 'hot';
-    return luck < 0 ? 'freak cold' : 'freak hot';
+  /* the reconciliation, measured: the overlay rides the same strip
+     as the floor, off its OWN books — the math lives in luck999.js
+     so the two surfaces cannot drift. The table banks no insurance
+     leg, so only the hand's stake widens the spread.           */
+  var HAND_SD = LUCK999.HAND_SD;         /* the hand spread, from the shared module */
+  /* the crossing math lives in luck999.js; the overlay keeps only
+     its own mark — the last draw's outlier state              */
+  var tOut = null;           /* the last draw's outlier mark */
+  /* a new book: the overlay's reconciliation zeroed on demand
+     — the rounds, the engine's expectation, the felt and the
+     spread all start over, so the band falls back to nothing. The
+     coach's decisions are their own book and stay.        */
+  function resetT() {
+    trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
+    saveT();
+    renderTrain();
   }
-  function luckSigmaT(s) {
-    var sd = Math.sqrt(s.sd2 || 0);
-    if (!sd) return '';
-    var z = (s.felt - s.ev) / sd;
-    return (z < 0 ? '\u2212' : '+') + Math.abs(z).toFixed(1) + '\u03c3';
-  }
-  /* the luck's colour, the floor's rule: inside one spread the
-     engine's edge is holding (green), past one the gap is an
-     outlier (red); no spread, no colour \u2014 gold.        */
-  function luckToneT(s) {
-    var sd = Math.sqrt(s.sd2 || 0);
-    if (!sd) return '';
-    return Math.abs(s.felt - s.ev) / sd < 1 ? 'ok' : 'out';
-  }
-  function fmtN(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }   /* plain chips: the strip's felt */
-  function evStripT(s) {
-    if (!s || !s.rounds) return '';
-    var luck = s.felt - s.ev;
-    function w(v, dec) {
-      return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : fmtN(Math.abs(v)));
-    }
-    var band = luckBandT(s), sig = luckSigmaT(s), tone = luckToneT(s);
-    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b' +
-      (tone ? ' class="luck ' + tone + '"' : '') + '>' +
-      ((luck < 0 ? '\u2212' : '+') + Math.abs(luck).toFixed(1)) + '</b> luck \u00b7 ' + s.rounds +
-      ' round' + (s.rounds === 1 ? '' : 's') +
-      (sig ? ' \u00b7 <span class="sd">' + sig + '</span>' + (band ? ' ' + band : '') : '');
+  /* a fresh book: the overlay's WHOLE ledger wiped on demand — the
+     coach's decisions, the chips they cost and the reconciliation all
+     start over, and this sitting's own chart clears with them, so a
+     player can begin again without a reload.               */
+  function clearBookT() {
+    trainStats.decisions = 0; trainStats.book = 0; trainStats.loss = 0; trainStats.lossBase = 0;
+    trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
+    tOut = null;               /* the crossing mark starts fresh too */
+    tSession = {};             /* the sitting's recoverable-money fold rides the same session */
+    clearT();
+    trainMsg = '';
+    saveT();
+    renderTrain();
   }
   /* the hand-off: the felt's misses ride to the practice shoe's
      leak ledger, cell for cell, so the drills there aim at what
@@ -1612,6 +1619,8 @@
      mid-round teaches nothing.                          */
   var tLedger = [], tReel = [];     /* this round's misses — cells for the ledger,
                                        whole hands for the reel — flushed at settle */
+  var tSession = {};                /* this table sitting's own cells — the fold
+                                       behind the overlay's recoverable-money chart */
   function leakMerge(lk, miss) {    /* pure: the ledger after one miss lands */
     var out = {}, k;
     for (k in lk) if (lk[k] && typeof lk[k].n === 'number') {
@@ -1623,6 +1632,16 @@
       if (typeof lk[k].t === 'number') out[k].t = lk[k].t;    /* the felt's own toll rides too */
       if (typeof lk[k].ts === 'number') out[k].ts = lk[k].ts; /* freshness rides too: the queue
                                                                  follows the newest tolls */
+      if (typeof lk[k].d === 'number') out[k].d = lk[k].d;    /* the drill clock's stamp rides
+                                                                 untouched cells, so the felt
+                                                                 never resets another cell's
+                                                                 served-hands decay */
+      if (typeof lk[k].trim === 'number' && lk[k].trim > 0)
+        out[k].trim = lk[k].trim;                             /* a trimmed rest's factor rides: the
+                                                                 row explains itself and the floor's
+                                                                 queue still weighs the soft cell */
+      if (Array.isArray(lk[k].yk)) out[k].yk = lk[k].yk.slice();   /* the re-yank log rides, so the
+                                                                 floor's roster trend survives */
       if (lk[k].m) out[k].m = 1;                              /* a master stays mastered */
     }
     if (!out[miss.cell]) out[miss.cell] = { n: 0, cost: 0 };
@@ -1632,7 +1651,12 @@
     out[miss.cell].t = (out[miss.cell].t || 0) + 1;   /* and stamps itself: this one came off the felt */
     out[miss.cell].ts = miss.ts || Date.now();        /* and dates itself: a felt miss is
                                                          as fresh as the click that missed */
-    if (out[miss.cell].r) { out[miss.cell].r = 0; out[miss.cell].back = 0; }
+    delete out[miss.cell].d;                  /* the felt keeps no drill clock: clearing the
+                                                 stamp lets the floor re-baseline it on its
+                                                 next load, so the miss restarts this cell's
+                                                 served-hands decay exactly as an offline
+                                                 miss would */
+    if (out[miss.cell].r) { out[miss.cell].r = 0; out[miss.cell].back = 0; out[miss.cell].trim = 0; }
     return out;
   }
   function flushT() {
@@ -1665,6 +1689,26 @@
     tReel = [];
     while (reel.length > 12) reel.shift();
     try { localStorage.setItem('999.practice.replay', JSON.stringify(reel)); } catch (e2) { }
+  }
+  function flushRecon(ev, felt, sd2) {   /* the reconciliation rides the same settle:
+                                       the felt's own book — a round, the engine's
+                                       price, the felt's move and the spread — lands
+                                       in the practice shoe's ledger, read-merge-
+                                       written one settle at a time so the floor's
+                                       own entries are never clobbered. A night at
+                                       the felt and a sitting at the shoe then read
+                                       one running book.                      */
+    var book = { rounds: 0, ev: 0, felt: 0, sd2: 0 };
+    try {
+      var raw = JSON.parse(localStorage.getItem('999.practice.evsession') || 'null');
+      if (raw && typeof raw.rounds === 'number' && typeof raw.ev === 'number' &&
+          typeof raw.felt === 'number' && typeof raw.sd2 === 'number') book = raw;
+    } catch (e) { }
+    book.rounds += 1;
+    book.ev += ev;
+    book.felt += felt;
+    book.sd2 += sd2;
+    try { localStorage.setItem('999.practice.evsession', JSON.stringify(book)); } catch (e) { }
   }
   function fmtT(n) { return n > 0 ? '+' + n : String(n); }
   function capT(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -1710,6 +1754,41 @@
     trainFlip = null;
     trainPrices = null;
   }
+  /* the felt's recoverable money, the same chart the practice floor
+     draws: the sitting's own miss cells folded to the few behind
+     most of the loss (Pareto's cut, at most three rows), each bar
+     the chips fixing that cell wins back, scaled to the worst.  */
+  function scoreT(map) {
+    var cells = [], k, total = 0;
+    for (k in map) if (map[k] && map[k].n) { cells.push({ cell: k, cost: map[k].cost }); total += map[k].cost; }
+    if (!cells.length) return null;
+    cells.sort(function (a, b) { return b.cost - a.cost; });
+    var rows = [], run = 0;
+    for (var j = 0; j < cells.length && rows.length < 3; j++) {
+      rows.push(cells[j]);
+      run += cells[j].cost;
+      if (total > 0 && run / total >= 0.6) break;
+    }
+    return { total: total, rows: rows, cells: cells.length };
+  }
+  function evLeftT() {
+    var sc = scoreT(tSession);
+    if (!sc || !sc.rows.length) return '';
+    var cum = 0, mx = 0, i, bars = '';
+    for (i = 0; i < sc.rows.length; i++) if (sc.rows[i].cost > mx) mx = sc.rows[i].cost;
+    for (i = 0; i < sc.rows.length; i++) {
+      var c = sc.rows[i].cost;
+      cum += c;
+      bars += '<div class="evrow"><span class="evcell">' + sc.rows[i].cell + '</span>' +
+        '<span class="evbar"><i style="width:' + Math.round(100 * (mx ? c / mx : 0)) + '%"></i></span>' +
+        '<b>\u2212' + Math.round(c) + '</b></div>';
+    }
+    var behind = sc.total - cum;
+    return '<div class="evleft"><p class="evtitle">EV left on the table</p>' + bars +
+      '<p class="evtotal">Fix ' + (sc.rows.length === 1 ? 'it' : 'all ' + sc.rows.length) +
+      ': +' + Math.round(cum) + ' back' +
+      (behind > 0.5 ? ' \u00b7 ' + Math.round(behind) + ' still behind the rest.' : '.') + '</p></div>';
+  }
   function renderTrain() {
     var b = document.getElementById('trainBox');
     if (!b) return;
@@ -1730,16 +1809,29 @@
     var tPct = trainStats.decisions ? Math.round(100 * trainStats.book / trainStats.decisions) : null;
     var tMiss = Math.max(0, (trainStats.decisions - trainStats.book) - (trainStats.lossBase || 0));
     var tPer = tMiss ? ' \u00b7 \u2212' + (trainStats.loss / tMiss).toFixed(1) + '/dev' : '';
-    var tLuck = trainStats.rounds ? ' \u00b7 ' + luckT() + ' luck' : '';   /* the gap rides the score,
-                                              the same word the practice pill reads */
+    /* the gap rides the score the way the practice pill reads it:
+       the word, its band, and the sigma that measures it        */
+    var tBand = trainStats.rounds ? LUCK999.band(trainStats) : '', tSig = trainStats.rounds ? LUCK999.sigma(trainStats) : '';
+    var tLuck = trainStats.rounds
+      ? ' \u00b7 ' + LUCK999.word(trainStats) + ' luck' + (tBand ? ' \u00b7 ' + tBand : '') + (tSig ? ' \u00b7 ' + tSig : '')
+      : '';
     html += '<br>' + (tPct == null ? 'Coach'
       : 'Coach ' + tPct + '% \u00b7 ' + trainStats.book + '/' + trainStats.decisions + tPer + tLuck);
-    var strip = evStripT(trainStats);      /* the reconciliation strip, under the score */
-    if (strip) html += '<div class="evstrip">' + strip + '</div>';
+    /* the crossing, read before the strip is built: the pulse rides
+       the very draw that tops the spread, the mark banked after  */
+    var crossT = LUCK999.cross(tOut, trainStats);
+    tOut = crossT.out;
+    var strip = LUCK999.stripLine(trainStats, crossT.fire);      /* the reconciliation strip, under the score */
+    if (strip) html += '<div class="evstrip">' + strip +
+      ' \u00b7 <span class="newbook" id="evNewBookT">\u21ba new book</span></div>';   /* the strip's own tap */
+    html += evLeftT();                     /* the felt's recoverable money, folded */
     if (game.dealer.cards.length === 1 && game.dealer.cards[0] && game.dealer.cards[0].rank === 'A') {
       var insTc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
       html += '<br>Insurance turns at true +' + INDEX999.INSURE_AT + ' (now ' + fmtT(insTc) + ')';
     }
+    /* the fresh-book control: one tap wipes the persisted book and
+       starts the session over                                   */
+    html += '<p class="bookreset"><span class="bookreset-tap" id="clearBookT" title="wipe the persisted book \u2014 decisions, cost and reconciliation \u2014 and start the session over">\u232b clear the book</span></p>';
     b.innerHTML = html;
   }
   function markT() {
@@ -1780,8 +1872,11 @@
                                         ledger at settle - cell for cell     */
       var vM = SHOE999.value(game.hands[YOUR].cards);
       var hc = game.hands[YOUR].cards, dU = game.dealer.cards[0];
-      tLedger.push({ cell: (vM.soft ? 'soft ' : 'hard ') + vM.total + ' v ' +
-        (dU ? dU.rank : '10'), cost: cost, ts: Date.now() });
+      var cellT = (vM.soft ? 'soft ' : 'hard ') + vM.total + ' v ' + (dU ? dU.rank : '10');
+      tLedger.push({ cell: cellT, cost: cost, ts: Date.now() });
+      if (!tSession[cellT]) tSession[cellT] = { n: 0, cost: 0 };
+      tSession[cellT].n++;                 /* the sitting's own fold, for the recoverable chart */
+      tSession[cellT].cost += cost;
       tReel.push({                   /* ...and the reel keeps the whole hand —
                                         the felt's miss replays on the practice felt */
         yc: [hc[0].rank, hc[1].rank], ys: [hc[0].suit, hc[1].suit],
@@ -2088,16 +2183,26 @@
     }
     if (evRoundT && evPricedT) {         /* the same books the practice floor keeps:
                                             the engine's price against the felt's move */
+      var tStake = game.hands[YOUR].stake || UNIT_BET;
+      var tWidth = Math.pow(HAND_SD * tStake, 2);   /* the round's own width, the box's stake */
       trainStats.rounds++;
       trainStats.ev += evBookT;
       trainStats.felt += myNet;
-      trainStats.sd2 += Math.pow(HAND_SD * (game.hands[YOUR].stake || UNIT_BET), 2);   /* the round's
-                                                          own width, the box's stake */
+      trainStats.sd2 += tWidth;
+      /* ...and the round rides to the practice floor's book at settle,
+         so the night's rounds and the shoe's share one running ledger */
+      flushRecon(evBookT, myNet, tWidth);
       saveT();
       renderTrain();
     }
+    /* the hand-off settle line carries the round's own luck gap:
+       the felt against the engine, the one number both books now
+       bank — so the table's felt and the floor's book reconcile in
+       the same sentence the misses ride over in                */
     setStatus('Round settles — the payout walk' + (tHanded ? ' · ' + tHanded +
-      ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : ''));
+      ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : '') +
+      (evRoundT && evPricedT ? ' · ' + LUCK999.word({ felt: myNet, ev: evBookT }) +
+        ' luck, both felts reconcile' : ''));
     var beat = 0;
     game.walk.forEach(function (b) {
       var h = game.hands[b], at = (CHIP_DELAY + beat * WALK_BEAT) * pace;   /* the cinematic stretches the whole walk */
@@ -2986,6 +3091,14 @@
       btn.addEventListener('click', function () { setStake(Number(btn.getAttribute('data-bet'))); });
     })(betChips[bi]);
   }
+  /* the overlay strip's new book: one tap clears the reconciliation
+     and the luck band — bound on the box, which survives the
+     overlay's own re-renders                            */
+  var trainBoxEl = document.getElementById('trainBox');
+  if (trainBoxEl) trainBoxEl.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'evNewBookT') resetT();
+    if (e.target && e.target.id === 'clearBookT') clearBookT();
+  });
   var btnDealNow = document.getElementById('btnDealNow');
   if (btnDealNow) btnDealNow.addEventListener('click', endBets);
   var bonusBtn = document.getElementById('bonusBtn');
