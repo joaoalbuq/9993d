@@ -25,6 +25,9 @@ function extract(name, args) {
   const sig = fnFull.slice(fnFull.indexOf('('), fnFull.indexOf(')') + 1);
   return new Function(args, 'return function ' + name + sig + ' {' + fnBody + '}');
 }
+/* the one renderer the score line reads through, lifted out of the page so
+   the line under test is the real one and not a copy of it */
+const quizChips = extract('quizChipsLine', '')();
 const fmtCountM = src.match(/function fmtCount\(n\) \{ return[^\n]*\}/);
 if (!fmtCountM) throw new Error('fmtCount one-liner not found');
 const fmtCount = new Function('n', fmtCountM[0].slice(fmtCountM[0].indexOf('{') + 1, -1) + '\nreturn fmtCount;');
@@ -909,27 +912,28 @@ if (!/saveQuizStats\(\);[^\n]*\n\s*if \(indexMode\) renderIndexSheet\(\);/.test(
      audit fixed: a clean count saved as a string must not cost the
      player the cards they actually answered. The RULE it was guarding
      survives \u2014 clean can never exceed asked \u2014 as a clamp. */
-  const loader = grab("  var quizStats = { asked: 0, clean: 0 };", "  function saveQuizStats()");
-  if (!/quizStats = LUCK999\.numInto\(qs, \{ asked: 0, clean: 0 \}\);/.test(loader) ||
+  const loader = grab("  var quizStats = { asked: 0, clean: 0, chips: 0 };", "  function saveQuizStats()");
+  if (!/quizStats = LUCK999\.numInto\(qs, \{ asked: 0, clean: 0, chips: 0 \}\);/.test(loader) ||
       !/quizStats\.clean > quizStats\.asked\) quizStats\.clean = quizStats\.asked;/.test(loader) ||
-      !/quizStats\.clean < 0\) quizStats\.clean = 0;/.test(loader))
+      !/quizStats\.clean < 0\) quizStats\.clean = 0;/.test(loader) ||
+      !/if \(!\(quizStats\.chips >= 0\)\) quizStats\.chips = 0;/.test(loader))
     throw new Error('a stored score must be read field by field, and clean never past asked');
-  const quizScoreLine = extract('quizScoreLine', 'quizStats')({ asked: 0, clean: 0 });
+  const quizScoreLine = extract('quizScoreLine', 'quizStats, quizChipsLine')({ asked: 0, clean: 0 }, quizChips);
   if (quizScoreLine() !== '') throw new Error('no cards graded, no score to name');
-  const line = extract('quizScoreLine', 'quizStats')({ asked: 5, clean: 3 })();
+  const line = extract('quizScoreLine', 'quizStats, quizChipsLine')({ asked: 5, clean: 3 }, quizChips)();
   if (line !== ' \u00b7 quiz 3/5 clean (60%)')
     throw new Error('the footer clause names the score and its rate: ' + JSON.stringify(line));
-  const perfect = extract('quizScoreLine', 'quizStats')({ asked: 4, clean: 4 })();
+  const perfect = extract('quizScoreLine', 'quizStats, quizChipsLine')({ asked: 4, clean: 4 }, quizChips)();
   if (!/4\/4 clean \(100%\)/.test(perfect)) throw new Error('a perfect record reads 100%: ' + perfect);
   /* a card must hold the SAME object, so grading writes the memory */
-  const st = { asked: 2, clean: 1 };
+  const st = { asked: 2, clean: 1, chips: 0 };
   if (!/indexQuiz = \{[\s\S]{0,460}?score: quizStats \};/.test(src))
     throw new Error('a fresh card must inherit the score object itself');
   const indexQuiz = { tc: 4, picks: {}, graded: null, counted: false, fed: {}, tcSay: 3, q: { rc: 10, dk: 3, cq: 3 }, score: st };
-  const quiz = extract('indexQuizGrade', 'indexQuiz, INDEX999, indexLiveSet, indexQuizScore, quizFeed, quizAutoDrill, saveQuizStats, indexMode, renderIndexSheet');
+  const quiz = extract('indexQuizGrade', 'indexQuiz, INDEX999, indexLiveSet, indexQuizScore, spreadUnits, quizFeed, quizAutoDrill, saveQuizStats, indexMode, renderIndexSheet');
   /* count the writes: the same score object must move */
   let saves = 0, feeds = 0;
-  const grade = quiz(indexQuiz, INDEX999, indexLiveSet, indexQuizScore,
+  const grade = quiz(indexQuiz, INDEX999, indexLiveSet, indexQuizScore, spreadUnits,
     function () { feeds++; }, function () { }, function () { saves++; }, false, function () {});
   grade();
   if (st.asked !== 3) throw new Error('a graded card must land on the remembered score: ' + JSON.stringify(st));
@@ -939,6 +943,27 @@ if (!/saveQuizStats\(\);[^\n]*\n\s*if \(indexMode\) renderIndexSheet\(\);/.test(
   if (st.asked !== 3) throw new Error('a re-lock must not score the card twice: ' + JSON.stringify(st));
   if (saves !== 2) throw new Error('every lock persists its grade: ' + saves);
   if (feeds !== 2) throw new Error('a re-lock must re-read the ledgers too: ' + feeds);
+  /* the priced spread rides the SAME object, on the SAME once-only rule as the
+     clean count: a card graded twice must not be charged twice */
+  if (st.chips !== 0)
+    throw new Error('a card that never answered the spread must cost no chips: ' + st.chips);
+  /* and now a card that DOES over-stake: the priced spread must land on the
+     same object, and a re-lock of that card must REPLACE its toll rather than
+     add a second one. Its own spread answer is what makes it cost. */
+  const st2 = { asked: 0, clean: 0, chips: 0 };
+  const over = { tc: 4, picks: {}, graded: null, counted: false, fed: {}, units: 9, tcSay: 3,
+                 q: { rc: 10, dk: 3, cq: 3 }, score: st2 };
+  const grade2 = quiz(over, INDEX999, indexLiveSet, indexQuizScore, spreadUnits,
+    function () { }, function () { }, function () { }, false, function () {});
+  grade2();
+  if (!(st2.chips > 0)) throw new Error('an over-staked card must land its priced spread: ' + st2.chips);
+  const toll = st2.chips;
+  grade2();
+  if (st2.chips !== toll)
+    throw new Error('a re-lock of the same over-stake must not charge it twice: ' + st2.chips + ' vs ' + toll);
+  if (quizChips(st2.chips).indexOf('chips over-staked') < 0)
+    throw new Error('the score card must name the toll in chips: ' + quizChips(st2.chips));
+  if (quizChips(0) !== '') throw new Error('a sitting with no wrong spread reads as no chips at all');
 }
 console.log('quiz score: 3/5 clean (60%) survives the reload \u2014 the sheet names what you know');
 
@@ -1048,8 +1073,14 @@ console.log('a blown card deals: 12 v 3 comes straight off the shoe, stakes and 
 
 /* --- every class the grade names is its own tap, so the miss leads
        straight into the drill queue instead of being re-found later --- */
-if (!/function quizDrillLine\(graded\)/.test(src) || !/quizDrillLine\(indexQuiz\.graded\)/.test(src))
-  throw new Error('the graded card must carry its own drill line');
+if (!/function quizDrillLine\(graded, dealt\)/.test(src) ||
+    !/quizDrillLine\(indexQuiz\.graded, drillChart \? drillChart\.cell : null\)/.test(src))
+  throw new Error('the graded card must carry its own drill line, told which miss is already off the shoe');
+/* the mark is read from drillChart \u2014 the ONE place that says a cell is in
+   flight. Reading anything else would leave the mark standing after the hand
+   was taken back, which is a promise the shoe no longer keeps. */
+if (!/var drillChart = null;/.test(src))
+  throw new Error('the in-flight cell must still be the single record of a cell off the shoe');
 {
   const cellOf = extract('quizCellOf', '')();
   const line = extract('quizDrillLine', 'quizCellOf, INDEX999')(cellOf, INDEX999);
@@ -1066,6 +1097,31 @@ if (!/function quizDrillLine\(graded\)/.test(src) || !/quizDrillLine\(indexQuiz\
   if (line({ wrong: ['+ hard 12 v 3', 'hard 12 v 3'] }).match(/ixdrill/g).length !== 1)
     throw new Error('the same class twice is one tap');
   if (!/<p class="drillnow">Drill it now: /.test(one)) throw new Error('the line names itself');
+  /* A MISS ALREADY OFF THE SHOE IS MARKED, NOT OFFERED. The card deals its
+     first blown class the instant it is graded, so the line has to say which
+     one that was \u2014 and must stop offering it as something left to drill. */
+  const marked = line({ wrong: ['hard 12 v 3', 'hard 16 v 10'] }, 'hard 12 v 3');
+  if (!/class="ixdrill ixdealt" data-cell="hard 12 v 3" role="button" tabindex="0"/.test(marked) ||
+      !/already dealt \u2014 tap to take it back/.test(marked) || !/\u2713 hard 12 v 3 dealt/.test(marked))
+    throw new Error('the class already dealt must be marked on the grade line: ' + marked);
+  /* it STAYS a control: tapping a cell already in flight is the bar-tap undo,
+     and the mark must not quietly take that right away */
+  if (!/class="ixdrill ixdealt" data-cell="hard 12 v 3"/.test(marked))
+    throw new Error('the dealt mark must keep its take-back: ' + marked);
+  if ((marked.match(/class="ixdrill/g) || []).length !== 2)
+    throw new Error('both classes keep their control: ' + marked);
+  /* and the class still waiting keeps its plain tap beside it */
+  if (!/<span class="ixdrill" data-cell="hard 16 v 10" role="button" tabindex="0"/.test(marked))
+    throw new Error('a class still waiting must keep its own plain tap: ' + marked);
+  /* a line with nothing left to drill must not still say 'Drill it now' */
+  const allGone = line({ wrong: ['hard 12 v 3'] }, 'hard 12 v 3');
+  if (!/<p class="drillnow">Off the shoe: /.test(allGone))
+    throw new Error('a line with nothing to drill must say so: ' + allGone);
+  /* and an unmarked cell is never marked by a stranger's drill */
+  if (/ixdealt/.test(line({ wrong: ['hard 12 v 3'] }, 'hard 16 v 10')))
+    throw new Error('only the cell actually in flight is marked');
+  if (/ixdealt/.test(line({ wrong: ['hard 12 v 3'] }, null)))
+    throw new Error('no drill in flight, no mark');
 }
 const gradeClick = grab("document.getElementById('indexBox').addEventListener('click'", "  });");
 if (!/closest\('\.ixdrill'\)[\s\S]*?drillNow\(qc, true\)/.test(gradeClick))
@@ -1074,6 +1130,16 @@ if (!/the ledger holds nothing to stack/.test(gradeClick))
   throw new Error('a ledger-less miss must say so, not vanish');
 if (!/\.idx \.ixdrill \{ cursor: pointer; color: #d8b56a;/.test(src))
   throw new Error('the tap must look tappable');
+/* the mark must NOT look like a tap: it carries no pointer, no dotted rule
+   and no gold — it is said, not offered, and a player must be able to see
+   the difference without reading it */
+if (!/\.idx \.ixdrill\.ixdealt \{ color: #43c98a;/.test(src))
+  throw new Error('the dealt mark must be styled in its own green, so it reads as said rather than offered');
+const dealtCss = (src.match(/\.idx \.ixdrill\.ixdealt \{[^}]*\}/) || [''])[0];
+if (!/text-decoration: none/.test(dealtCss))
+  throw new Error('the dealt mark must drop the dotted rule, or it still looks like one waiting: ' + dealtCss);
+if (/\.idx \.ixdealt[^\n]*\.ixdrill/.test(src.replace(/\.idx \.ixdrill[^\n]*\n/, '')))
+  throw new Error('the mark must not inherit the tap\'s own styling');
 console.log('the grade drills: every miss it names is one tap from the queue');
 
 console.log('\nindex teach verified');

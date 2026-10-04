@@ -170,6 +170,23 @@
   }
   .status .dot { display: inline-block; width: 0.62em; height: 0.62em; border-radius: 50%;
     background: var(--accent); margin-right: 0.7em; vertical-align: 0.06em; }
+  /* The settle line's luck figure is a WAY IN, not just a number: a tap on it
+     opens the reconciliation that measures it, the same gesture the practice
+     floor already offers. Dotted so it reads as a door rather than a link to
+     somewhere else, and gold because it is this table's own accent. */
+  .status .luckclause { cursor: pointer; color: #d8b56a; letter-spacing: inherit;
+    text-decoration: underline dotted; text-decoration-color: rgba(216,181,106,0.5);
+    border-radius: 3px; }
+  .status .luckclause:hover { text-decoration-color: rgba(216,181,106,0.95); }
+  .status .luckclause:focus-visible { outline: 1px solid #d8b56a; outline-offset: 2px; }
+  /* the overlay blooms once when it is opened by the tap, so the eye is told
+     what answered rather than having to hunt for it */
+  @keyframes luckopen { 0%, 100% { box-shadow: 0 0 0 rgba(216,181,106,0); }
+                        35% { box-shadow: 0 0 1.1em rgba(216,181,106,0.55); } }
+  .training.flash { animation: luckopen 1.4s ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    .training.flash { animation: none; box-shadow: 0 0 0.9em rgba(216,181,106,0.4); }
+  }
   .acts { display: flex; gap: 0.7em; width: 100%; justify-content: center; }
   .act {
     flex: 1 1 0; max-width: 9.5em; height: 3.6em;
@@ -2745,9 +2762,11 @@
        bank — so the table's felt and the floor's book reconcile in
        the same sentence the misses ride over in                */
     setStatus('Round settles — the payout walk' + (tHanded ? ' · ' + tHanded +
-      ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : '') +
-      (evRoundT && evPricedT ? ' · ' + LUCK999.word({ felt: myNet, ev: evBookT }) +
-        ' luck, both felts reconcile' : ''));
+      ' miss' + (tHanded > 1 ? 'es' : '') + ' to the practice shoe' : ''),
+      /* the round's own clause, and it is the way into the strip that keeps
+         it — the figure can be opened, not only read */
+      evRoundT && evPricedT ? ' · ' + LUCK999.word({ felt: myNet, ev: evBookT }) +
+        ' luck, both felts reconcile' : '');
     var beat = 0;
     game.walk.forEach(function (b) {
       var h = game.hands[b], at = (CHIP_DELAY + beat * WALK_BEAT) * pace;   /* the cinematic stretches the whole walk */
@@ -3787,7 +3806,54 @@
   }
 
   var statusTxt = document.getElementById('statusTxt');
-  function setStatus(s) { statusTxt.textContent = s; }
+  /* The settle line reports one number — the round's gap — and on this table
+     that number lives in the training overlay, which the player may well have
+     shut. So the figure is built as a NODE that opens the overlay, exactly as
+     the practice floor's clause opens its strip: the number is reported in the
+     one sentence that already carries it, and a tap on it explains it where it
+     is actually kept. Nothing else on the line becomes a control.
+     The overlay is opened READ-ONLY: a tap that quietly switched the coach on
+     would change a setting the player chose, so the overlay is shown for the
+     reading and put back the way it was found.                             */
+  function luckClause(text) {
+    var s = document.createElement('span');
+    s.className = 'luckclause';
+    s.setAttribute('role', 'button');
+    s.tabIndex = 0;
+    s.title = 'Open the reconciliation \u2014 the strip that measures this gap';
+    s.textContent = text;
+    s.addEventListener('click', function (e) {
+      e.stopPropagation(); e.preventDefault(); openLuck();
+    });
+    /* Enter and Space too: it carries role="button" and tabindex, so a keyboard
+       that lands on it must be able to fire it — a control that only answers a
+       mouse is not one. */
+    s.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.stopPropagation(); e.preventDefault(); openLuck();
+    });
+    return s;
+  }
+  /* the overlay must be BUILT before it is opened, or the tap opens an empty
+     box; and it is restored afterwards so the reading does not leave the coach
+     switched on against the player's own setting */
+  function openLuck() {
+    renderTrain();                              /* the line must be there before it is opened */
+    var el = document.getElementById('trainBox');
+    if (!el) return;
+    var wasOpen = !el.hidden;
+    el.hidden = false;                          /* a shut overlay still answers a tap */
+    el.classList.remove('flash'); void el.offsetWidth;   /* restart the bloom */
+    el.classList.add('flash');
+    later(1400, function () { el.classList.remove('flash'); });
+    if (!wasOpen) later(6000, function () {      /* and it closes itself again, having said its piece */
+      if (!el.classList.contains('flash')) { renderTrain(); if (!coachOn) el.hidden = true; }
+    });
+  }
+  function setStatus(s, luck) {
+    statusTxt.textContent = s;
+    if (luck) statusTxt.appendChild(luckClause(luck));
+  }
 
   var btnHit = document.getElementById('btnHit');
   var btnStand = document.getElementById('btnStand');

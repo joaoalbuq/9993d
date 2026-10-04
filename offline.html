@@ -432,6 +432,11 @@
   .idx .ixwhy .ixweak { font-variant-numeric: tabular-nums; color: #e2705f; }
   .idx .ixwhy .ixweak.calm { color: rgba(255,255,255,0.72); }  /* bleeding, but never refused */
   .idx .ixdrill { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; white-space: nowrap; }  /* a grade's miss, one tap from the drill */
+  /* a miss ALREADY off the shoe: green and ticked, and stripped of the dotted
+     rule so it cannot be mistaken for one still waiting. It keeps the pointer,
+     because tapping it is the bar-tap undo — the mark says what is out, it
+     does not take away the right to put it back. */
+  .idx .ixdrill.ixdealt { color: #43c98a; text-decoration: none; white-space: nowrap; }
   .idx .ixrec.part { color: rgba(255,255,255,0.6); }
   .idx .ixrecent { color: rgba(255,255,255,0.62); }
   .idx .ixbadge { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.92em; }
@@ -2000,7 +2005,7 @@
     countStats = { guesses: 0, right: 0, offBy: 0, tGuesses: 0, tRight: 0, tOffBy: 0,
       pGuesses: 0, pRight: 0, pOffBy: 0 }; saveCount();
     ixStats = { asked: 0, followed: 0, byCell: {} }; ixLog = []; lastFlip = null; saveIx(); saveIxLog();
-    quizStats = { asked: 0, clean: 0 }; indexQuiz = null; saveQuizStats();
+    quizStats = { asked: 0, clean: 0, chips: 0 }; indexQuiz = null; saveQuizStats();
     resetEv();                                   /* the strip's own ledger goes with it */
     leakMode = false; indexMode = false; reviewMode = false;
     /* the felt itself, not just the books: shuffleCeremony leaves the
@@ -2947,13 +2952,20 @@
      the record of what you KNOW is not what you have open right now.
      Every card points at this same object — grading writes here,
      the sheet reads here, a fresh card inherits it. */
-  var quizStats = { asked: 0, clean: 0 };
+  var quizStats = { asked: 0, clean: 0, chips: 0 };
   try {var qs = JSON.parse(localStorage.getItem('999.practice.quizscore') || 'null');
-    quizStats = LUCK999.numInto(qs, { asked: 0, clean: 0 });
+    quizStats = LUCK999.numInto(qs, { asked: 0, clean: 0, chips: 0 });
     if (quizStats.asked < 0) quizStats.asked = 0;
     if (quizStats.clean < 0) quizStats.clean = 0;
     if (quizStats.clean > quizStats.asked) quizStats.clean = quizStats.asked;   /* a clean card
                                                                                    cannot exceed the cards */
+    /* the wrong spreads' chips, the SAME money the card itself prices. A record
+       saved before this figure existed carries no chips, and numInto gives it
+       the seed's zero — so an old book reads as a sitting that has over-staked
+       nothing rather than as a broken one. Chips are never negative: the toll
+       is a cost, and a stored figure that said otherwise would subtract from
+       the next sitting's total. */
+    if (!(quizStats.chips >= 0)) quizStats.chips = 0;
   } catch (e) { }
   function saveQuizStats() {
     try { localStorage.setItem('999.practice.quizscore', JSON.stringify(quizStats)); } catch (e) { }
@@ -2961,7 +2973,21 @@
   function quizScoreLine() {
     if (!quizStats.asked) return '';
     var pct = Math.round(100 * quizStats.clean / quizStats.asked);
-    return ' \u00b7 quiz ' + quizStats.clean + '/' + quizStats.asked + ' clean (' + pct + '%)';
+    return ' \u00b7 quiz ' + quizStats.clean + '/' + quizStats.asked + ' clean (' + pct + '%)' +
+      quizChipsLine(quizStats.chips);
+  }
+  /* THE SITTING'S OVER-STAKES, AS ONE NUMBER. The quiz already prices a wrong
+     spread in chips — the same figure a wrong class costs — but it priced the
+     card and then dropped it, so a player who over-staked on nine cards had no
+     way to learn it had cost them anything: nine separate verdicts, no sum.
+     A score card that reports clean cards but not money spent is half a score
+     card. So the toll rides the same remembered object the clean count does,
+     and shows only once something has been spent — a sitting with no wrong
+     spread reads as no chips rather than as a flat zero. */
+  function quizChipsLine(chips) {
+    chips = Math.max(0, chips || 0);
+    if (!chips) return '';
+    return ' \u00b7 ' + chips + ' chips over-staked';
   }
   var indexQuiz = null;
   function indexLiveSet(tc) {
@@ -3346,8 +3372,20 @@
      its own tap on the same line: one press hands it to the drill —
      dealt at once while betting is open, armed for the next hand
      otherwise — so a miss leads into the queue instead of waiting to
-     be hunted down. A wrong stake is not a class and never appears. */
-  function quizDrillLine(graded) {
+     be hunted down. A wrong stake is not a class and never appears.
+
+     A MISS ALREADY OFF THE SHOE IS MARKED, NOT OFFERED BLIND. The card
+     deals its first blown class the moment it is graded, so the line used
+     to list that class beside the ones still waiting wearing exactly the
+     same gold dotted tap as though nothing had happened: the player could
+     not tell which miss had already come off. So the dealt one is said in
+     green, ticked, and stripped of the dotted rule — visibly a different
+     thing. It STAYS a control, because tapping a cell already in flight is
+     the bar-tap undo, and taking that hand back is a real right the mark
+     must not quietly take away; its title now says so. The mark is read
+     from drillChart, the one place that says a cell is in flight, so
+     taking the hand back unmarks it rather than leaving a promise unkept. */
+  function quizDrillLine(graded, dealt) {
     if (!graded || !graded.wrong || !graded.wrong.length) return '';
     var cells = [], seen = {}, i, cell;
     for (i = 0; i < graded.wrong.length; i++) {
@@ -3358,10 +3396,18 @@
       cells.push(cell);
     }
     if (!cells.length) return '';
-    return '<p class="drillnow">Drill it now: ' + cells.map(function (c) {
+    var waiting = 0;
+    var items = cells.map(function (c) {
+      if (dealt && c === dealt)          /* off the shoe: ticked, and said in green */
+        return '<span class="ixdrill ixdealt" data-cell="' + c + '" role="button" tabindex="0"' +
+          ' title="already dealt \u2014 tap to take it back">\u2713 ' + c + ' dealt</span>';
+      waiting++;
       return '<span class="ixdrill" data-cell="' + c + '" role="button" tabindex="0"' +
         ' title="drill this class \u2014 the shoe deals it">\u21B1 ' + c + '</span>';
-    }).join(' \u00b7 ') + '</p>';
+    });
+    /* a line with nothing left to drill must not still say 'Drill it now' */
+    return '<p class="drillnow">' + (waiting ? 'Drill it now: ' : 'Off the shoe: ') +
+      items.join(' \u00b7 ') + '</p>';
   }
   function indexQuizGrade() {
     if (!indexQuiz) return;
@@ -3392,6 +3438,15 @@
       if (indexQuiz.graded.all && !graded.all) indexQuiz.score.clean--;
       else if (!indexQuiz.graded.all && graded.all) indexQuiz.score.clean++;
     }
+    /* The priced spread rides the SAME rule as the clean count: a card counts
+       once, and a re-lock REPLACES what it cost rather than adding to it. So
+       the toll is the grade's own figure less whatever this card last paid —
+       otherwise fixing a wrong spread into a right one would leave the old
+       chips on the books and the sitting would over-report itself. A card
+       graded once adds its spread; a card re-locked moves the total by the
+       difference, in either direction. */
+    var wasCost = indexQuiz.graded ? (indexQuiz.graded.stakeCost || 0) : 0;
+    indexQuiz.score.chips = Math.max(0, (indexQuiz.score.chips || 0) + graded.stakeCost - wasCost);
     indexQuiz.graded = graded;
     quizFeed(graded);                /* a blown card drills the class it blew */
     quizAutoDrill(graded);           /* ...and deals it at once, not next felt hand */
@@ -3449,9 +3504,10 @@
             ' \u00b7 insurance ' + (tc >= INDEX999.INSURE_AT ? 'on' : 'off') +
             ' \u00b7 the spread lays ' + indexQuiz.stake + ' unit' + (indexQuiz.stake > 1 ? 's' : '') +
             ' \u00b7 ' + indexQuiz.graded.split + '</p>' +
-            quizDrillLine(indexQuiz.graded)
+            quizDrillLine(indexQuiz.graded, drillChart ? drillChart.cell : null)
           : '') +
         '<p class="drillnow">Score: ' + indexQuiz.score.clean + '/' + indexQuiz.score.asked +
+        quizChipsLine(indexQuiz.score.chips) +
         (indexQuiz.graded
           ? ' \u00b7 a card can change its mind \u2014 tap to fix a pick, ' +
             '<span class="quiznew" data-act="grade">lock it in again</span> \u00b7 ' +
