@@ -206,10 +206,10 @@ console.log('the veil: 16.5kHz near \u2192 1.3kHz far on the same near model, in
 /* --- the landing keeps the flight's distance: the whoosh flies in
        dark from the far rail, so the snap that ends it must not
        announce the card as if it had landed at your elbow --- */
-const csFull = grab('  function cardSnap(delay, dist) {', '\n  }');
+const csFull = grab('  function cardSnap(delay, dist, pan) {', '\n  }');
 const csBody = csFull.slice(csFull.indexOf('{') + 1, csFull.lastIndexOf('}'));
-function makeSnap() {
-  const m = mockCtx(true);
+function makeSnap(withPanner) {
+  const m = mockCtx(withPanner !== false);
   const rec = [];
   const master = { __tag: 'master', connect() {} };   /* the felt's mix bus, named so the chain reads */
   const burst = (c, t, dur, type, freq, q, gain, out) => rec.push({ dur, type, freq, q, gain, out: out || null });
@@ -245,13 +245,79 @@ if (/_ROOM/.test(csFull)) throw new Error('the snap must never take a room send 
 console.log('the landing: 16.5kHz \u2192 2.2kHz on the snap\u2019s own subtler ladder \u2014 a far card lands dark, not just quiet');
 console.log('and seatless: the plain snap is unchanged, 3000/5200 at full level, still the felt\u2019s one dry voice');
 
+/* --- the landing carries its SEAT, the same box the whoosh arrived on --- */
+const sSeat = makeSnap();
+sSeat.snap(0, 3.1, 0.6);                       /* a flight that ended at the right rail */
+if (sSeat.m.rec.panSets.length !== 1 || sSeat.m.rec.panSets[0][0] !== 0.6 || sSeat.m.rec.panSets[0][1] !== 10)
+  throw new Error('the snap must land in the seat it was given: ' + JSON.stringify(sSeat.m.rec.panSets));
+if (sSeat.m.rec.panRamps.length)
+  throw new Error('the snap is one hit: it takes its seat, it never travels');
+const sLeft = makeSnap();
+sLeft.snap(0, 5.2, -0.6);                      /* and the far left box sits on the other rail */
+if (sLeft.m.rec.panSets[0][0] !== -0.6) throw new Error('a left box must land left: ' + sLeft.m.rec.panSets[0][0]);
+console.log('the landing\u2019s seat: +0.6 and \u22120.6 land where the card did \u2014 the eye and the ear finish together');
+
+/* --- the panner is the snap's TAIL: after the veil, and into the master --- */
+const sChain = makeSnap();
+sChain.snap(0, 6.4, 0.6);                      /* far AND seated: both models at once */
+const has = (r, a, b) => r.some(([x, y]) => x === a && y === b);
+if (!has(sChain.m.rec.links, 'gain', 'lowpass') || !has(sChain.m.rec.links, 'lowpass', 'pan') ||
+    !has(sChain.m.rec.links, 'pan', 'master'))
+  throw new Error('the seat must sit after the veil and before the master: ' + JSON.stringify(sChain.m.rec.links));
+if (has(sChain.m.rec.links, 'lowpass', 'master'))
+  throw new Error('a seated snap must not bypass its seat: ' + JSON.stringify(sChain.m.rec.links));
+if (sChain.rec[0].out === null || sChain.rec[0].out !== sChain.rec[1].out)
+  throw new Error('a veiled seated snap must feed both voices through the one veil');
+if (sChain.m.rec.panSets.length !== 1) throw new Error('a veiled snap must still land once');
+console.log('the chain: veil \u2192 seat \u2192 master \u2014 darkening and seating never fight over one node');
+
+/* --- a wild seat clamps, and no seat means the old voice, untouched --- */
+const sWild = makeSnap();
+sWild.snap(0, 3.1, 9);                         /* a box off the rails */
+if (sWild.m.rec.panSets[0][0] !== 1) throw new Error('a wild seat must clamp to the rail: ' + sWild.m.rec.panSets[0][0]);
+const sNone = makeSnap();
+sNone.snap(0, 3.1);                           /* a flight with a veil but no seat */
+if (sNone.m.rec.panSets.length)
+  throw new Error('a seatless snap must not invent a seat');
+if (!has(sNone.m.rec.links, 'lowpass', 'master') || has(sNone.m.rec.links, 'lowpass', 'pan'))
+  throw new Error('a seatless snap must sit straight on the master, as it always did: ' + JSON.stringify(sNone.m.rec.links));
+const sPlainPan = makeSnap();
+sPlainPan.snap(0, null, 0.6);                 /* no distance, but a seat: the plain voice, seated */
+if (sPlainPan.m.rec.panSets.length !== 1 || sPlainPan.rec[0].freq !== 3000)
+  throw new Error('a seat must not touch the plain voice\u2019s own tuning: ' + JSON.stringify(sPlainPan.rec));
+if (sPlainPan.rec[0].out === null || sPlainPan.rec[0].out !== sPlainPan.rec[1].out)
+  throw new Error('an un-veiled seated snap must still feed its voices through the seat: ' + JSON.stringify(sPlainPan.rec));
+if (!has(sPlainPan.m.rec.links, 'pan', 'master'))
+  throw new Error('the seat of an un-veiled snap must reach the master: ' + JSON.stringify(sPlainPan.m.rec.links));
+console.log('edges: a wild seat clamps, a seatless snap is the old voice, and a seat alone changes no tuning');
+
+/* --- no panner API: centered, never broken --- */
+const sNoApi = makeSnap(false);
+sNoApi.snap(0, 3.1, 0.6);
+if (sNoApi.m.rec.panSets.length || sNoApi.m.rec.panRamps.length)
+  throw new Error('without createStereoPanner nothing may try to pan the snap');
+console.log('no panner API: the snap stays centered \u2014 graceful, not broken');
+
+/* --- the wiring: both deal paths seat the landing with the whoosh's own pan --- */
+for (const fn of ['dealTo(box)', 'dealToDealer()']) {
+  const body = grab('  function ' + fn + ' {', '\n  }');
+  const seated = body.match(/cardSnap\(\(c\.dur - 10\) \/ 1000, fd, panFor\(cardTarget\(c\)\)\);/);
+  if (!seated) throw new Error(fn + ' must land its snap in the box\u2019s own seat');
+  const whooshPan = body.match(/panFor\(cardTarget\(c\)\)/g) || [];
+  if (whooshPan.length !== 2)
+    throw new Error(fn + ' must fly and land on ONE seat, read once per voice: ' + whooshPan.length);
+}
+if (!/if \(pan != null && c\.createStereoPanner\)/.test(csFull))
+  throw new Error('the snap\u2019s seat must be gated on the API and a seat actually given');
+console.log('wiring: both deal paths fly and land on one seat \u2014 the whoosh and the snap agree on the box');
+
 const cfFull = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
 const cfBody = cfFull.slice(cfFull.indexOf('{') + 1, cfFull.lastIndexOf('}'));
 function makeFan() {
   const rec = [];
   const fan = new Function('chipClack', 'lerp',
     'return function chipFan(' + cfFull.slice(cfFull.indexOf('(') + 1, cfFull.indexOf(')')) + ') {' + cfBody + '}') (
-      (delay, gain, dist, pan) => rec.push({ delay, gain, dist, pan }), (a, b, t) => a + (b - a) * t);
+      (delay, gain, dist, pan, panFrom, panDur) => rec.push({ delay, gain, dist, pan, panFrom, panDur }), (a, b, t) => a + (b - a) * t);
   return { fan, rec };
 }
 const f1 = makeFan();
@@ -264,13 +330,83 @@ if (f1.rec[0].dist !== 4.33 || Math.abs(f1.rec[4].delay - (0.56 + 4 * 0.09)) > 1
   throw new Error('the fan must keep its stagger and its distance');
 console.log('the walk: 5 chips pan \u22120.4 \u2192 +0.2, one step across the channels per chip');
 
+/* --- the walk MOVES: each clack glides into its seat from the one before --- */
+const fw = makeFan();
+fw.fan(5, 0.56, 0.09, 4.33, -0.4, 0.2);
+if (fw.rec.length !== 5) throw new Error('the fan must still fire one clack per chip');
+/* the first clack starts where the chips leave, so it is already home */
+if (fw.rec[0].panFrom !== -0.4 || Math.abs(fw.rec[0].pan - -0.4) > 1e-9)
+  throw new Error('the first clack must not travel: ' + JSON.stringify(fw.rec[0]));
+/* every later clack starts at its predecessor's seat and lands on its own */
+for (let k = 1; k < 5; k++) {
+  const r = fw.rec[k];
+  if (Math.abs(r.panFrom - fw.rec[k - 1].pan) > 1e-9)
+    throw new Error('chip ' + k + ' must start where chip ' + (k - 1) + ' landed: ' + JSON.stringify(r));
+  if (r.panDur !== 0.09)
+    throw new Error('each glide must last exactly one stagger: ' + r.panDur);
+  if (!(r.pan > r.panFrom)) throw new Error('the walk must keep moving one way: ' + r.panFrom + ' \u2192 ' + r.pan);
+}
+/* the sweep is continuous: each seat is reached, once, in order */
+if (Math.abs(fw.rec[4].pan - 0.2) > 1e-9) throw new Error('the last chip must still land at the box');
+console.log('the walk\u2019s motion: 5 clacks, each gliding one stagger from the seat before \u2014 one movement, not five dots');
+
+/* --- a lone chip has no predecessor to glide from --- */
 const f2 = makeFan();
 f2.fan(1, 0.56, 0.09, 4.33, -0.4, 0.2);
 if (Math.abs(f2.rec[0].pan - 0.2) > 1e-9) throw new Error('a lone chip lands at the box\u2019s own seat');
+const f2b = makeFan();
+f2b.fan(1, 0.56, 0.09, 4.33, -0.4, 0.2);
+if (f2b.rec[0].panFrom !== -0.4) throw new Error('a lone chip still starts where the chips leave');
 const f3 = makeFan();
 f3.fan(3, 0.56, 0.09, 4.33);
 if (f3.rec.some((x) => x.pan !== null)) throw new Error('a seatless fan stays centered');
+const f3b = makeFan();
+f3b.fan(3, 0.56, 0.09, 4.33);
+const nullish = (v) => v === null || v === undefined;
+if (f3b.rec.some((x) => !nullish(x.panFrom) || !nullish(x.pan)))
+  throw new Error('a seatless fan must not invent a walk: ' + JSON.stringify(f3b.rec));
 console.log('edges: a lone chip takes the landing seat, a seatless fan stays centered');
+
+/* --- the clack itself: an origin glides, no origin holds, both clamp --- */
+const ccFull = grab('  function chipClack(delay, gain, dist, pan, panFrom, panDur) {', '\n  }');
+const ccBody = ccFull.slice(ccFull.indexOf('{') + 1, ccFull.lastIndexOf('}'));
+function makeClack(withPanner) {
+  const m = mockCtx(withPanner !== false);
+  const clack = new Function('ready', 'burst', 'tone', 'clamp', 'lerp', 'master', 'toRoom', 'CLACK_ROOM',
+    'return function chipClack(' + ccFull.slice(ccFull.indexOf('(') + 1, ccFull.indexOf(')')) + ') {' + ccBody + '}')(
+    () => m.c, () => {}, () => {}, clamp, (a, b, t) => a + (b - a) * t,
+    { __tag: 'master', connect() {} }, () => {}, () => ROOM.send('clack'));
+  return { clack, rec: m.rec };
+}
+const c1 = makeClack();
+c1.clack(0.2, 1, 4.33, 0.6, -0.4, 90);          /* panDur is MILLISECONDS, like every delay */
+if (c1.rec.panSets.length !== 1 || Math.abs(c1.rec.panSets[0][0] - -0.4) > 1e-9 || c1.rec.panSets[0][1] !== 10.2)
+  throw new Error('a gliding clack must OPEN at its origin: ' + JSON.stringify(c1.rec.panSets));
+if (c1.rec.panRamps.length !== 1 || Math.abs(c1.rec.panRamps[0][0] - 0.6) > 1e-9 || Math.abs(c1.rec.panRamps[0][1] - 10.29) > 1e-9)
+  throw new Error('a gliding clack must ARRIVE 90ms later at its seat \\u2014 the stagger, in real time: ' + JSON.stringify(c1.rec.panRamps));
+const c1b = makeClack();
+c1b.clack(0, 1, 4.33, 0.6, -0.4, 90);
+if (Math.abs(c1b.rec.panRamps[0][1] - c1b.rec.panSets[0][1] - 0.09) > 1e-9)
+  throw new Error('90 milliseconds must be 0.09 seconds on the audio clock, not 90: ' + JSON.stringify(c1b.rec));
+const c2 = makeClack();
+c2.clack(0.2, 1, 4.33, 0.6);                      /* no origin: the plain seated clack */
+if (Math.abs(c2.rec.panSets[0][0] - 0.6) > 1e-9 || c2.rec.panRamps.length)
+  throw new Error('with no origin the clack holds still, exactly as before: ' + JSON.stringify(c2.rec));
+const c3 = makeClack();
+c3.clack(0.2, 1, 4.33, 9, -9, 90);               /* a wild walk */
+if (Math.abs(c3.rec.panSets[0][0] - -1) > 1e-9 || Math.abs(c3.rec.panRamps[0][0] - 1) > 1e-9)
+  throw new Error('both ends of the glide must clamp to the rails: ' + JSON.stringify(c3.rec));
+const c4 = makeClack(false);
+c4.clack(0.2, 1, 4.33, 0.6, -0.4, 90);
+if (c4.rec.panSets.length || c4.rec.panRamps.length)
+  throw new Error('without a panner nothing may try to glide the clack');
+console.log('the clack: opens at its origin, ramps to its seat, holds without one, clamps both ends, never panics');
+
+/* --- the wiring: the walk still hands the fan both ends --- */
+const walk2 = grab('  function walkCue(b, h) {', 'stinger(h.result);');
+if (!/chipFan\(n, CHIP_FLY \* pace \+ \(toDealer \? 0 : PAY_LAG \* pace\), CHIP_STAG \* pace, dist,\s*\n\s*panFor/.test(walk2))
+  throw new Error('the walk\u2019s fan must still carry both seats');
+console.log('wiring: the walk still projects both ends \u2014 the glide is inside the fan, not the caller');
 
 const walk = grab('  function walkCue(b, h) {', 'stinger(h.result);');
 if (!walk.includes('panFor({ x: from[0], y: 0.12, z: from[1] })') ||

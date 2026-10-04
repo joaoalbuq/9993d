@@ -155,7 +155,7 @@ console.log('the swell: riffle ' + tRiffle + '\u00d7, whoosh ' + tWhoosh + '\u00
   '\u00d7, the felt at its plain 1\u00d7, the clacks dry at ' + tClack + '\u00d7 — the room answers where it belongs');
 
 /* --- the families: clacks stay dry-ish, whooshes swim --- */
-const clackSrc = grab('  function chipClack(delay, gain, dist, pan) {', '\n  }');
+const clackSrc = grab('  function chipClack(delay, gain, dist, pan, panFrom, panDur) {', '\n  }');
 if ((clackSrc.match(/CLACK_ROOM/g) || []).length !== 3)
   throw new Error('a clack must send dry on every path: the pan, the tick and the thock');
 const whooshSrc = grab('  function cardWhoosh(', '\n  }');
@@ -295,8 +295,10 @@ if (!/burst\(c, t, 0\.045, 'bandpass', far \? lerp\(1750, 3000, near\) : 3000, 0
 if (!/var lv = lerp\(0\.68, 1, near\);/.test(snapSrc))
   throw new Error('the snap\u2019s own ladder must top out at the plain voice, so a near flight is unchanged');
 if (!/if \(far && c\.createBiquadFilter\)/.test(snapSrc) ||
-    !/out\.connect\(lp\); lp\.connect\(master\);/.test(snapSrc))
+    !/out\.connect\(lp\); lp\.connect\(tail\);/.test(snapSrc))
   throw new Error('the snap may veil its own flight, but it must never take a room send');
+if (!/tail\.connect\(master\);/.test(snapSrc))
+  throw new Error('the snap\u2019s seat is a tail only: it must reach the master unshared');
 console.log('the card snap is the one voice left plain, on purpose \u2014 it lands on the cloth, close and dry');
 console.log('the three small voices: chime ' + betsR + '\u00d7 (calls the round), whisper ' + cutR +
   '\u00d7 (paper is all air), tap ' + tapR + '\u00d7 \u2014 driest, one per card, panned to the shoe');

@@ -2192,7 +2192,7 @@
        through the same air the card just crossed              */
     cardWhoosh(0, (c.dur - 30) / 1000, fd,
       panFor(cardTarget(c)), panFor({ x: SHOE[0], y: SHOE[1], z: SHOE[2] }));
-    cardSnap((c.dur - 10) / 1000, fd);  /* the snap lands with the card, from that flight's distance */
+    cardSnap((c.dur - 10) / 1000, fd, panFor(cardTarget(c)));  /* the snap lands with the card, in the box's own seat */
   }
   function dealToDealer() {
     var d = game.dealer;
@@ -2201,7 +2201,7 @@
     var fd = flightDist(true, -1, c.idx);   /* the dealer's fan is its own flight */
     cardWhoosh(0, (c.dur - 30) / 1000, fd,
       panFor(cardTarget(c)), panFor({ x: SHOE[0], y: SHOE[1], z: SHOE[2] }));  /* one whoosh per flight — sound stretched with it */
-    cardSnap((c.dur - 10) / 1000, fd);  /* the snap lands with the card, from that flight's distance */
+    cardSnap((c.dur - 10) / 1000, fd, panFor(cardTarget(c)));  /* the dealer's fan is a seat too */
   }
 
   /* ================= the round machine ===================== */
@@ -3021,14 +3021,23 @@
     else { g.connect(master); toRoom(g, room); }
     s.start(t); s.stop(t + dur + 0.03);
   }
-  function chipClack(delay, gain, dist, pan) {
+  function chipClack(delay, gain, dist, pan, panFrom, panDur) {
     /* a ceramic chip on cloth: the tick, then the body thock.
        With a distance the clack carries it - the same model the
        cards fly under: a chip off the far tray lands deeper and
        quieter than one from the near rail, the air taking the
        tick's top off on the way. No distance: the plain voice.
        With a pan the clack carries its SEAT too — the payout
-       walk crosses the channels the way the deal's whooshes do */
+       walk crosses the channels the way the deal's whooshes do.
+       And with a panFrom it carries the WALK: each clack glides
+       into its own seat from the seat before it, so a run of
+       chips sweeps instead of hopping — the same two-argument
+       ramp the deal's whoosh flies, so the eye can follow the
+       sound the whole way across the felt. panDur is in
+       MILLISECONDS, like every delay here, so the caller may hand
+       the fan the stagger it already uses. One clack with no
+       origin holds still, and the run's first clack starts
+       where the chips actually leave                          */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0), g = gain == null ? 1 : gain;
     var far = dist != null;
@@ -3037,14 +3046,15 @@
     var out = null;
     if (pan != null && c.createStereoPanner) {
       out = c.createStereoPanner();     /* the chip's stereo seat */
-      out.pan.setValueAtTime(clamp(pan, -1, 1), t);
+      out.pan.setValueAtTime(clamp(panFrom == null ? pan : panFrom, -1, 1), t);
+      if (panFrom != null) out.pan.linearRampToValueAtTime(clamp(pan, -1, 1), t + (panDur || 0) / 1000);
       out.connect(master);
       toRoom(out, CLACK_ROOM());          /* the send sits after the pan: the room keeps the direction */
     }
     burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out, CLACK_ROOM());
     tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out, CLACK_ROOM());
   }
-  function cardSnap(delay, dist) {
+  function cardSnap(delay, dist, pan) {
     /* The card hits the cloth at the end of its 430ms flight —
        and it lands where it flew. The whoosh already arrives
        through the flight's air; the IMPACT was announcing every
@@ -3056,19 +3066,33 @@
        still than the whoosh's because cloth eats less air than
        the flight does. Still the felt's ONE dry voice — no room
        send, the snap lands close on the cloth whatever flew it.
+       And it LANDS IN A PLACE: the whoosh walks the channels
+       from the shoe to the box, then the impact fired dead
+       centre, so the last thing you heard contradicted where the
+       card was. The snap now takes the same seat its whoosh
+       arrived on — the box, not the shoe — so the ear follows
+       the card all the way down. The panner is the snap's TAIL,
+       after the veil, and takes no send: the direction is the
+       card's, the room stays the felt's.
        No distance: the plain snap the felt has always had.    */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0);
     var far = dist != null;
     var near = far ? clamp(1 - (dist - 2.4) / 4.0, 0, 1) : 1;
     var lv = lerp(0.68, 1, near);          /* the landing's own, smaller ladder */
-    var out = null;
+    var tail = master;                     /* where the snap lands, stereo-wise */
+    if (pan != null && c.createStereoPanner) {
+      tail = c.createStereoPanner();       /* the box the card came to rest in */
+      tail.pan.setValueAtTime(clamp(pan, -1, 1), t);
+      tail.connect(master);
+    }
+    var out = tail === master ? null : tail;
     if (far && c.createBiquadFilter) {
       var lp = c.createBiquadFilter();     /* the last of the flight's air */
       lp.type = 'lowpass';
       lp.frequency.setValueAtTime(lerp(2200, 16500, near), t);
       out = c.createGain();
-      out.connect(lp); lp.connect(master);   /* dry: the snap never rides the room */
+      out.connect(lp); lp.connect(tail);   /* dry: the snap never rides the room */
     }
     burst(c, t, 0.045, 'bandpass', far ? lerp(1750, 3000, near) : 3000, 0.9, 0.22 * lv, out);
     burst(c, t, 0.02, 'highpass', far ? lerp(3400, 5200, near) : 5200, 0, 0.10 * lv, out);
@@ -3127,10 +3151,18 @@
        chips they belong to, each carrying the flight's distance
        and its SEAT: the fan pans from where the chips leave to
        where they land, one step across the channels per chip,
-       the way the deal's whooshes carry the shoe to the box   */
+       the way the deal's whooshes carry the shoe to the box.
+       And each clack GLIDES into its seat from the one before,
+       over exactly the stagger that separates them, so the run
+       reads as one movement crossing the felt rather than N
+       dots on N seats — the walk's motion cue. The first clack
+       starts where the chips leave (it IS the leaving), and a
+       lone chip or a seatless fan has no origin, so it holds  */
+    var prev = panFrom;
     for (var k = 0; k < count; k++) {
       var pk = panFrom == null ? null : (panTo == null ? panFrom : lerp(panFrom, panTo, count > 1 ? k / (count - 1) : 1));
-      chipClack(delay0 + k * step, Math.max(1 - k * 0.06, 0.5), dist, pk);
+      chipClack(delay0 + k * step, Math.max(1 - k * 0.06, 0.5), dist, pk, prev, step);
+      prev = pk;
     }
   }
   function riffleShuffle(delay0) {

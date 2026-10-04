@@ -113,6 +113,9 @@ are additive screens kept beside it for side-by-side comparison.
   panner API leaves the whoosh centered rather than broken. Live: the
   six seats landed at −0.57 · −0.34 · −0.11 · +0.11 · +0.34 · +0.57 with
   the shoe opening at +0.48 and the dealer's card dead center. **The
+  landing carries that seat too** — the snap lands in the box it flew to,
+  at the end of the whoosh's own ramp, so the ear arrives with the card.
+  **The
   floor has air**: a room reverb synthesized in the page — no samples,
   no downloads — a 12ms pre-delay, three early reflections off the
   tables and rails, then a damped tail that reaches −60dB in its 1.35s
@@ -235,7 +238,23 @@ keeps its direction in the reflections too; muting gates the walls
   moves across the stereo field the way the deal does (and the panned
   clacks keep their direction in the room's reflections, since the
   panner sits upstream of the shared send); without the panner API the
-  clacks stay centered, never broken. **And the landing keeps the
+  clacks stay centered, never broken. **And the walk MOVES, per seat**:
+  stepping to a new seat per chip made a run of clacks read as N dots
+  on N places, and the eye had nothing to follow between them. Each
+  clack now GLIDES into its own seat from the seat before it, over
+  exactly the stagger that separates them, so a payout crosses the
+  felt as one continuous movement — the same two-argument ramp the
+  deal's whoosh flies, so the walk and the deal share one idiom. The
+  first clack starts where the chips leave (it IS the leaving), a lone
+  chip or a seatless fan has no origin and holds still exactly as
+  before, both ends of every glide clamp to the rails, and the clack's
+  own tuning, distance model and room send are untouched — the panned
+  clacks still swim upstream of the shared send. `panDur` is in
+  **milliseconds**, like every other delay on the felt, so the fan can
+  hand the clack the stagger it already keeps. Live: a settle produced
+  walk clacks gliding **90ms** each (−0.85 → −0.355, −0.203 → +0.528,
+  +0.85 → +0.316), against the deal's own 430ms whooshes.
+  **And the landing keeps the
   flight's distance**: the whoosh already arrives through the flight's
   air (16.5kHz near → 1.3kHz far on the shared near model), but the
   IMPACT used to announce every card at the same brightness and level
@@ -248,6 +267,18 @@ keeps its direction in the reflections too; muting gates the walls
   disagree about how far the card came. The snap stays the felt's one
   dry voice — it takes the veil but never a room send — and with no
   distance at all it is byte-for-byte the plain snap the felt always had.
+  **The snap also LANDS IN A PLACE**: the whoosh walks the channels from
+  the shoe to the box, and then the impact used to fire dead centre, so the
+  last thing you heard contradicted where the card was. The snap now takes
+  the same seat its whoosh arrived on — the box, not the shoe — so the ear
+  follows the card all the way down. The panner is the snap's **tail**: it
+  sits after the veil and feeds the master, still dry, still no room send.
+  It is one hit, so it takes its seat and never travels (no ramp), a wild
+  seat clamps, and without the panner API the snap stays centered. A
+  seated snap that is not veiled still routes its voices through the seat,
+  and seating alone changes no tuning — 3000/5200 at full level stands.
+  Live: two flights opened at the shoe +0.85, ramped to the box at −0.29
+  and −0.27, and each snap landed on exactly the seat its whoosh arrived on.
   **And every chip that LANDS on the
   felt is seated the same way**, so the wager cascade at the deal sweeps
   the same arc the payout walk sweeps at the settle: the six boxes' chips

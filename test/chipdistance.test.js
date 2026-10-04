@@ -26,7 +26,7 @@ if (!lerpMatch) throw new Error('lerp one-liner not found');
 const lerp = new Function('a', 'b', 't', lerpMatch[0].slice(lerpMatch[0].indexOf('{') + 1, -1) + '\nreturn lerp;');
 
 /* --- chipClack over a recording context --- */
-const ccFull = grab('  function chipClack(delay, gain, dist, pan) {', '\n  }');
+const ccFull = grab('  function chipClack(delay, gain, dist, pan, panFrom, panDur) {', '\n  }');
 const ccBody = ccFull.slice(ccFull.indexOf('{') + 1, ccFull.lastIndexOf('}'));
 function makeClack(withPanner) {
   const rec = { bursts: [], tones: [], panSets: [], outs: [] };
@@ -96,7 +96,7 @@ if (!/var dist = Math\.hypot\(to\[0\] - from\[0\], to\[1\] - from\[1\]\);/.test(
 if (!/chipFan\(n, CHIP_FLY \* pace \+ \(toDealer \? 0 : PAY_LAG \* pace\), CHIP_STAG \* pace, dist,\s*panFor\(/.test(cue))
   throw new Error('the payout fan must carry the distance, the seats, and the pace');
 const fan = grab('  function chipFan(count, delay0, step, dist, panFrom, panTo) {', '\n  }');
-if (!fan.includes('dist') || !/chipClack\(delay0 \+ k \* step, Math\.max\(1 - k \* 0\.06, 0\.5\), dist, pk\)/.test(fan))
+if (!fan.includes('dist') || !/chipClack\(delay0 \+ k \* step, Math\.max\(1 - k \* 0\.06, 0\.5\), dist, pk, prev, step\)/.test(fan))
   throw new Error('every clack in the fan must carry the distance and its seat');
 console.log('wiring: walkCue measures tray\u2192box, the fan carries it, every clack speaks the model');
 
