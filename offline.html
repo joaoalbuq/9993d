@@ -476,6 +476,10 @@
   .leaks .evrow .evdir.up { color: #e2705f; }     /* bleeding more: the marker warns */
   .leaks .evrow .evdir.flat { color: rgba(255,255,255,0.4); }
   .leaks .evrow.evtap { cursor: pointer; }
+  .leaks .ixundo { cursor: pointer; color: #d8b56a; text-decoration: underline dotted;
+    text-decoration-color: rgba(216,181,106,0.5); border-radius: 3px; }
+  .leaks .ixundo:hover { text-decoration-color: rgba(216,181,106,0.95); }
+  .leaks .ixundo:focus-visible { outline: 1px solid #d8b56a; outline-offset: 2px; }
   .leaks .evrow.evtap:hover .evcell { color: #d8b56a; text-decoration: underline dotted; }
   @keyframes evgrow { from { width: 0%; } }        /* the bars grow in as the review opens */
   .leaks .evleft .evbar i { animation: evgrow 0.55s ease-out both; }
@@ -2883,8 +2887,20 @@
                  : 'A clean sitting so far \u2014 nothing leaked this session. ')
         : (retiredN ? '\uD83C\uDF93 ' + retiredN + ' graduated \u2014 back for refreshers, spaced. ' : '') +
         (masterN ? '\uD83C\uDFC5 ' + masterN + ' mastered \u2014 out of the drill for good. ' : '')) +
-      (next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
-            : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') +
+      (drillAuto
+        /* A BAR-TAP HAND IS OUT, SO THE PANEL OWES A WAY BACK. The tappable
+           EV bars live only in the review sheet, and dealing one LEAVES the
+           review ("one mode at a time"), so the very tap that stakes the hand
+           removed the only control that could take it back again. The status
+           line still said "tap that bar again" to a bar that was no longer
+           there. So while a house-staked hand is in flight this line becomes
+           the take-back itself: the same undo, reachable from where the
+           player is actually looking. */
+        ? 'Out now: <span class="ixundo" data-cell="' + drillAuto.cell + '" role="button" tabindex="0"' +
+          ' title="take this hand back \u2014 nothing was played and nothing was booked">' +
+          '\u21A9 ' + drillAuto.cell + ' \u2014 take it back</span>.'
+        : next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
+              : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') +
       heldHtml +
       (leakView === 'session' ? '' : ' Ranks by the freshest tolls \u2014 ' +
         (LEAK_DRILL_HALF > 0 ? 'age and the drill both cool a leak.' : 'the drill is off, so age alone cools a leak \u2014 hands served no longer count against it.') +
@@ -3822,6 +3838,10 @@
       if (!bet) placeChip(25);
       drillAuto = { cell: cell, hiLo: hiLo, roundNo: roundNo };
       deal();
+      /* the panel is drawn AGAIN now the hand exists: drillAuto is what the
+         take-back reads, and the draw above it happened a line before this
+         hand was staked, so the way back was not on the page yet. */
+      renderLeaks();
       setStatus('Drill: ' + cell + ' \u2014 the house staked this one, it costs nothing. Tap that bar again to take it back.');
       return;
     }
@@ -5506,6 +5526,8 @@
     else if (e.target && e.target.closest && e.target.closest('.evtap'))
       drillNow(e.target.closest('.evtap').getAttribute('data-cell'), true);   /* a tapped EV bar:
                                                                 stacks its cell now, panel returns */
+    else if (e.target && e.target.closest && e.target.closest('.ixundo'))
+      undoBarTap();                    /* the house-staked hand, put back */
   });
   /* the line opens on Enter or Space too: it carries role="button"
      and tabindex, so a keyboard that lands on it must be able to
@@ -5531,6 +5553,15 @@
       var pgBack = leakBoxEl.querySelector('.sparkpg[data-spark="' +
         String(pcell).replace(/"/g, '\\"') + '"][data-delta="' + pdel + '"]');
       if (pgBack) pgBack.focus();
+      return;
+    }
+    var ku = e.target && e.target.closest ? e.target.closest('.ixundo') : null;
+    if (ku) {                      /* the take-back answers the keyboard too:
+                                       it carries role="button" and tabindex,
+                                       and a control that only answers a mouse
+                                       is not one */
+      e.preventDefault();
+      undoBarTap();
       return;
     }
     var kw = e.target && e.target.closest ? e.target.closest('.sparkwk') : null;
