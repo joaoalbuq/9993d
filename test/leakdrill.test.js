@@ -26,13 +26,13 @@ if (ldStart < 0 || tAt < 0) throw new Error('leakDeal not found');
 const ldClose = src.indexOf('\n  }', tAt) + 4;
 const ldSrc = src.slice(ldStart, ldClose);
 if (ldSrc.split('{').length !== ldSrc.split('}').length) throw new Error('extraction unbalanced');
-const factory = new Function('leakMode', 'leakQueue', 'draw', 'shoeArr', 'leakCell', 'buildShoe',
+const factory = new Function('leakMode', 'leakQueue', 'draw', 'shoeArr', 'leakCell', 'buildShoe', 'forkHand',
   'refillQueue = function () {}, gradWakeDue = function () { return 0; }, gradClock = 0, saveGrad = function () {}',   /* graduation stubs */
   ldSrc + '\nreturn leakDeal;');
 
 function run(cell, expectSoft, expectT, expectUp) {
   buildShoe();
-  const deal = factory(true, leakQueue, draw, shoeArr, cell, buildShoe);
+  const deal = factory(true, leakQueue, draw, shoeArr, cell, buildShoe, {});
   deal();
   if (shoeArr.length < 3) throw new Error('stack too short for ' + cell);
   const p1 = shoeArr.pop(), up = shoeArr.pop(), p2 = shoeArr.pop();
@@ -140,7 +140,7 @@ const dnBody = dnFull.slice(dnFull.indexOf('{') + 1, dnFull.lastIndexOf('}'))
 const dnSrc = dnFull;
 const buildDrillNow = new Function('sessionLeaks', 'leaks', 'reviewMode', 'leakMode', 'leakQueue',
   'refillQueue', 'leakCell', 'saveLeaks', 'renderCoach', 'renderLeaks', 'phase', 'bet',
-  'placeChip', 'deal', 'setStatus', 'DRILLFREE', 'DRILLREOPEN',
+  'placeChip', 'deal', 'setStatus', 'DRILLFREE', 'DRILLREOPEN', 'rememberIx',
   'var drillFree = DRILLFREE, drillReopen = DRILLREOPEN;\n' +
   'return function drillNow(cell, now) {' + dnBody + '};');
 function tapBar(cell, st) {
@@ -149,7 +149,7 @@ function tapBar(cell, st) {
     () => {}, () => {}, st.phase, st.bet,
     (v) => { st.placed = (st.placed || 0) + v; st.bet += v; },
     () => { st.dealt = (st.dealt || 0) + 1; }, (s) => { st.status = s; },
-    !!st.drillFree, !!st.drillReopen);
+    !!st.drillFree, !!st.drillReopen, (c) => { st.remembered = c; });
   st.flags = drillNow(cell, st.now !== false);
   return st;
 }
@@ -221,3 +221,219 @@ if (!/leakView = 'session';/.test(nr)) throw new Error('the panel must come back
 console.log('the free hand: priced by nothing \u2014 no chips, no luck figure, no EV entry invented');
 
 console.log('\nleak drill: every forced deal lands in its target cell');
+
+/* --- a forked hand is REPLAYED, not rebuilt: the exact two cards and the
+   dealer's card it was actually dealt, suit for suit. The class name is only
+   how the ledger files it. Over many fresh shoes, every stack must be the
+   same hand \u2014 which is the whole claim, and one lucky stack proves nothing. */
+function runExact(cell, fh, expectSoft, expectT, expectUp, tries) {
+  for (let n = 0; n < (tries || 14); n++) {
+    buildShoe();
+    const hands = {}; hands[cell] = fh;
+    const deal = factory(true, leakQueue, draw, shoeArr, cell, buildShoe, hands);
+    deal();
+    const p1 = shoeArr.pop(), up = shoeArr.pop(), p2 = shoeArr.pop();
+    const got = [p1.rank + p1.suit, up.rank + up.suit, p2.rank + p2.suit];
+    const want = [fh.yc[0] + fh.ys[0], fh.up + fh.us, fh.yc[1] + fh.ys[1]];
+    if (got.join(',') !== want.join(','))
+      throw new Error(cell + ' -> stacked ' + got.join(',') + ', wanted ' + want.join(','));
+    /* and the replay must still BE that cell: the class name is not a lie */
+    const v = SHOE999.value([p1, p2]);
+    if (v.total !== expectT || !!v.soft !== expectSoft || up.rank !== expectUp)
+      throw new Error(cell + ' replayed off-class: ' + v.total + (v.soft ? ' soft' : '') + ' v ' + up.rank);
+  }
+  return true;
+}
+/* a class constrains only the TOTAL, so a real forked hand is free to be a
+   composition the canonical build would never choose \u2014 hard 16 as 7+9, not the
+   floor's 6+10; hard 14 as a pair of sevens, not 4+10. Those are the ranks
+   that prove the replay. The suits prove it again, and suit 0 is clubs \u2014 the
+   one value a truth-test would silently drop. */
+const forks = [
+  ['hard 16 v 10', { yc: ['7', '9'], ys: [0, 3], up: '10', us: 1 }, false, 16, '10'],
+  ['hard 19 v 6', { yc: ['10', '9'], ys: [2, 0], up: '6', us: 3 }, false, 19, '6'],
+  ['hard 11 v A', { yc: ['5', '6'], ys: [3, 2], up: 'A', us: 0 }, false, 11, 'A'],
+  ['hard 20 v 6', { yc: ['10', '10'], ys: [0, 1], up: '6', us: 2 }, false, 20, '6'],
+  ['hard 14 v 9', { yc: ['7', '7'], ys: [0, 2], up: '9', us: 1 }, false, 14, '9'],
+  ['soft 19 v 6', { yc: ['A', '8'], ys: [1, 0], up: '6', us: 3 }, true, 19, '6']
+];
+for (const [cell, fh, s, t, u] of forks) runExact(cell, fh, s, t, u);
+console.log('forked hands replayed exactly: ' + forks.length + ' cells x 14 fresh shoes, rank and suit');
+
+/* the canonical build must NOT be what a fork stacks \u2014 or the test above
+   would pass on a cell whose class hand happens to match */
+{
+  const cell = 'hard 16 v 10';
+  buildShoe();
+  const canonical = factory(true, leakQueue, draw, shoeArr, cell, buildShoe, {});
+  canonical();
+  const c1 = shoeArr.pop(), cu = shoeArr.pop(), c2 = shoeArr.pop();
+  const canonSet = [c1.rank + c1.suit, cu.rank + cu.suit, c2.rank + c2.suit].join(',');
+  const forkSet = '7' + 0 + ',10' + 1 + ',9' + 3;
+  if (canonSet === forkSet) throw new Error('the fork hand IS the canonical hand here \u2014 the test proves nothing');
+  console.log('and the canonical hand for that cell is a different hand: ' + canonSet);
+}
+
+/* a fork that stored its hole card: the dealer hand is the one that was played */
+{
+  const cell = 'hard 16 v 10';
+  const fh = { yc: ['10', '6'], ys: [1, 2], up: '10', us: 3, hole: '9', holes: 0 };
+  for (let n = 0; n < 10; n++) {
+    buildShoe();
+    const hands = {}; hands[cell] = fh;
+    const deal = factory(true, leakQueue, draw, shoeArr, cell, buildShoe, hands);
+    deal();
+    const p1 = shoeArr.pop(), up = shoeArr.pop(), p2 = shoeArr.pop(), hole = shoeArr.pop();
+    if (p1.rank + p1.suit !== '10' + 1 || p2.rank + p2.suit !== '6' + 2 ||
+        up.rank + up.suit !== '10' + 3 || hole.rank + hole.suit !== '9' + 0)
+      throw new Error('fork hole stack wrong: ' + [p1.rank + p1.suit, up.rank + up.suit, p2.rank + p2.suit, hole.rank + hole.suit].join(','));
+  }
+  console.log('a fork hole card rides fourth, suit for suit \u2014 the dealer hand as it was played');
+}
+
+/* a cell with no fork behind it still gets the canonical build: a plain miss,
+   or a bar tapped on the felt, carries a class and nothing else */
+{
+  const cell = 'hard 16 v 10';
+  let allCanonical = true;
+  for (let n = 0; n < 8; n++) {
+    buildShoe();
+    const deal = factory(true, leakQueue, draw, shoeArr, cell, buildShoe, {});
+    deal();
+    const p1 = shoeArr.pop(), up = shoeArr.pop(), p2 = shoeArr.pop();
+    const v = SHOE999.value([p1, p2]);
+    if (v.total !== 16 || v.soft || up.rank !== '10') allCanonical = false;
+  }
+  if (!allCanonical) throw new Error('a cell with no fork must keep its canonical build');
+  console.log('a cell with no fork behind it keeps the canonical hand, unchanged');
+}
+
+/* --- the last count cell drilled comes back with you -----------------
+   The sheet drills a count play from three places (the never record's
+   red chip, a refused ask, a quiz cell you keep missing) and the drill
+   is where you fix it — but the class itself did not survive the
+   refresh, so every visit began by finding it again. Now the name is
+   kept and the next visit opens straight back into it.              */
+const IX = require('../index999.js');
+if (!/var LAST_IX_KEY = '999\.practice\.lastix';/.test(src))
+  throw new Error('the last count cell drilled needs a key of its own');
+if (!/rememberIx\(cell\);/.test(dnFull))
+  throw new Error('a drilled cell must be remembered, or the next visit starts cold');
+/* and only count cells: the leak rows deal classes the count has no
+   opinion about, and remembering one would hand the next visit a cell
+   the sheet cannot name */
+if (!/function isIndexCell\(cell\) \{/.test(src) ||
+    !/INDEX999\.INDICES\[cell\] !== undefined \|\| cell === 'insurance v ace'/.test(src))
+  throw new Error('the count cell must be asked of the count, not guessed from the name');
+const remember = new Function('INDEX999', 'LAST_IX_KEY', 'localStorage',
+  grab('  function isIndexCell(', '\n  }') + grab('  function rememberIx(', '\n  }') +
+  '\nreturn { is: isIndexCell, note: rememberIx };');
+/* the recall itself, run: it must arm the panel and the forced cell,
+   say where it came from, and stay silent \u2014 and forget \u2014 on every
+   cell it cannot honestly serve. */
+function runRecall(stored, leaksMap, opts) {
+  opts = opts || {};
+  const mem = stored == null ? {} : { '999.practice.lastix': stored };
+  const st = { leakMode: !!opts.leakMode, leakQueue: (opts.queue || []).slice(),
+    leakCell: opts.leakCell || null, refilled: 0, drew: 0, status: '', armed: false };
+  const store = { getItem: (k) => (k in mem ? mem[k] : null),
+                  setItem: (k, v) => { mem[k] = String(v); },
+                  removeItem: (k) => { delete mem[k]; } };
+  const fn = new Function('localStorage', 'INDEX999', 'LAST_IX_KEY', 'leaks', 'sessionLeaks',
+    'leakMode', 'leakQueue', 'leakCell', 'refillQueue', 'renderCoach', 'renderLeaks',
+    'phase', 'bet', 'setStatus',
+    'var armed = false;\n' +
+    grab('  function isIndexCell(', '\n  }') + grab('  function forgetIx(', '\n  }') +
+    grab('  function ixDrillRecall(', '\n  }') +
+    '\nreturn { go: ixDrillRecall, mode: function () { return leakMode; },' +
+    ' cell: function () { return leakCell; }, q: function () { return leakQueue; } };')(
+    store, IX, '999.practice.lastix', leaksMap, opts.session || {},
+    st.leakMode, st.leakQueue, st.leakCell,
+    () => { st.refilled++; st.leakQueue.push('hard 12 v 2'); }, () => { st.drew++; }, () => { st.drew++; },
+    opts.phase || 'betting', opts.bet || 0, (s) => { st.status = s; });
+  const ok = fn.go();
+  return { ok: ok, mode: fn.mode(), cell: fn.cell(), queue: fn.q(),
+    refilled: st.refilled, drew: st.drew, status: st.status, key: mem['999.practice.lastix'] };
+}
+/* the plain case: a count cell in the ledger, remembered */
+const r1 = runRecall('hard 15 v 10', { 'hard 15 v 10': { n: 3, cost: 90 } });
+if (r1.ok !== true || r1.cell !== 'hard 15 v 10')
+  throw new Error('the remembered count cell must be the forced one: ' + JSON.stringify(r1));
+if (r1.mode !== true || r1.drew < 1)
+  throw new Error('the recall must open the panel and draw it: ' + JSON.stringify(r1));
+if (!/where you left it last visit/.test(r1.status))
+  throw new Error('the status must say where the cell came from: ' + r1.status);
+if (r1.key !== 'hard 15 v 10') throw new Error('a served cell must stay remembered for the next visit');
+/* a first hand, not a standing order: the queue is built and waits */
+if (r1.refilled !== 1 || r1.queue.length < 1)
+  throw new Error('the recall must build the queue, so the drill resumes after this hand');
+/* and it must not stack on a live hand or a stake already down */
+const rLive = runRecall('hard 15 v 10', { 'hard 15 v 10': { n: 3, cost: 90 } }, { phase: 'acting' });
+if (rLive.ok !== false || rLive.mode !== false)
+  throw new Error('a recall mid-hand must wait, not take the felt');
+const rBet = runRecall('hard 15 v 10', { 'hard 15 v 10': { n: 3, cost: 90 } }, { bet: 100 });
+if (rBet.ok !== false || rBet.mode !== false)
+  throw new Error('a recall under a live stake must wait too');
+/* the honest refusals: each forgets the name and opens as before */
+const rNone = runRecall(null, {});
+if (rNone.ok !== false || rNone.mode !== false || rNone.key != null)
+  throw new Error('nothing remembered is nothing done, and nothing stored');
+const rGone = runRecall('hard 12 v 3', {});          /* a name the ledger has lost */
+if (rGone.ok !== false || rGone.key != null)
+  throw new Error('a cell the ledger has lost must take its name with it');
+const rMaster = runRecall('hard 12 v 3', { 'hard 12 v 3': { n: 9, cost: 20, m: 1 } });
+if (rMaster.ok !== false || rMaster.key != null)
+  throw new Error('a retired cell has left the drill \u2014 nothing to re-open');
+const rJunk = runRecall('{not json', { 'hard 12 v 3': { n: 1 } });
+if (rJunk.ok !== false || rJunk.key != null)
+  throw new Error('a name the count does not know is not a count cell');
+const rPlain = runRecall('hard 20 v 9', { 'hard 20 v 9': { n: 1 } });
+if (rPlain.ok !== false || rPlain.key != null)
+  throw new Error('a leak row class is not the count\u2019s business');
+/* insurance is a count cell too \u2014 the count\u2019s own bet, not a hand */
+if (runRecall('insurance v ace', { 'insurance v ace': { n: 2, cost: 50 } }).cell !== 'insurance v ace')
+  throw new Error('the count\u2019s own bet is one of its plays');
+/* and the panel it opens is already open: no second open, no re-rank */
+const rAgain = runRecall('hard 15 v 10', { 'hard 15 v 10': { n: 3, cost: 90 } },
+  { leakMode: true, leakCell: 'hard 12 v 2' });
+if (rAgain.ok !== true || rAgain.cell !== 'hard 15 v 10')
+  throw new Error('a recall into an open panel still re-arms the cell it remembers');
+/* the tap hands its cell to the memory; the memory is what decides
+   whether that cell is the count's business */
+const tRemember = tapBar('hard 9 v 2', {
+  sessionLeaks: { 'hard 9 v 2': { n: 1, cost: 20 } }, leaks: { 'hard 9 v 2': { n: 1, cost: 20 } },
+  reviewMode: false, leakMode: false, leakQueue: [], leakCell: null,
+  phase: 'betting', bet: 0, drillFree: false, drillReopen: false, now: false
+});
+if (tRemember.remembered !== 'hard 9 v 2')
+  throw new Error('a tapped count cell must reach the memory: ' + tRemember.remembered);
+const tPlain = tapBar('hard 20 v 9', {
+  sessionLeaks: { 'hard 20 v 9': { n: 1, cost: 20 } }, leaks: { 'hard 20 v 9': { n: 1, cost: 20 } },
+  reviewMode: false, leakMode: false, leakQueue: [], leakCell: null,
+  phase: 'betting', bet: 0, drillFree: false, drillReopen: false, now: false
+});
+if (tPlain.remembered !== 'hard 20 v 9')
+  throw new Error('the tap hands over whatever it drilled; the memory filters it');
+/* ...and run the memory itself, over a store of its own */
+const memBox = {};
+const rmem = remember(IX, '999.practice.lastix',
+  { setItem: (k, v) => { memBox[k] = String(v); }, removeItem: (k) => { delete memBox[k]; } });
+if (rmem.is('hard 20 v 9') !== false)
+  throw new Error('a leak row class is not one of the count\u2019s plays');
+if (rmem.is('insurance v ace') !== true || rmem.is('hard 16 v 10') !== true)
+  throw new Error('the count\u2019s own plays, insurance included, are its cells');
+if (rmem.is('') !== false || rmem.is(null) !== false)
+  throw new Error('nothing is not a count cell');
+rmem.note('hard 9 v 2');
+if (memBox['999.practice.lastix'] !== 'hard 9 v 2')
+  throw new Error('a count cell must be written: ' + JSON.stringify(memBox));
+rmem.note('hard 20 v 9');
+if (memBox['999.practice.lastix'] !== 'hard 9 v 2')
+  throw new Error('a leak row class must not overwrite the remembered count cell');
+/* the boot must ask: once, after the ledger is read, before the page settles */
+if (!/ixDrillRecall\(\);/.test(src))
+  throw new Error('the visit must open the remembered cell');
+const boot = src.slice(src.lastIndexOf('---- boot'));
+if (boot.indexOf('ixDrillRecall();') < 0 || boot.indexOf('buildShoe();') > boot.indexOf('ixDrillRecall();'))
+  throw new Error('the recall runs at boot, after the shoe and the ledger are read');
+console.log('the last count cell drilled comes back with you \u2014 the next visit opens the drill straight into it');

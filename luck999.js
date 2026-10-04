@@ -128,21 +128,117 @@
   /* the reconciliation strip: engine and felt, the gap, the rounds,
      the signed sigma and the band — the same markup on both
      surfaces. `crossed` adds the pulse class on the one draw the
-     gap tops its first spread                              */
+     gap tops its first spread.
+
+     `over` is the other half of that mark, and the standing one: it
+     rides WHILE the gap is past a spread, not only on the draw it got
+     there. The crossing flash says an outlier happened; once it is
+     over, the band word was the only thing still saying so, and a
+     word is exactly what the eye skips. `over` lets the NUMBER carry
+     it — a soft bloom in its own tone — so an outlier session can be
+     seen without reading `hot` or `cold`. Same test as the band edge,
+     so the glow and the word can never disagree about a session.  */
   function stripLine(s, crossed) {
     if (!s || !s.rounds) return '';
     function w(v, dec) {
       return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : chips(Math.abs(v)));
     }
-    var b = band(s), sig = sigma(s), tn = tone(s);
-    var cls = 'luck' + (tn ? ' ' + tn : '') + (crossed ? ' crossed' : '');
+    var b = band(s), sig = sigma(s), tn = tone(s), ov = out(s);
+    var cls = 'luck' + (tn ? ' ' + tn : '') + (ov ? ' over' : '') + (crossed ? ' crossed' : '');
     return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b' +
-      (tn || crossed ? ' class="' + cls + '"' : '') + '>' + word(s) + '</b> luck \u00b7 ' +
+      (tn || ov || crossed ? ' class="' + cls + '"' : '') + '>' + word(s) + '</b> luck \u00b7 ' +
       s.rounds + ' round' + (s.rounds === 1 ? '' : 's') +
       (sig ? ' \u00b7 <span class="sd">' + sig + '</span>' + (b ? ' ' + b : '') : '');
+  }
+  /* ---- the week over week, and nothing else --------------------- */
+  /* Both surfaces show how much a cell leaked THIS week against last, off
+     one shared set of Monday-midnight snapshots (`999.practice.weekbase`).
+     That reading used to be written twice — the floor's `leakedIn` over its
+     own ledger, the table's `leakedInT` over the same one handed in — and the
+     two copies were identical arithmetic under different names. A week that
+     ran to a different boundary on one surface would have disagreed with the
+     other silently, which is exactly the drift this file exists to stop.
+
+     So it lives here, PURE: the ledger and the snapshot map are arguments,
+     never storage. The floor passes its own, the table passes the floor's
+     read back, and neither can reach the other's bookkeeping. What stays
+     local to each page is only where the snapshots are stored and when they
+     are written — policy, not arithmetic.                             */
+  function weekStart(ms) {                 /* Monday 00:00, local */
+    var d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d.getTime();
+  }
+  function prevWeek(ws) { var d = new Date(ws); d.setDate(d.getDate() - 7); return d.getTime(); }
+  function nextWeek(ws) { var d = new Date(ws); d.setDate(d.getDate() + 7); return d.getTime(); }
+  /* chips leaked inside week ws: the ledger's move from that week's snapshot
+     to the next week's — the present, for a week still running. A CLOSED week
+     needs the NEXT snapshot to know where it ended, and a week missing one
+     says nothing rather than guessing. Null when it cannot be measured. */
+  function leakedIn(lk, wb, cell, ws, now) {
+    now = now || Date.now();
+    if (!wb || !wb[ws]) return null;
+    var before = wb[ws][cell] || 0;
+    if (ws === weekStart(now)) return ((lk && lk[cell] && lk[cell].cost) || 0) - before;
+    var nx = wb[nextWeek(ws)];
+    if (!nx) return null;
+    return (nx[cell] || 0) - before;
+  }
+  /* this week's leak against last week's, in chips, with the direction:
+     -1 improving (it bled less), 1 worsening, 0 level. Null when either week
+     cannot be weighed, so an unmarked cell says nothing rather than inventing
+     a direction. */
+  function weekSplit(lk, wb, cell, now) {
+    now = now || Date.now();
+    var cur = weekStart(now), prev = prevWeek(cur);
+    if (!wb || !wb[cur] || !wb[prev]) return null;
+    var l = leakedIn(lk, wb, cell, cur, now), was = leakedIn(lk, wb, cell, prev, now);
+    if (l == null || was == null) return null;
+    return { now: l, was: was, dir: l < was ? -1 : l > was ? 1 : 0 };
+  }
+  /* The same leniency for the plain records, not just the book: a stored
+     object is repaired ONE FIELD at a time, and the rest of it rides on.
+     The fault this prevents is old and quiet — `if (raw && typeof raw.a
+     === 'number' && typeof raw.b === 'number') use(raw)` — where a
+     single bad field throws the whole record away, so a player's months
+     of discipline record vanish because one counter was saved as a
+     string. Here `seed` says what a sound record looks like; every
+     finite number in `raw` keeps its value, and anything unreadable in
+     it keeps the seed's, field by field. Nested objects, arrays and
+     explicit nulls ride through untouched, because "never recorded" and
+     "recorded as an object" are answers, not damage — and the SEED
+     declares what kind each field is, so a number can never land in a
+     field that holds an object and an array can never stand in for a
+     count. A field the seed does not know is dropped: the shape on
+     record is the one this build writes.                          */
+  function numInto(raw, seed) {
+    var out = {}, k, v, s;
+    for (k in seed) out[k] = seed[k];
+    if (raw && typeof raw === 'object') {
+      for (k in raw) {
+        v = raw[k];
+        s = seed[k];
+        if (typeof v === 'number') {
+          if (isFinite(v) && (typeof s === 'number' || s === null)) out[k] = v;
+        } else if (v === null) {
+          if (s === null || typeof s === 'object') out[k] = null;
+        } else if (v && typeof v === 'object' && (typeof s === 'object' || s === null)) {
+          out[k] = v;
+        }
+      }
+    }
+    return out;
+  }
+  function weekDir(lk, wb, cell, now) {
+    var w = weekSplit(lk, wb, cell, now);
+    return w ? w.dir : null;
   }
   return { HAND_SD: HAND_SD, chips: chips, word: word, band: band, sigma: sigma,
            tone: tone, out: out, cross: cross, stripLine: stripLine,
            z: z, bandOf: bandOf, zSig: zSig,
-           evFields: EV_FIELDS.slice(), evRestore: evRestore, evMigrated: evMigrated };
+           weekStart: weekStart, prevWeek: prevWeek, nextWeek: nextWeek,
+           leakedIn: leakedIn, weekSplit: weekSplit, weekDir: weekDir,
+           evFields: EV_FIELDS.slice(), evRestore: evRestore, evMigrated: evMigrated,
+           numInto: numInto };
 });

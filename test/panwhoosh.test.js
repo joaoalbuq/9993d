@@ -10,6 +10,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const ROOM = require(path.join(__dirname, '..', 'room999.js'));   /* the shared registry the pages read */
 const src = fs.readFileSync(path.join(__dirname, '..', 'table-16x9.html'), 'utf8');
 
 function grab(a, b) {
@@ -99,9 +100,9 @@ function mockCtx(withPanner) {
 }
 function makeWhoosh(withPanner) {
   const m = mockCtx(withPanner);
-  const whoosh = new Function('ready', 'noise', 'master', 'clamp', 'lerp', 'toRoom', 'WHOOSH_ROOM', 'wetPan', 'wet',
+  const whoosh = new Function('ready', 'noise', 'master', 'clamp', 'lerp', 'toRoom', 'WHOOSH_ROOM', 'wetPan', 'wet', 'ROOM999',
     'return function cardWhoosh(' + cwFull.slice(cwFull.indexOf('(') + 1, cwFull.indexOf(')')) + ') {' + cwBody + '}')(
-    () => m.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, (a, b, t) => a + (b - a) * t, () => {}, 1.5,
+    () => m.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, (a, b, t) => a + (b - a) * t, () => {}, () => ROOM.send('whoosh'),
     m.c.createStereoPanner ? { pan: param2() } : null, { hold: 0 });
   function param2() {
     return {
@@ -149,7 +150,7 @@ for (const fn of ['dealTo(box)', 'dealToDealer()']) {
 }
 if (!/if \(pan != null && c\.createStereoPanner\) \{/.test(src))
   throw new Error('the panner must be gated on the API and a pan actually given');
-if (!cwFull.includes('toRoom(p, WHOOSH_ROOM);') || !cwFull.includes('toRoom(g, WHOOSH_ROOM);'))
+if (!cwFull.includes('toRoom(p, WHOOSH_ROOM());') || !cwFull.includes('toRoom(g, WHOOSH_ROOM());'))
   throw new Error('the whoosh must swim after its pan \u2014 the reflections keep the direction');
 console.log('wiring: both deal paths pan shoe \u2192 box, gated on the API, the room seated after the pan');
 

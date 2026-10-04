@@ -102,14 +102,15 @@ console.log('wiring: a fork scores and persists, the book\u2019s win-rate rides 
        back so the next leak hand forces the book's line. The cell
        is merged into the ledger, a graduate wakes, a master is
        left alone, and the cell is forced ahead of the queue. --- */
-const fqFull = grab('  function forkQueue(cell) {', '\n  }');
+const fqFull = grab('  function forkQueue(cell, entry) {', '\n  }');
 const fqBody = fqFull.slice(fqFull.indexOf('{') + 1, fqFull.lastIndexOf('}'));
-function runForkQueue(leaksBox, q, clock) {
+function runForkQueue(leaksBox, q, clock, hands) {
   const saved = [];
-  const fn = new Function('leaks', 'saveLeaks', 'leakQueue', 'leakCell', 'gradClock',
-    'return function forkQueue(cell) {' + fqBody + '\nreturn leakCell;}')(
-    leaksBox, () => saved.push(1), q, null, clock == null ? 0 : clock);
-  return { fn: fn, saved: saved };
+  const box = hands || {};
+  const fn = new Function('leaks', 'saveLeaks', 'leakQueue', 'leakCell', 'gradClock', 'forkHand',
+    'return function forkQueue(cell, entry) {' + fqBody + '\nreturn leakCell;}')(
+    leaksBox, () => saved.push(1), q, null, clock == null ? 0 : clock, box);
+  return { fn: fn, saved: saved, hands: box };
 }
 const lk1 = {}, q1 = [], r1 = runForkQueue(lk1, q1, 42);
 const forced = r1.fn('hard 16 v 10');
@@ -133,13 +134,31 @@ if (q3.length !== 0 || forcedM === 'hard 9 v 2')
   throw new Error('a mastered cell has left the drill: a fork cannot pull it back');
 console.log('fork queue: the divergent hand is forced ahead of the queue \u2014 a graduate wakes, a master is left alone');
 
+/* --- a fork is the one drill hand that was not invented, so it hands the
+       drill the exact cards and suits it was dealt, and the hole with them.
+       A cell queued later without a hand must not keep the old one: the
+       stale hand would outrank the fork that replaced it. --------------- */
+const lk4 = {}, q4 = [], r4 = runForkQueue(lk4, q4);
+r4.fn('hard 16 v 10', { cell: 'hard 16 v 10', yc: ['7', '9'], ys: [0, 3], up: '10', us: 1, hole: '9', holes: 2 });
+const hand4 = r4.hands['hard 16 v 10'];
+if (!hand4 || hand4.yc.join(',') !== '7,9' || hand4.up !== '10')
+  throw new Error('a fork must hand the drill the exact cards it was dealt');
+if (hand4.ys[0] !== 0 || hand4.ys[1] !== 3 || hand4.us !== 1)
+  throw new Error('the suits must ride with the hand, clubs included: ' + JSON.stringify(hand4));
+if (hand4.hole !== '9' || hand4.holes !== 2) throw new Error('the hole card must ride with the fork');
+r4.fn('hard 16 v 10');
+if (r4.hands['hard 16 v 10']) throw new Error('a cell queued with no hand must drop the stale one');
+r4.fn('hard 12 v 2', { cell: 'soft 12 v 2', yc: ['A', 'A'], ys: [1, 1], up: '2', us: 0 });
+if (r4.hands['soft 12 v 2']) throw new Error('an entry for another cell must not be filed under this one');
+console.log('a fork hands the drill its own cards, suits and hole \u2014 and a handless queue drops the stale one');
+
 /* --- wiring: entries carry their cell; the settle feeds the queue --- */
 if (!/cell: lastCell, round: roundNo/.test(src))
   throw new Error('the reel entry must carry its ledger cell');
 if (!/cell: 'insurance v ace', round: roundNo/.test(src))
   throw new Error('the insurance entry must carry its own cell');
-if (!/if \(cur\.cell\) \{/.test(settleFork) || !/forkQueue\(cur\.cell\);/.test(settleFork))
-  throw new Error('the settle must feed a divergent fork into the drill');
+if (!/if \(cur\.cell\) \{/.test(settleFork) || !/forkQueue\(cur\.cell, cur\);/.test(settleFork))
+  throw new Error('the settle must feed a divergent fork into the drill, with its own cards');
 if (!/queued for the drill: ' \+ cur\.cell/.test(settleFork))
   throw new Error('the note must name the hand queued for the drill');
 if (!/var forced = leakCell \|\| leakQueue\[0\];/.test(src) ||

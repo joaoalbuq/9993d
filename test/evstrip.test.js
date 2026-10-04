@@ -127,7 +127,7 @@ console.log('the pill: "\u221248.0 luck" rides the coach score \u2014 one source
 
 /* --- the gap as a WAY IN: on both score lines the clause is its own
        control, and opening it brings up the reconciliation strip --- */
-if (!/function luckClause\(text\)/.test(src) || !/s\.className = 'luckclause';/.test(src))
+if (!/function luckClause\(text, glow\)/.test(src) || !/s\.className = 'luckclause';/.test(src))
   throw new Error('the clause must be its own control, not text');
 if (!/s\.setAttribute\('role', 'button'\);/.test(src) || !/s\.tabIndex = 0;/.test(src))
   throw new Error('the clause must be reachable and announced as a button');
@@ -217,7 +217,7 @@ const banded = evStripLine({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
 if (!/2 rounds \u00b7 <span class="sd">\+2\.1\u03c3<\/span> hot$/.test(banded)) throw new Error('the strip must end in the signed spread and its band: ' + banded);
 if (!/\.evstrip \.sd \{ text-transform: none; \}/.test(src))
   throw new Error('the sigma must keep its case against the strip\u2019s uppercasing');
-if (!/<b class="luck ok">\+236\.0<\/b> luck/.test(banded))
+if (!/<b class="luck ok over">\+236\.0<\/b> luck/.test(banded))
   throw new Error('a runaway hot gap still wears green: ' + banded);
 if (!/\.evstrip b\.luck\.ok \{ color: #43c98a; \}/.test(src) ||
     !/\.evstrip b\.luck\.out \{ color: #e2705f; \}/.test(src))
@@ -243,7 +243,7 @@ if (!/var HAND_SD = LUCK999\.HAND_SD;/.test(src))
   throw new Error('the hand spread must come from the shared module');
 if (!/LUCK999\.sigma\(/.test(src))
   throw new Error('the strip must read the shared sigma');
-if (!/var b = band\(s\), sig = sigma\(s\), tn = tone\(s\);/.test(modsrc))
+if (!/var b = band\(s\), sig = sigma\(s\), tn = tone\(s\), ov = out\(s\);/.test(modsrc))
   throw new Error('the shared strip must read the sigma and the tone beside the band');
 if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD \* \(doubled \? 2 \* bet : bet\), 2\);/.test(src))
   throw new Error('settle must bank the round\u2019s width \u2014 a double rides twice');
@@ -252,7 +252,6 @@ if (!/evSession\.sd2 \+= insBet \* insBet \* \(1 \+ 3 \* td - Math\.pow\(3 \* td
 if (!/var evBand = evSession\.rounds \? LUCK999\.band\(evSession\) : '', evSig = evSession\.rounds \? LUCK999\.sigma\(evSession\) : '';/.test(src) ||
     !/var luck = evSession\.rounds \? ' \\u00b7 ' \+ LUCK999\.word\(evSession\) \+ ' luck'/.test(src) ||
     !/\(evBand \? ' \\u00b7 ' \+ evBand : ''\) \+ \(evSig \? ' \\u00b7 ' \+ evSig : ''\)/.test(src))
-  throw new Error('the pill must name the gap, its band and its sigma');
 console.log('wiring: the spread banks with the legs at settle \u2014 pill and strip read the same band');
 
 /* --- the live table keeps the same books, from the same engine --- */
@@ -268,6 +267,23 @@ if (!/var evHalf = LUCK999\.evRestore\(tsRaw\);/.test(tsrc) ||
     !/trainStats\.ev = evHalf\.ev; trainStats\.felt = evHalf\.felt;/.test(tsrc) ||
     !/trainStats\.rounds = evHalf\.rounds; trainStats\.sd2 = evHalf\.sd2;/.test(tsrc))
   throw new Error('an old stored score must migrate field by field, not NaN');
+/* Restoring a book is only half the promise: the player must SEE it after a
+   reload, without touching anything. Nothing above tests the redraw, so the
+   reconciliation could be restored into a variable nobody ever draws and
+   every other pin would still pass while the book silently vanished from the
+   overlay. Boot reaches setCoach(coachOn), which ends in renderTrain(), and
+   the strip is drawn from the RESTORED book — so the whole chain is pinned. */
+if (!/999\.table\.trainstats/.test(tsrc) ||
+    !/JSON\.parse\(localStorage\.getItem\('999\.table\.trainstats'\) \|\| 'null'\)/.test(tsrc))
+  throw new Error('boot must read the table book back out of the store');
+if (!/^\s*setCoach\(coachOn\);/m.test(tsrc))
+  throw new Error('boot must set the coach from the stored switch, or the overlay never draws');
+if (!/function setCoach\(on\) \{[\s\S]*?renderTrain\(\);\s*\}/.test(tsrc))
+  throw new Error('setCoach must end in a redraw: it is how a restored book reaches the page');
+if (!/var strip = LUCK999\.stripLine\(trainStats, crossT\.fire\);/.test(tsrc))
+  throw new Error('the strip must be drawn from the restored book, not a fresh one');
+if (!/var tOut = null;/.test(tsrc))
+  throw new Error('the crossing mark must start unset, so a restored outlier glows without pulsing');
 if (!/var evRoundT = false, evPricedT = false, evBookT = 0;/.test(tsrc))
   throw new Error('the round book must start closed');
 if (!/evRoundT = true; evPricedT = false; evBookT = 0;/.test(tsrc))
@@ -300,7 +316,7 @@ if (LUCK.word({ felt: 12.3, ev: 20 }) !== '\u22127.7')
   throw new Error('the settle gap is felt minus engine, signed: ' + LUCK.word({ felt: 12.3, ev: 20 }));
 if (!/var tBand = trainStats\.rounds \? LUCK999\.band\(trainStats\) : ''/.test(tsrc) ||
     !/tSig = trainStats\.rounds \? LUCK999\.sigma\(trainStats\) : '';/.test(tsrc) ||
-    !/\+ ' luck' \+ \(tBand \? ' \\u00b7 ' \+ tBand : ''\) \+ \(tSig \? ' \\u00b7 ' \+ tSig : ''\)/.test(tsrc))
+    !/\+ '<\/span> luck' \+ \(tBand \? ' \\u00b7 ' \+ tBand : ''\) \+ \(tSig \? ' \\u00b7 ' \+ tSig : ''\)/.test(tsrc))
   throw new Error('the score line must carry the gap, its band and its sigma, once a round is booked');
 if (!/LUCK999\.word\(trainStats\)/.test(tsrc))
   throw new Error('the table\u2019s luck is the same shared gap: felt minus engine');
@@ -340,7 +356,7 @@ if (tStrip({ rounds: 0, ev: 0, felt: 0 }) !== '') throw new Error('an empty tabl
 const tLine = tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
 if (!/2 rounds \u00b7 <span class="sd">\+2\.1\u03c3<\/span> hot$/.test(tLine))
   throw new Error('the table strip must end in the sigma and its band: ' + tLine);
-if (!/<b class="luck ok">\+236\.0<\/b> luck/.test(tLine))
+if (!/<b class="luck ok over">\+236\.0<\/b> luck/.test(tLine))
   throw new Error('the table runaway gap still wears green: ' + tLine);
 if (tTone({ ev: 0, felt: 50, sd2: 13225 }) !== 'ok') throw new Error('the table reads run-good green');
 if (tTone({ ev: 0, felt: 115, sd2: 13225 }) !== 'ok') throw new Error('the table reads run-good green however far');
@@ -352,12 +368,68 @@ if (tOut({ ev: 0, felt: -150, sd2: 13225 }) !== true) throw new Error('the table
 if (tCross(null, { ev: 0, felt: -150, sd2: 13225 }).fire !== false) throw new Error('a recalled table outlier must set its mark quietly');
 if (tCross(false, { ev: 0, felt: -150, sd2: 13225 }).fire !== true) throw new Error('the table crossing must fire the pulse');
 if (tCross(true, { ev: 0, felt: -150, sd2: 13225 }).fire !== false) throw new Error('a steady table outlier must not pulse again');
-if (!/<b class="luck ok crossed">/.test(tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 }, true)))
+if (!/<b class="luck ok over crossed">/.test(tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 }, true)))
   throw new Error('the table crossing draw must wear the pulse class');
 if (/crossed/.test(tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 })))
   throw new Error('the table redraw after the crossing must wear the plain tone');
 if (!/LUCK999\.cross\(tOut, trainStats\)/.test(tsrc) || !/LUCK999\.stripLine\(trainStats, crossT\.fire\)/.test(tsrc))
   throw new Error('the overlay must read the crossing before it draws the strip');
+
+/* --- the outlier glow: a STANDING signal, not only the crossing flash --- */
+/* the flash says an outlier happened and is over in 1.2s. What was missing
+   is what the eye finds afterwards: a session sitting at +2.1σ wore nothing
+   but the word `hot`, and a word is exactly what the eye skips. */
+const overStand = tStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
+if (!/class="luck ok over"/.test(overStand))
+  throw new Error('a session past a spread must glow while it stays there: ' + overStand);
+if (/crossed/.test(overStand))
+  throw new Error('the standing glow must not borrow the one-shot pulse class');
+/* an ordinary gap must wear none of it — the glow only ever means outlier */
+if (/ over/.test(tStrip({ rounds: 1, ev: 0, felt: 50, sd2: 13225 })))
+  throw new Error('an ordinary gap must not glow');
+/* the glow and the word can never disagree: both read the same edge, so the
+   test is checked against the band across a spread of books */
+const BOOKS = [{ rounds: 1, ev: 0, felt: 50, sd2: 13225 }, { rounds: 2, ev: -2, felt: 234, sd2: 13225 },
+  { rounds: 2, ev: 0, felt: -115, sd2: 13225 }, { rounds: 3, ev: 5, felt: 5, sd2: 13225 },
+  { rounds: 4, ev: 0, felt: -200, sd2: 13225 }];
+for (const bk of BOOKS) {
+  if (LUCK.out(bk) !== (LUCK.band(bk) !== 'even'))
+    throw new Error('the glow and the band word must read the same edge: ' + JSON.stringify(bk));
+  const glows = /class="luck[^"]*\bover\b"/.test(LUCK.stripLine(bk, false));
+  if (glows !== LUCK.out(bk))
+    throw new Error('the strip must glow exactly when the book is an outlier: ' + JSON.stringify(bk));
+}
+/* the glow must SURVIVE reduced motion: the resting shadow is the signal and
+   the breath only keeps it alive, so a player who asks for stillness still
+   gets an outlier marked */
+if (!/\.training b\.luck\.over, \.training span\.luck\.over \{ text-shadow: 0 0 0\.5em currentColor;/.test(tsrc) ||
+    !/@keyframes luckglow/.test(tsrc))
+  throw new Error('the table outlier must carry its own glow');
+if (!/span\.luck\.over \{ text-shadow: 0 0 0\.5em currentColor;/.test(src) ||
+    !/@keyframes luckglow/.test(src))
+  throw new Error('the felt outlier must carry its own glow');
+if (!/b\.luck\.over, span\.luck\.over \{ animation: none; \}/.test(src))
+  throw new Error('reduced motion must drop the breath but keep the glow');
+/* every number that shows a band wears it, so the eye need not read one */
+if (!/var tOver = trainStats\.rounds && LUCK999\.out\(trainStats\);/.test(tsrc) ||
+    !/<span class="luck' \+ \(tOver \? ' over' : ''\) \+ '">' \+ LUCK999\.word\(trainStats\)/.test(tsrc))
+  throw new Error('the table score line must glow on its own outlier');
+if (!/var luckGlow = evSession\.rounds && LUCK999\.out\(evSession\) \? LUCK999\.word\(evSession\) : '';/.test(src) ||
+    !/function luckClause\(text, glow\)/.test(src) || !/g\.className = 'luck over';/.test(src) ||
+    !/if \(luck\) el\.appendChild\(luckClause\(luck, glow\)\);/.test(src))
+  throw new Error('the coach pill must glow on its own outlier');
+/* the glow must be a NODE: the clause is built as nodes so its tap is a real
+   control, and a span pasted into the clause's string would be set as text
+   and show its own angle brackets to the player */
+if (!/s\.appendChild\(document\.createTextNode\(text\.slice\(0, at\)\)\);/.test(src) ||
+    !/s\.appendChild\(document\.createTextNode\(text\.slice\(at \+ glow\.length\)\)\);/.test(src))
+  throw new Error('the clause must wrap the gap as a node, not as pasted markup');
+if (!/Closing luck: <b class="luck' \+/.test(src) || !/LUCK999\.out\(s\) \? ' over' : ''/.test(src))
+  throw new Error('the closing luck must say whether it was an outlier');
+if (!/var bd = LUCK999\.band\(s\), sg = LUCK999\.sigma\(s\), ov = LUCK999\.out\(s\);/.test(src) ||
+    !/\(ov \? ' over' : ''\)/.test(src))
+  throw new Error('each duel side must glow on its own outlier');
+console.log('the outlier glow: standing on the number, never on the band word alone');
 if (!/\.training \.evstrip b\.luck\.crossed \{ animation: luckpulse/.test(tsrc) || !/@keyframes luckpulse/.test(tsrc))
   throw new Error('the table crossing must carry its own pulse');
 console.log('the table crossing: its own mark, its own pulse \u2014 the band leaving "even" once');
@@ -409,7 +481,7 @@ const blank = drawStrip({ rounds: 0, ev: 0, felt: 0, sd2: 0 });
 if (blank.innerHTML !== '' || !blank.hidden) throw new Error('an empty book draws no strip and no tap');
 /* the crossing rides the drawn line, and fires exactly once */
 const pulseStrip = drawStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 }, false);
-if (!/class="luck ok crossed"/.test(pulseStrip.innerHTML))
+if (!/class="luck ok over crossed"/.test(pulseStrip.innerHTML))
   throw new Error('the crossing draw must wear the pulse class: ' + pulseStrip.innerHTML);
 const steadyStrip = drawStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 }, true);
 if (/crossed/.test(steadyStrip.innerHTML))
@@ -527,7 +599,7 @@ if (!/the table <b class="luck ok">\+36\.0<\/b> even <span class="sd">\+0\.8\u03
   throw new Error('the table\u2019s luck must carry its own band and sigma: ' + duelDraw.innerHTML);
 if (!/the shoe <b class="luck ok">\+44\.0<\/b> even <span class="sd">\+0\.8\u03c3<\/span>/.test(duelDraw.innerHTML))
   throw new Error('the shoe\u2019s own luck must be banded the same way: ' + duelDraw.innerHTML);
-if (!/var bd = LUCK999\.band\(s\), sg = LUCK999\.sigma\(s\);/.test(src))
+if (!/var bd = LUCK999\.band\(s\), sg = LUCK999\.sigma\(s\), ov = LUCK999\.out\(s\);/.test(src))
   throw new Error('each felt must band against its own accumulated spread');
 const oneFelt = drawStrip(combined, null, null);
 if (/the table/.test(oneFelt.innerHTML))
@@ -615,25 +687,26 @@ if (!/if \(shoeArmed && Date\.now\(\) - shoeArmed < 6000\) return false;/.test(a
 /* the wipe itself, run on the shipped body: every ledger the session
    built must be gone, and nothing else                             */
 const shoeBody = grab('  function resetTraining() {', '\n  }');
-const shoeFields = ['bank', 'bet', 'doubled', 'leaks', 'sessionLeaks', 'leakCell', 'leakUnseen',
+const shoeFields = ['bank', 'bet', 'doubled', 'leaks', 'sessionLeaks', 'leakCell', 'leakUnseen', 'reelUnseen',
   'weekBase', 'gradClock', 'drillReport', 'drillChart', 'drillFree', 'drillReopen',
   'replay', 'reviewIdx', 'fork', 'forkStats', 'coachStats', 'countStats', 'ixStats', 'ixLog',
   'lastFlip', 'quizStats', 'indexQuiz', 'leakMode', 'indexMode', 'reviewMode',
   'token', 'you', 'dealerArr', 'hands', 'splitActive', 'drillOpen', 'phase'];
 const shoeHooks = ['buildShoe', 'saveBank', 'saveLeaks', 'saveGrad', 'saveWeek', 'saveReplay', 'saveForks',
   'saveCoach', 'saveCount', 'saveIx', 'saveIxLog', 'saveQuizStats', 'resetEv', 'refillQueue',
-  'closeDrill', 'renderShoe', 'renderCount', 'renderLeaks', 'renderCoach', 'syncUI', 'setStatus'];
+  'closeDrill', 'renderShoe', 'renderCount', 'renderLeaks', 'renderCoach', 'syncUI', 'setStatus',
+  'saveUnseen', 'unseenForget'];
 for (const n of shoeHooks) if (shoeBody.indexOf(n) === -1)
   throw new Error('the fresh shoe must call ' + n);
 if (!/^ {4}buildShoe\(\);/m.test(shoeBody))
   throw new Error('the fresh shoe must reshuffle and zero the count, standing alone');
 let built = 0, evReset = 0, refilled = 0, synced = 0, drewShoe = 0, counted = 0, closed = 0,
-  drewLeaks = 0, drewCoach = 0, said = '';
+  drewLeaks = 0, drewCoach = 0, said = '', forgot = 0;
 const saved = [];
 const live = {
   bank: 425, bet: 100, doubled: true,
   leaks: { 'hard 16 v 10': { n: 2, cost: 40, ts: 1 } }, sessionLeaks: { 'hard 12 v 3': { n: 1, cost: 25, ts: 1 } },
-  leakCell: 'hard 16 v 10', leakUnseen: 3, weekBase: { 1700000000000: { 'hard 16 v 10': 40 } },
+  leakCell: 'hard 16 v 10', leakUnseen: 3, reelUnseen: 2, weekBase: { 1700000000000: { 'hard 16 v 10': 40 } },
   gradClock: 412, drillReport: { recovered: 20 }, drillChart: { cell: 'hard 16 v 10' },
   drillFree: true, drillReopen: true, replay: [{ card: 'A' }], reviewIdx: 3, fork: { kind: 'hit' },
   forkStats: { forks: 4, book: 3 },
@@ -653,7 +726,9 @@ const vals = shoeFields.map(n => live[n]).concat([
   () => saved.push('count'), () => saved.push('ix'), () => saved.push('ixlog'), () => saved.push('quiz'),
   () => { evReset++; }, () => { refilled++; }, () => { closed++; }, () => { drewShoe++; },
   () => { counted++; }, () => { drewLeaks++; }, () => { drewCoach++; }, () => { synced++; },
-  (s) => { said = s; }
+  (s) => { said = s; },
+  () => saved.push('leakUnseen'),
+  () => { forgot++; }
 ]);
 const snap = 'return { ' + shoeFields.map(n => n + ': ' + n).join(', ') + ' };';
 const runShoe = new Function(...args, 'return function resetTraining() {' + shoeBody.slice(shoeBody.indexOf('{') + 1, shoeBody.lastIndexOf('}')) + snap + ' };')(...vals);
@@ -677,8 +752,10 @@ if (after.bank !== 1000 || after.bet !== 0 || after.doubled) throw new Error('th
 if (Object.keys(after.leaks).length || Object.keys(after.sessionLeaks).length || after.leakCell)
   throw new Error('both leak ledgers must go');
 if (Object.keys(after.weekBase).length || after.gradClock !== 0) throw new Error('the week baselines and the drill clock must go');
-if (after.leakUnseen !== 0 || after.drillReport || after.drillChart || after.drillFree || after.drillReopen)
+if (after.leakUnseen !== 0 || after.reelUnseen !== 0 || after.drillReport || after.drillChart || after.drillFree || after.drillReopen)
   throw new Error('the sitting\u2019s drill state must go');
+if (!saved.some(function (s2) { return /leakUnseen/.test(s2); }))
+  throw new Error('a wiped book must write the badge down, or the badge outlives the ledger it named');
 if (after.replay.length || after.reviewIdx !== 0 || after.fork || after.forkStats.forks || after.forkStats.book)
   throw new Error('the replay and its fork tally must go');
 if (after.coachStats.decisions || after.coachStats.book || after.coachStats.loss || after.coachStats.lossBase ||
@@ -695,7 +772,8 @@ if (after.quizStats.asked || after.quizStats.clean || after.indexQuiz)
   throw new Error('the quiz score and any open card must go');
 if (after.leakMode || after.indexMode || after.reviewMode)
   throw new Error('every panel must close, or the next draw reads a cleared sheet');
-if (saved.length !== 11) throw new Error('every wiped ledger must be persisted, not just dropped: ' + saved.length);
+if (saved.length !== 12) throw new Error('every wiped ledger must be persisted, not just dropped: ' + saved.length);
+if (forgot !== 1) throw new Error('a fresh shoe must forget the classes the old badge was keeping: ' + forgot);
 /* and the SETTINGS are not the session: nothing above may touch them */
 for (const keep of ['quizLean', 'quizBiasId', 'drillFeed', 'LEAK_HALF', 'countingOn', 'coachOn', 'leakView', 'speedMode'])
   if (shoeBody.indexOf(keep) !== -1)
@@ -706,14 +784,17 @@ console.log('practice fresh shoe: \u21ba reshuffles, zeroes the count, and wipes
 const tResetFull = tgrab('  function resetT() {', '\n  }');
 const tResetBody = tResetFull.slice(tResetFull.indexOf('{') + 1, tResetFull.lastIndexOf('}'));
 const tStats = { decisions: 9, book: 7, loss: 4, lossBase: 0, ev: -3, felt: 20, rounds: 5, sd2: 100 };
-let tSaved = false, tDraw = false;
-new Function('trainStats', 'saveT', 'renderTrain', 'return function resetT() {' + tResetBody + '}')(
-  tStats, () => { tSaved = true; }, () => { tDraw = true; })();
+let tSaved = false, tDraw = false, tArchived = null;
+new Function('trainStats', 'saveT', 'renderTrain', 'tSeeded', 'tSeedNote', 'tSitArm', 'archiveLuck',
+  'return function resetT() {' + tResetBody + '}')(
+  tStats, () => { tSaved = true; }, () => { tDraw = true; }, {}, '', 0,
+  (why) => { tArchived = why; })();
 if (tStats.ev !== 0 || tStats.felt !== 0 || tStats.rounds !== 0 || tStats.sd2 !== 0)
   throw new Error('the table new book must zero the reconciliation');
 if (tStats.decisions !== 9 || tStats.book !== 7)
   throw new Error('the table new book must leave the coach decisions alone');
 if (!tSaved || !tDraw) throw new Error('the table new book must save and redraw');
+if (tArchived !== 'new book') throw new Error('the new book must bank the reconciliation it throws away: ' + tArchived);
 if (!/id="evNewBookT">\\u21ba new book<\/span>/.test(tsrc))
   throw new Error('the table strip must carry its own new-book tap');
 if (!/e\.target\.id === 'evNewBookT'\) resetT\(\);/.test(tsrc))
@@ -728,13 +809,16 @@ console.log('table new book: \u21ba the same one-tap reset \u2014 its own books,
 const freshFull = tgrab('  function clearBookT() {', '\n  }');
 const freshBody = freshFull.slice(freshFull.indexOf('{') + 1, freshFull.lastIndexOf('}'));
 const freshStats = { decisions: 9, book: 7, loss: 4, lossBase: 1, ev: -3, felt: 20, rounds: 5, sd2: 100 };
-let fSaved = false, fDrawn = false, fCleared = false;
-const freshRun = new Function('trainStats', 'clearT', 'saveT', 'renderTrain',
-  'var tOut = "x", tSession = { a: 1 }, trainMsg = "stale";\n' +
+let fSaved = false, fDrawn = false, fCleared = false, fArchived = null;
+const freshRun = new Function('trainStats', 'clearT', 'saveT', 'renderTrain', 'archiveLuck',
+  'var tOut = "x", tSession = { a: 1 }, trainMsg = "stale", tSeeded = { b: 1 },' +
+  ' tSeedNote = "a note", tSitArm = 42;\n' +
   'function clearBookT() {' + freshBody + '}\n' +
   'clearBookT();\n' +
-  'return { tOut: tOut, tSession: tSession, trainMsg: trainMsg };'
-)(freshStats, () => { fCleared = true; }, () => { fSaved = true; }, () => { fDrawn = true; });
+  'return { tOut: tOut, tSession: tSession, trainMsg: trainMsg, tSeeded: tSeeded,' +
+  ' tSeedNote: tSeedNote, tSitArm: tSitArm };'
+)(freshStats, () => { fCleared = true; }, () => { fSaved = true; }, () => { fDrawn = true; },
+  (why) => { fArchived = why; });
 if (freshStats.decisions || freshStats.book || freshStats.loss || freshStats.lossBase ||
     freshStats.ev || freshStats.felt || freshStats.rounds || freshStats.sd2)
   throw new Error('the fresh book must zero the whole persisted ledger');
@@ -742,6 +826,10 @@ if (freshRun.tOut !== null) throw new Error('the fresh book must drop the crossi
 if (freshRun.trainMsg !== '') throw new Error('the fresh book must clear the last label');
 if (Object.keys(freshRun.tSession).length) throw new Error('the fresh book must clear the sitting chart');
 if (!fCleared || !fSaved || !fDrawn) throw new Error('the fresh book must clear, save and redraw');
+if (fArchived !== 'clear the book') throw new Error('clearing the book must bank its reconciliation too: ' + fArchived);
+if (freshRun.tSitArm !== 0) throw new Error('clearing the book must disarm a pending whole sitting');
+if (Object.keys(freshRun.tSeeded).length || freshRun.tSeedNote !== '')
+  throw new Error('the fresh book must drop the taps and the note it described');
 if (!/id="clearBookT"/.test(tsrc)) throw new Error('the overlay must carry its fresh-book control');
 if (!/e\.target\.id === 'clearBookT'\) clearBookT\(\);/.test(tsrc))
   throw new Error('the overlay must route its tap to clearBookT');

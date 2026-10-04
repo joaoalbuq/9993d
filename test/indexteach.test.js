@@ -469,6 +469,96 @@ if (!/var aim = quizLeanOn\(\) \? quizAim\(tc, leakRatios\(\)\) : null;/.test(sr
   throw new Error('the quiz must name the cell it is drilling \u2014 when the leaning is on');
 console.log('weighted draw: \u22126 and +10 still in reach, but a refused cell pulls +4 to 70% \u2014 the quiz aims itself');
 
+/* --- the card says WHY it was dealt that count ------------------------
+   The draw is built from the player's own weak cells, and the card
+   used to print the number with the motive hidden \u2014 which is the one
+   thing that makes a drawn card worth trusting. So the rung actually
+   dealt names the plays live at it, how hard each pulls, and which
+   record is pulling.                                                  */
+if (!/function quizWhyLine\(\) \{/.test(src))
+  throw new Error('the quiz card must be able to say why it drew this count');
+if (!/quizWhyLine\(\) \+/.test(src))
+  throw new Error('the reading must ride the card, above the picks it explains');
+if (!/function quizWhyLine\(\)[\s\S]*?quizWeak\(k, ratios\)/.test(src))
+  throw new Error('the reading must use the sampler\u2019s own weakness, or the card can flatter its own draw');
+if (!/function quizWhyLine\(\)[\s\S]*?indexLiveSet\(tc\)/.test(src))
+  throw new Error('the plays it lists must be the ones live at THAT count, not the whole ladder');
+if (!/function quizWhyLine\(\)[\s\S]*?tc >= INDEX999\.INSURE_AT/.test(src))
+  throw new Error('insurance is a play at this count too, and belongs in the reading');
+/* ...run it, rather than match its markup */
+function whyRun(o) {
+  const rec = extract('ixRec', 'ixStats')({ byCell: (o.rec || {}) });
+  const live = extract('indexLiveSet', 'INDEX999')(INDEX999);
+  const weak = extract('quizWeak', 'ixRec, quizLean')(rec, o.lean || 'both');
+  const line = extract('quizWhyLine',
+    'indexQuiz, quizLeanOn, quizLean, leakRatios, indexLiveSet, ixRec, quizWeak, leaks, INDEX999')(
+    { tc: o.tc }, () => o.leanOn !== false, o.lean || 'both', () => (o.ratios || {}), live, rec, weak,
+    o.leaks || {}, INDEX999);
+  return line();
+}
+/* a refused cell live at the dealt rung: named, with the share and the record behind it */
+const why1 = whyRun({ tc: 4, rec: { 'hard 15 v 10': { asked: 3, followed: 0 },
+  'hard 16 v 10': { asked: 3, followed: 3 } } });
+if (!/Why this count: /.test(why1))
+  throw new Error('the card must open by saying why: ' + why1);
+if (!/<b>hard 15 v 10<\/b> <span class="ixweak">100%<\/span> \u2014 you took it 0 of 3 times it offered/.test(why1))
+  throw new Error('a never-taken cell must be named with its share and its record: ' + why1);
+if (/hard 16 v 10/.test(why1))
+  throw new Error('a cell always taken is not a reason for this count: ' + why1);
+/* a bleeding cell instead: named with what it has cost, not a bare number */
+const why2 = whyRun({ tc: 1, ratios: { 'hard 12 v 2': 1 }, leaks: { 'hard 12 v 2': { n: 2, cost: 90 } } });
+if (!/<b>hard 12 v 2<\/b> <span class="ixweak">100%<\/span> \u2014 it has cost you \u221290 chips/.test(why2))
+  throw new Error('a bleeding cell must name its own chips: ' + why2);
+/* the refusals \u2192 ledger switch decides which of the two speaks */
+const whyRefuseOnly = whyRun({ tc: 1, lean: 'refuse', ratios: { 'hard 12 v 2': 1 },
+  leaks: { 'hard 12 v 2': { n: 2, cost: 90 } } });
+if (/hard 12 v 2/.test(whyRefuseOnly))
+  throw new Error('aimed at the refusals, the ledger must not speak: ' + whyRefuseOnly);
+const whyLedgerOnly = whyRun({ tc: 1, lean: 'ledger', rec: { 'hard 12 v 2': { asked: 3, followed: 0 } },
+  ratios: {}, leaks: { 'hard 12 v 2': { n: 2, cost: 90 } } });
+if (/hard 12 v 2/.test(whyLedgerOnly))
+  throw new Error('aimed at the losses, the discipline record must not speak: ' + whyLedgerOnly);
+/* and the quieter bleeding case reads calm, not alarmed */
+const whyCalm = whyRun({ tc: 4, ratios: { 'hard 16 v 10': 0.2 }, leaks: { 'hard 16 v 10': { n: 1, cost: 20 } } });
+if (!/class="ixweak calm">20%<\/span>/.test(whyCalm))
+  throw new Error('a light pull must not be dressed as a red one: ' + whyCalm);
+/* insurance is listed when the count turns it on, and only then */
+if (!/insurance v ace/.test(whyRun({ tc: 3, rec: { 'insurance v ace': { asked: 2, followed: 0 } } })))
+  throw new Error('at +3 the count\u2019s own bet is live, and must be listed');
+if (/insurance v ace/.test(whyRun({ tc: 2, rec: { 'insurance v ace': { asked: 2, followed: 0 } } })))
+  throw new Error('below +3 insurance is not live, and must not be listed');
+/* the rung, not the ladder: a play that turns the OTHER way (13 v 2 is
+   live at \u22121 or lower, and nowhere above +1) belongs to the reading
+   only when the card landed on its side of the line.              */
+const whyBelow = whyRun({ tc: -1, rec: { 'hard 13 v 2': { asked: 3, followed: 0 } } });
+if (!/hard 13 v 2/.test(whyBelow))
+  throw new Error('a play live at the dealt count must be listed: ' + whyBelow);
+if (/hard 13 v 2/.test(whyRun({ tc: 10, rec: { 'hard 13 v 2': { asked: 3, followed: 0 } } })))
+  throw new Error('a play the dealt count does not light up must not be listed');
+if (/hard 13 v 2/.test(whyRun({ tc: 2, rec: { 'hard 13 v 2': { asked: 3, followed: 0 } } })))
+  throw new Error('13 v 2 turns back above \u22121 \u2014 the card must not borrow it from another rung');
+/* weakest first, and the tail says how many it kept back */
+const many = whyRun({ tc: 4, rec: { 'hard 15 v 10': { asked: 4, followed: 0 },
+  'hard 12 v 3': { asked: 4, followed: 1 }, 'hard 16 v 10': { asked: 4, followed: 2 },
+  'hard 10 v 10': { asked: 4, followed: 3 }, 'hard 11 v A': { asked: 4, followed: 3 } } });
+const order = many.indexOf('hard 15 v 10') < many.indexOf('hard 12 v 3') &&
+  many.indexOf('hard 12 v 3') < many.indexOf('hard 16 v 10');
+if (!order) throw new Error('the weakest cell must lead the reading: ' + many);
+if (!/and 1 more leaning on you/.test(many))
+  throw new Error('the tail must say what it left out, not quietly hide it: ' + many);
+/* the two honest silences */
+const whyFlat = whyRun({ tc: 4 });
+if (!/Why this count: nothing leans it \u2014 no refusals, no tolls\. An honest rung\./.test(whyFlat))
+  throw new Error('a rung nothing leans must say so outright: ' + whyFlat);
+const whyFair = whyRun({ tc: 4, leanOn: false });
+if (!/Why this count: a fair sample \u2014 nothing leans it, every rung equally\./.test(whyFair))
+  throw new Error('a fair draw must say it is one, rather than invent a motive: ' + whyFair);
+/* the tint is the sheet\u2019s own */
+if (!/\.idx \.ixwhy \.ixweak \{ font-variant-numeric: tabular-nums; color: #e2705f; \}/.test(src) ||
+    !/\.idx \.ixwhy \.ixweak\.calm \{ color: rgba\(255,255,255,0\.72\);/.test(src))
+  throw new Error('the share must wear the sheet\u2019s own tints');
+console.log('why this count: the live plays, each share named, and the record doing the pulling');
+
 /* --- the aim is the player's, and the two signals come apart: the
        quiz can lean on what you REFUSE, on what you LOSE, on the worse
        of the two, or on nothing at all — a fair sample --- */
@@ -812,11 +902,17 @@ if (!/'999\.practice\.quizscore'/.test(src) || !/function saveQuizStats\(\)/.tes
 if (!/saveQuizStats\(\);[^\n]*\n\s*if \(indexMode\) renderIndexSheet\(\);/.test(src))
   throw new Error('a graded card must persist before the sheet redraws');
 {
-  /* the loader must refuse a score it cannot trust */
+  /* the loader must refuse a score it cannot trust \u2014 but one field at a
+     time. This pin used to ask for `asked` AND `clean` or the whole
+     record is dropped, which is the all-or-nothing fault the storage
+     audit fixed: a clean count saved as a string must not cost the
+     player the cards they actually answered. The RULE it was guarding
+     survives \u2014 clean can never exceed asked \u2014 as a clamp. */
   const loader = grab("  var quizStats = { asked: 0, clean: 0 };", "  function saveQuizStats()");
-  if (!/typeof qs\.asked === 'number' && typeof qs\.clean === 'number'/.test(loader) ||
-      !/qs\.clean >= 0 && qs\.clean <= qs\.asked/.test(loader))
-    throw new Error('a stored score must be both numbers, and clean never past asked');
+  if (!/quizStats = LUCK999\.numInto\(qs, \{ asked: 0, clean: 0 \}\);/.test(loader) ||
+      !/quizStats\.clean > quizStats\.asked\) quizStats\.clean = quizStats\.asked;/.test(loader) ||
+      !/quizStats\.clean < 0\) quizStats\.clean = 0;/.test(loader))
+    throw new Error('a stored score must be read field by field, and clean never past asked');
   const quizScoreLine = extract('quizScoreLine', 'quizStats')({ asked: 0, clean: 0 });
   if (quizScoreLine() !== '') throw new Error('no cards graded, no score to name');
   const line = extract('quizScoreLine', 'quizStats')({ asked: 5, clean: 3 })();
@@ -859,8 +955,8 @@ if (!/indexQuiz = \{ tc: tc, picks: \{\}, graded: null, fed: \{\},/.test(src))
 if (!/function indexQuizTc\(n\)/.test(src)) throw new Error('the conversion needs its own pick');
 if (!/if \(changed\) refillQueue\(\);         \/\* the drill serves exactly what is owed \*\//.test(src))
   throw new Error('the drill queue must be rebuilt whenever a toll lands or comes back');
-if (!/if \(fresh\) leakAutoOpen\(\);/.test(src))
-  throw new Error('a class new to the sitting must open the panel');
+if (!/if \(fresh\) leakAutoOpen\(freshChips\);/.test(src))
+  throw new Error('a class new to the sitting must open the panel, at its own weight');
 if (!/INDEX999\.INDICES\[cell\] !== undefined \|\| cell === 'insurance v ace'/.test(src))
   throw new Error('only real drillable classes may cross over — not a stake amount');
 {
@@ -873,17 +969,20 @@ if (!/INDEX999\.INDICES\[cell\] !== undefined \|\| cell === 'insurance v ace'/.t
   /* the fed set is a delta: grading twice must not double-charge,
      and fixing the picks must take the old toll back out */
   const ledger = {};
-  let refills = 0, opens = 0, queue = [];
+  let refills = 0, opens = 0, queue = [], namedCells = [];
   const quizFeed = extract('quizFeed',
-    'indexQuiz, INDEX999, QUIZ_MISS_COST, quizCellOf, leakMiss, leakRelief, leakQueue, refillQueue, leakAutoOpen, drillFeeds')
+    'indexQuiz, INDEX999, QUIZ_MISS_COST, quizCellOf, leakMiss, leakRelief, leakQueue, refillQueue, leakAutoOpen, drillFeeds, leakMode, unseenNote')
     ({ fed: {} }, INDEX999, 25, quizCellOf,
       (c, v) => { ledger[c] = (ledger[c] || 0) + v; return true; },
       (c, v) => { ledger[c] = Math.max(0, (ledger[c] || 0) - v); if (!ledger[c]) delete ledger[c]; return false; },
-      queue, function () { refills++; }, function () { opens++; }, function () { return true; });
+      queue, function () { refills++; }, function () { opens++; }, function () { return true; },
+      false, function (c) { namedCells.push(c); });
   quizFeed({ wrong: ['hard 12 v 3', 'hard 16 v 10', '4 units staked'] });
   if (ledger['hard 12 v 3'] !== 25 || ledger['hard 16 v 10'] !== 25)
     throw new Error('both wrong classes must land in the ledger: ' + JSON.stringify(ledger));
   if (ledger['4 units staked'] !== undefined) throw new Error('a stake is not a class');
+  if (namedCells.join('|') !== 'hard 12 v 3|hard 16 v 10')
+    throw new Error('every class the quiz finds must be named for the badge: ' + namedCells.join('|'));
   if (refills !== 1 || opens !== 1) throw new Error('the drill must arm and the panel open: ' + refills + '/' + opens);
   quizFeed({ wrong: ['hard 12 v 3', 'hard 16 v 10', '4 units staked'] });
   if (ledger['hard 12 v 3'] !== 25) throw new Error('grading twice must not double-charge: ' + JSON.stringify(ledger));

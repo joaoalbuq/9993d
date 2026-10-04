@@ -10,6 +10,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const ROOM = require(path.join(__dirname, '..', 'room999.js'));   /* the shared registry the pages read */
 const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
 function grab(a, b) {
@@ -66,17 +67,19 @@ function mockCtx(withPanner) {
   return { c, rec };
 }
 const w1 = mockCtx(true);
-new Function('ready', 'noise', 'master', 'clamp', 'panSeatClamp',
+new Function('ready', 'noise', 'master', 'clamp', 'panSeatClamp', 'toRoom', 'WHOOSH_ROOM',
   'return function cardWhoosh(' + cwFull.slice(cwFull.indexOf('(') + 1, cwFull.indexOf(')')) + ') {' + cwBody + '}')(
-  () => w1.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, clamp)(0, 0.4, 0.0);
+  () => w1.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, clamp,
+  (node, room) => { if (room == null) throw new Error('the whoosh must name its own send'); }, () => ROOM.send('whoosh'), ROOM)(0, 0.4, 0.0);
 if (w1.rec.panSets.length !== 1 || w1.rec.panSets[0][0] !== 0.4)
   throw new Error('the whoosh must open at the shoe\u2019s seat: ' + JSON.stringify(w1.rec.panSets));
 if (w1.rec.panRamps.length !== 1 || w1.rec.panRamps[0][0] !== 0.0 || w1.rec.panRamps[0][1] !== 10.4)
   throw new Error('the whoosh must land at the hand across the flight: ' + JSON.stringify(w1.rec.panRamps));
 const w2 = mockCtx(false);
-new Function('ready', 'noise', 'master', 'clamp', 'panSeatClamp',
+new Function('ready', 'noise', 'master', 'clamp', 'panSeatClamp', 'toRoom', 'WHOOSH_ROOM',
   'return function cardWhoosh(' + cwFull.slice(cwFull.indexOf('(') + 1, cwFull.indexOf(')')) + ') {' + cwBody + '}')(
-  () => w2.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, clamp)(0, 0.4, 0.0);
+  () => w2.c, () => ({ getChannelData: () => new Float32Array(64) }), {}, clamp, clamp,
+  () => {}, () => ROOM.send('whoosh'), ROOM)(0, 0.4, 0.0);
 if (w2.rec.panSets.length || w2.rec.outs.filter((o) => o === 'panner').length)
   throw new Error('without a panner API the whoosh stays centered');
 console.log('the whoosh: shoe \u2192 hand across the 400ms slide, no panner API stays centered');
@@ -123,12 +126,12 @@ if (/linearRampToValueAtTime/.test(rsFull))
 const rsSeen = [];
 const rsCtx = mockCtx(true);
 const rsTones = [];
-new Function('ready', 'burst', 'tone', 'panSeatClamp', 'master',
+new Function('ready', 'burst', 'tone', 'panSeatClamp', 'master', 'toRoom', 'RIFFLE_ROOM',
   'return function riffleSound(' + rsFull.slice(rsFull.indexOf('(') + 1, rsFull.indexOf(')')) + ') {' + rsBody + '}')(
   () => rsCtx.c,
   (c, t, dur, type, freq, q, gain, out) => rsSeen.push(out),
   (c, freq, t, dur, type, gain, slide, out) => rsTones.push(out),
-  clamp, {})(0.35);
+  clamp, {}, (node, room) => { if (room == null) throw new Error('the shuffle must name its own send'); }, () => ROOM.send('riffle'), ROOM)(0.35);
 if (rsSeen.length !== 17 || rsSeen.some((o) => o == null))
   throw new Error('every burst of the shuffle must come from the shoe: ' + rsSeen.length + ' bursts');
 if (rsTones.length !== 7 || rsTones.some((o) => o == null))
@@ -137,9 +140,9 @@ if (rsCtx.rec.panSets.length !== 1 || rsCtx.rec.panSets[0][0] !== 0.35 || rsCtx.
   throw new Error('the shoe\u2019s seat must be set once, at the ceremony\u2019s own start: ' + JSON.stringify(rsCtx.rec.panSets));
 const rsNoApi = mockCtx(false);
 const rsPlain = [];
-new Function('ready', 'burst', 'tone', 'panSeatClamp', 'master',
+new Function('ready', 'burst', 'tone', 'panSeatClamp', 'master', 'toRoom', 'RIFFLE_ROOM',
   'return function riffleSound(' + rsFull.slice(rsFull.indexOf('(') + 1, rsFull.indexOf(')')) + ') {' + rsBody + '}')(
-  () => rsNoApi.c, (c, t, dur, type, freq, q, gain, out) => rsPlain.push(out), () => {}, clamp, {})(0.35);
+  () => rsNoApi.c, (c, t, dur, type, freq, q, gain, out) => rsPlain.push(out), () => {}, clamp, {}, () => {}, () => ROOM.send('riffle'), ROOM)(0.35);
 if (rsPlain.some((o) => o != null) || rsNoApi.rec.outs.filter((o) => o === 'panner').length)
   throw new Error('without a panner API the shuffle stays centered');
 const shuf = grab('  function shuffleCeremony(then) {', 'riffleSound(panForSeat(box));');

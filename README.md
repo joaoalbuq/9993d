@@ -144,8 +144,73 @@ are additive screens kept beside it for side-by-side comparison.
   the room, exactly as the clacks do. It fires at the release
   itself, before any announcement, so the cut card's whisper still
   lands on top of a shoe that has just been heard.
+  **And the tap rises with penetration.** The first card off a full
+  stack speaks from the weight of everything still behind it; the last
+  one off a bare stack has nothing left to push against, so it reads
+  emptier. One pure mapping (`tapVoice`) turns how deep the shoe is —
+  `shoeDealt / shoeCut`, 0 at the top of a fresh stack, 1 at the cut —
+  into the tap's voice: the band-passed tick climbs 2100 → 3400 Hz and
+  sharpens (Q 2.2 → 4.0, a tighter filter being what “empty” sounds like),
+  the body tone climbs 196 → 346 Hz and stops falling so far, and the body
+  GAIN drops furthest (0.028 → 0.015) — that is the emptiness, the low
+  voice thinning away under the click as the stack runs down. The tick
+  never gets louder, so the shoe empties rather than shouts. Clamped at
+  both ends, so a nonsense depth still sounds like a shoe, and monotone
+  throughout, so a run of cards is heard as one rise. Measured on the
+  rendered signal through a real Web Audio graph: the spectral centroid
+  climbs 1661 → 2781 Hz from first card to cut, and the energy at 200 Hz
+  falls by ~74%. So the shoe wears its depletion down its own voice.
   (stereo IR, and every send sits after its panner, so a panned deal
-  keeps its direction in the reflections too; muting gates the walls
+  **The practice floor has the same room and send system.** It had the
+  same voices but no room at all — every sound went straight to the
+  destination, which is exactly why they read flat beside the table's.
+  It now carries the table's own apparatus: a synthesized IR (no samples,
+  no downloads — air, then the first reflections off the rails, then a
+  tail that loses its top end), a shared bus trimmed to **0.35**, and a
+  `toRoom` send per voice. The floor's room is the SMALLER one, because the
+  floor is: a 1.15s tail rather than 1.35s and first answers 18/29/41ms out
+  rather than 21/33/47, so it is the same room at the size of one practice
+  table. It has one room where the table crossfades a felt and a hall —
+  there is no cinema on the floor to slide it toward, so it does not build
+  a hall it could never reach, and a pin says so.
+  **The sends are the table's, value for value**: riffle **1.7** (four decks
+  filling the air), whoosh **1.5** (it IS air, so it swims), stinger **1.4**
+  (the verdict blooming), clacks **0.6** (dry-ish, near the cloth), and the
+  coach's call at **1.5** — calling across a quiet felt IS the room. The
+  card snap stays the one voice left plain, on purpose: it lands ON the cloth
+  and its impact already announces itself. Sends sit AFTER the panner, so a
+  panned deal keeps its direction in the reflections rather than only in the
+  air. And each voice that sends pays for the tail out of its own dry level
+  (the clacks 0.28/0.18 → 0.25/0.16, the cue 0.05 → 0.038, the stinger
+  0.17/0.19 → 0.136/0.152), so the send never buys loudness. Verified in
+  the browser: the live floor builds one convolver fed a stereo 1317ms IR,
+  and a single chip clack now opens four gain nodes — its two voice envelopes
+  plus two room sends, where it opened two before.
+  **Both felts carry a Levels panel** — 🎹 Levels, beside the floor's
+  leaks and the table's coach. Every voice a surface can sound gets a
+  row: ▶ hears it on its own, no round and no deal, ▼▲ step its gain and
+  its send, and ↺ puts that one voice back where it shipped. So the mix
+  can be heard and dialled without playing a hand to reach the sound
+  you want to change. The numbers live in `room999.js`, the one voice
+  registry both pages load, and neither page keeps a copy of one.
+  **The tuning is shared, and it outlives the reload.** One record under
+  `999.room.tuning`: step the table's shoe tap and the floor's tap is
+  that same tap, because both pages read the same registry (five voices
+  are shared; the floor's cue and the table's cut, bets, tap and bonus
+  belong to their own surface). Steps are quanta, not floats — 0 · 0.25
+  · 0.5 · 0.75 · 1 · 1.25 · 1.5 · 2× — so the record stays legible
+  ("clack send 0.75×") and two people tuning a voice land on the same
+  number. A junk entry falls back to shipped on its own and the rest of
+  the record rides on; a moved voice is marked tuned, and only then does
+  the panel offer ↺ reset every voice.
+  **The one voice that ships dry can still be tuned into the room.** The
+  snap lands ON the cloth, so it ships at 0×; no multiplier can lift a
+  zero, so its send ladder is absolute — untouched it reads 0×, and the
+  first step up turns the room on instead of scaling a silence. The
+  bottom rung of any ladder is silence and stays silence: stepping past
+  it is refused, not wrapped round to the middle.
+  (
+keeps its direction in the reflections too; muting gates the walls
   as well as the felt). **The room has a second, larger character**:
   the Cinema toggle doesn't just stretch the flights — it slides the
   wet path from the felt's 1.35s room into a hall (2.8s tail, 26ms
@@ -362,7 +427,19 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   Every row also carries its **week over week in chips**: the chips leaked
   this week against last week ("▼ 20 v 40"), tinted green when the leak is
   shrinking and red when it is growing — the pill's arrow, opened up to
-  the whole panel with the money behind it. Beside the chip rides a
+  the whole panel with the money behind it. **The chart's bars carry the
+  same figures**, so a marker is no longer the pill's arrow alone: the
+  arrow said which way a cell was moving but never how fast, and a cell
+  that fell 400 to 8 and one that fell 9 to 8 both wore a green down.
+  The bar's marker now reads "▼ 8 v 400" beside it, and hovers to "−8
+  this week against −400 last week · bleeding less than last week" so
+  the two numbers are never ambiguous. Row, bar **and the review scorecard**
+  are drawn by one function off one `weekSplit` reading, so the three
+  places cannot drift into disagreeing, and the marker stays small enough
+  not to crowd out the bar figure it sits beside. (A cell genuinely recovering reads a
+  negative this week — that is the existing row arithmetic, not a new
+  one: leaked 30 fewer chips than the 40 it leaked last week.)
+  Beside the chip rides a
   **trend sparkline**: the cell's leak per week, oldest to newest, drawn
   as eight steps of ink scaled to its own range and tinted by direction
   (green falling, red climbing, grey flat). Where the chip gives the
@@ -487,7 +564,22 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   bet, the shoe stacks it"), so the count play you always miss is drilled
   right where the record names it, by tap or by Enter. A mastered cell's
   record reads but does not tap, and a ledger emptied by a fixed quiz
-  pick says so instead of vanishing. **And the refused ask comes straight
+  pick says so instead of vanishing. **And the count cell you drilled
+  last is waiting when you come back**: any count play handed to the
+  forced hand is remembered (`999.practice.lastix` — count plays only,
+  insurance included, never a leak row's class), and the next visit
+  opens the drill straight into it ("Drill: hard 15 v 10 — where you left
+  it last visit, place any bet"), the panel already ranked and the shoe
+  set to serve it. It is one hand, not a standing order — the queue is
+  built at the same moment and resumes the hand after, so the drill is
+  never pinned to one class — and it never fires over a live hand or a
+  stake already down. A name the ledger has lost, a class the count has
+  no opinion about, or one that has retired takes its name with it and
+  the visit opens exactly as it would have. Live: a remembered
+  `hard 15 v 10` dealt 5 + 10 against a 10 at true +1 (now −1) with the
+  panel open; the same key pointed at a cell the ledger had lost left
+  the visit bare ("Place your bet", no panel, key dropped).
+  **And the refused ask comes straight
   back**: the recent-asks line makes every refused entry its own tap —
   one press deals the play just let pass as the forced hand, before the
   miss cools (a taken ask and a mastered cell's refusal read only).
@@ -506,7 +598,26 @@ preflight, no `Access-Control-*` needed on any answer. The host injects
   every single time but keep losing still pulls the draw, and a cell
   that has cooled or been mastered out of the drill stops pulling it).
   A 0/4 record on hard 15 v 10, or 120 chips of ledger on the same cell,
-  each sends ~70% of cards to +4 and above. **And the aim is the
+  each sends ~70% of cards to +4 and above. **And the card says why it
+  was dealt that count**: the rung it actually landed on gets its own
+  reading, printed above the picks it explains — every play live at
+  that count, how hard each one pulls on this player, and which record
+  is pulling. It is the sampler's own `quizWeak`, read at the dealt rung
+  rather than across the whole ladder, so the card cannot flatter its
+  own draw: live on a card dealt at true +7, "Why this count: hard 15 v
+  10 100% — you took it 0 of 3 times it offered · hard 12 v 2 100% — it
+  has cost you −90 chips · insurance v ace 100% — you took it 0 of 2
+  times it offered · hard 12 v 3 67% — you took it 1 of 3 times it
+  offered · and 1 more leaning on you." Shares below a third read calm
+  rather than red, a play the count does not light up is never borrowed
+  from another rung (13 v 2 belongs to a card at −1 or lower, and to no
+  card above +1), insurance is listed whenever the count turns it on,
+  the aim decides which record speaks (aimed at the refusals, the
+  ledger stays quiet, and the other way round), and the two honest
+  silences are said outright — a fair sample says it is one, and a rung
+  nothing leans says "nothing leans it — no refusals, no tolls. An
+  honest rung" rather than inventing a motive.
+  **And the aim is the
   player's, both signals apart**: the sheet's footer carries the switch
   ("· the draw leans to your weak cells — tap to the refuse · to the
   ledger · to a fair sample"), and each tap walks the four: **both**
@@ -856,7 +967,23 @@ answers with CORS headers.
   1.15 units, a double riding as a wider stake), signed and banded, the
   σ kept lowercase against the overlay's uppercasing; the table banks
   no insurance leg, so only the hand widens it, and a book from before
-  the spread keeps its totals with the band waiting. **And the overlay
+  the spread keeps its totals with the band waiting.
+  **The overlay’s archived sessions speak that same scale.** The rows under
+  the strip ("Sessions · luck vs the engine", the last six books) used to
+  be scored on raw chips against the worst row — good/bad/even on a ±0.05
+  chip threshold. That cannot rank a run: a −1 over three rounds and a −10
+  over thirty are not the same luck, and one chip axis calls them alike. Each
+  row now measures its own gap in its own accumulated spread, through the
+  same `LUCK999` band the strip reads, and prints the band word and the
+  signed sigma: "−2.1σ cold", "+3.2σ freak hot", "+0.0σ even". The bar
+  rides that sigma too, three spreads filling the row, so a freak visibly
+  fills it and a merely-cold session does not — the length means the same
+  thing on an archived row as on the live strip. An outlier still wears the
+  glow, from the same `out` test, so a freak sitting in the history looks
+  like the freak it was. A session archived before the spread was banked
+  has no scale of its own and says "no spread" rather than borrowing
+  another’s. So both felts read luck the one way: even / cool / warm /
+  cold / hot / freak, signed, in sigma. **And the overlay
   folds the felt's own recoverable money**: the same EV-left chart the
   review draws — the sitting's miss cells cut to the few behind most of
   the loss (Pareto, at most three rows), each bar the chips fixing that
@@ -876,7 +1003,104 @@ answers with CORS headers.
   "−120 / 6 misses / 120 back" and "−70 / 5 misses / 190 back", widths
   100% and 58%. The table keeps its own
   sitting in memory (wiped on reload), apart from the ledger and reel
-  it hands to the practice shoe. Live on the practice floor: the stacked "insurance v ace"
+  it hands to the practice shoe. **And the table's chart draws the way
+  the review's does**: its bars **sweep in worst-first, 70 ms apart**,
+  so the chart settles as one read instead of popping row by row, and
+  each bar carries the cell's **week-over-week direction** as a small
+  marker — ▼ green when the class is bleeding less than last week, ▲
+  red when it bleeds more, `·` when it bleeds the same. The marker is
+  measured against the **same Monday-midnight week split and the same
+  opening snapshots** the practice floor uses, read from the shared
+  `999.practice.weekbase`, so a marker here means what a marker there
+  means. **That sameness is now structural, not a promise**: the whole
+  reading — `weekStart`, `prevWeek`, `nextWeek`, `leakedIn`, `weekSplit`
+  and `weekDir` — lives in `luck999.js`, which both pages load. It used
+  to be written twice, as the floor's `leakedIn` over its own ledger
+  and the table's `leakedInT` over the same one handed in, and the two
+  copies were the same arithmetic under two names: `prevWeek` and
+  `prevWeekT` line for line. A week that ran to a different boundary on
+  one surface would have disagreed with the other in silence. The module
+  version is **pure** — the ledger and the snapshot map are arguments,
+  never storage — so the floor binds its own and the table binds the
+  floor's read back, and neither can reach the other's bookkeeping.
+  What stays on each page is only *where* the snapshots are stored and
+  *when* they are written: policy, not arithmetic. A pin now fails the
+  build if a page grows its own copy, and if a page keeps one it must be
+  a pure `return LUCK999.…` binding and nothing else.
+  **It says nothing when nothing can be weighed**: no last week
+  to compare against, or no closing snapshot for it, and the row wears
+  no marker at all rather than inventing a direction. Live on the
+  table: three bars drawing at 0/70/140 ms, and a `hard 16 v 10` bar
+  wearing ▲ red for a cell that leaked 30 this week against 0 last
+  week. **And the felt has a session review of its own**: a `⏪ Review`
+  beside the coach toggle opens a report rather than the live strip —
+  the sitting's **scorecard** (every cell it missed, costliest first,
+  with the miss count, the chips and each cell's share of the loss:
+  "the whole −100 sits in 2 cells"), the **hands taken off the book's
+  line** read back off the reel the felt already hands the practice
+  shoe (you played X, book Y, and what it cost), and **the same
+  recoverable-money chart** the overlay carries. The chart repeats, so
+  the report draws it under its own ids rather than sharing the
+  overlay's — two elements with one id is a fault the DOM will not
+  report — and a bar named in the report names the cell exactly as a
+  bar named in the overlay would. The report **rides the overlay's
+  redraw**, so it can never disagree with the strip it repeats, and a
+  sitting with no miss says so plainly and draws no chart rather than
+  inventing an empty one.
+  **And the table's own chart is a way
+  in**: a bar there is a button, the way the practice floor's bars
+  already were, and a tap hands that cell to the floor's drill. The
+  loss itself is already in the ledger — the settle flushed this very
+  cell to it with its chips — so a tap adds **no money and no miss**.
+  It writes a request stamp (`qs`) on the row the floor already holds,
+  and the floor forces that cell to its next leak hand, ahead of the
+  queue's own order, exactly as a divergent fork does. The stamp rides
+  through `leakMerge`, or the very next settle would merge over the
+  tapped cell and eat the tap the player had just made. **And the
+  report's scorecard rows are the same way in**: the rows above the
+  chart name the same cells for the same money, so a tap on a row
+  lands in the same drill as a tap on the bar beneath it — otherwise
+  the top of the report is a dead end the player can see the bottom of
+  is not. Same `evtap` + `data-cell`, same gold underline on hover,
+  same two refusals drawn in the markup (`evno`, dimmed): a mastered
+  cell keeps no tap, and neither does a quiz-only floor, because a row
+  must never offer what the tap under it would refuse. A row already
+  named to the floor wears the same `evseeded` mark the bar does, and
+  its title says its own chips, misses, share of the sitting and the
+  way in — the running-recovery figure belongs to the chart's
+  cumulative, so the row names what the row actually knows. Live on
+  the table: a tap on `hard 15 v K` stamped `qs` on that cell with
+  `n` untouched at 1, and both the row and the bar turned `evseeded`.
+  Every stamp is
+  spent on the way in, so one tap is one drill and a reload never
+  forces the same cell twice; several taps land newest-first, the
+  freshest dealt at once and the rest behind it.
+  **The chart holds back exactly what the drill would refuse**: a
+  mastered cell and a floor drilled quiz-only both render their rows as
+  plain names, with no tap and no way-in clause in the hover, so the
+  picture never offers a button that would turn the tap down — and the
+  refusal is said in words when it is tried anyway. The cell name
+  rides into the attribute escaped, as ledger data must. Live on the
+  table: a real felt miss at `hard 13 v 2`, its bar drawn and tappable,
+  tapped to `qs` on a row still reading `n 1 · cost 0.375`, the note
+  "hard 13 v 2 · named to the practice floor" under the chart; andon the floor a moment later the stamp gone and the row re-stamped fresh.
+  **And the chart can start over on one tap**: a `↺ fresh
+  sitting` at the foot of the chart clears this sitting's own fold —
+  the bars and the chips behind them — on demand, instead of waiting
+  for the reload that would otherwise do it. One tap, not two,
+  because it reaches nothing worth losing: the fold is in memory and
+  dies with the page anyway. **What it must not touch is the
+  practice floor's ledger.** Those chips were handed over at each
+  settle, and a view of them starting over cannot un-teach a drill
+  the player has earned; the coach's decisions, the reconciliation
+  and the whole persisted book stay exactly where they are. It
+  lives under the chart it resets rather than beside `⌫ clear the
+  book`, because the two have very different reach and must not read
+  as one control. Live on the table: a bar at `hard 19 v 3` reading
+  "−28 · Fix it: +28 back", tapped once to a bare coach line with
+  the ledger's two cells untouched, the decisions still counted,
+  and a decision taken afterwards still landing.
+  Live on the practice floor: the stacked "insurance v ace"
   cell dealt 10,7 v A with a ten waiting as the hole card — offer
   "Book: Decline — insurance turns at true +3 (now true −1)", decline
   "✓ Book play", an insured miss showing "Bet 25 + 12 ins" on the tray
@@ -935,12 +1159,24 @@ answers with CORS headers.
   cap cannot wedge itself shut. What the cap never suppresses is the
   work: the drill stillarms, the 🩹 pill still appears, the ledger still grows. Only the
   telling is held — and the holding is itself visible: the pill badges
-  what the panel is not showing ("🩹 Leaks · 3 new", the button in house
-  gold, and kept on screen even when the ledger would otherwise leave
-  it nothing to say). The count is spent once, naming itself in the
+  what the panel is not showing, quietly. It names the class rather
+  than the figure ("🩹 Leaks · 12 v 9 +2" — the newest found, and how
+  many more are behind it), because "−120 new" says how much and nothing
+  about where to look; the whole list waits in the button's title
+  ("found while this was shut: −120 chips over 3 classes (12 v 9,
+  13 v 2, 9 v 7)"), and the button is kept on screen even when the
+  ledger would otherwise leave it nothing to say. It is a note, not a
+  demand — muted white on a hairline border, never the house gold,
+  which is reserved for the panel's own open state. The names live in
+  `999.practice.unseen` beside the counts, six at most and newest
+  first, a class named once however often it is met; the weight is
+  still the chips the miss threw away, so a −180 miss and a −2 miss do
+  not read the same. The count is spent once, naming itself in the
   session footer the next time the panel is read ("· 3 more classes
-  found while this was shut — the drill has them all"), so the badge
-  never nags twice for the same discovery and nothing is lost, only
+  found while this was shut — the drill has them all"), and spent
+  news takes its names with it, so the badge never nags twice for the
+  same discovery, never leads with a class already read, and nothing is
+  lost, only
   delayed. **The drill now
   graduates its students**:  a cell that answers with the book three
   times running retires from the queue — the pill carries the roster
@@ -978,7 +1214,19 @@ answers with CORS headers.
   with honours, 🏅 on the panel in gold, gone from the drill for good;
   no miss, drill or felt, drags it back, no drill-now tap offers it,
   the pill counts it first ("· 🏅1 · 🎓1 · 5 drilling"), and the
-  footer says so ("🏅 1 mastered — out of the drill for good"). An
+  footer says so ("🏅 1 mastered — out of the drill for good").
+  **And the gold rows remember WHEN**: the mastery write stamps the day
+  it happened, so each gold row reads "🏅 master · 4 Oct", and the
+  mastered rows sit in their own gold block under the ranking, newest
+  mastery first ("Mastered · newest first") — the ranking cannot say
+  that, since a master's toll has cooled for months and would otherwise
+  sink it off the panel or below rows still worth chasing. The block
+  holds five and then says how many more are further down the ledger;
+  the live rows keep their own five, so a gold row never takes a leaking
+  one's place. A master stamped before the ledger dated them shows no
+  day rather than an invented one, and sorts last. The stamp rides
+  every path that rebuilds a row, `leakMerge` included, so a felt miss
+  cannot quietly un-date a gold row. An
   all-done ledger falls back to the classic
   16 v 10 so the drill never runs dry. Live end to end: hard 12 v 2
   retired at clock 3 ("back in 6"), the countdown ticked down on the
@@ -1128,7 +1376,28 @@ answers with CORS headers.
   `trainstats` boot, the hand-off's read-merge and the table-book read
   behind the two felts) go through one shared `LUCK999.evRestore`, so
   a stored field that is missing, `NaN`, `Infinity` or impossible is
-  started at zero by itself and nothing else is touched. A book written
+  started at zero by itself and nothing else is touched. **And every
+  OTHER stored record is read the same way** — an audit of all 47
+  `localStorage` reads across both pages found the same fault in ten of
+  them, on the floor: `coachstats`, `ixstats`, `luckrange`, `lucklast`,
+  `forks`, `quizscore`, `counts`, `spread`, `speedstats` and `speedtrue`
+  each threw the WHOLE record away when one field failed its type check,
+  so a discipline record saved with one counter as a string lost months
+  of discipline with it. They now go through `LUCK999.numInto(raw,
+  seed)`, which keeps every finite number the seed says is a number,
+  repairs only the field that failed, and drops keys this build does not
+  know. The table had none of the fault — its books already read through
+  `plainNum`/`evRestore` and its lists through per-entry filters. The
+  clamps that justified those guards survive as clamps (`clean` can
+  never exceed `asked`, a score from before the price still derives its
+  own base, and no closing stored still reads as no closing), and the
+  floor's reel now filters its entries the way the table's copy of that
+  same key always did. `test/storeread.test.js` keeps the audit honest:
+  it sweeps every read in both pages and fails on any all-or-nothing
+  guard that comes back. Live: an `ixstats` record stored as
+  `{asked: 9, followed: 'oops'}` still reads "0/3" beside its never-taken
+  cell and "count plays followed 0/9" on the sheet, where before the fix
+  the record — the nine asks and the per-cell split with them — was gone. A book written
   before the spread existed is **migrated, not thrown away**: a
   `{rounds: 12, ev: −3.1, felt: −25}` from an older build still reads
   "−21.9 luck · 12 rounds" on load, its band simply claims nothing until
@@ -1147,9 +1416,9 @@ answers with CORS headers.
   quietly to the single line. **And the math itself lives in one file**
   both surfaces load (`luck999.js`, `window.LUCK999`): the word, the
   band, the sigma, the sign-only colour, the crossing, the strip
-  markup and the lenient book restore are a single source, so the floor
-  and the live overlay read the same measured gap by construction
-  rather than by copy-paste.
+  markup, the week-over-week reading and the lenient book restore are a
+  single source, so the floor and the live overlay read the same
+  measured gap by construction rather than by copy-paste.
   **The gap rides the coach pill too**: after each settle the score line
   carries it ("Coach 83% · 19/23 · −2.9/dev · −9.0 luck · even · −0.1σ"),
   the strip and the pill reading one source for the word, the band and the
@@ -1190,9 +1459,17 @@ answers with CORS headers.
   sign, not its distance**: run-good — a felt above the engine —
   always prints green (`#43c98a`), however far it runs; only a COLD
   gap, the felt behind the engine, prints red (`#e2705f`); dead even
-  is no call, and with no spread yet it keeps the strip's gold. Live:
-  a `+236.0` runaway over two rounds read green while a `−120` cold
-  gap read red, on the practice strip and the table overlay both.
+  is no call, and with no spread yet it keeps the strip's gold. Live,
+  on the two cases where distance and sign would disagree: a `−0.6`
+  gap — `−0.1σ`, deep inside `even` and nowhere near an outlier —
+  still printed **red**, while a `+900` gap at `+90.0σ freak hot`
+  printed **green** and glowed. A `+236.0` runaway over two rounds read
+  green while a `−120` cold gap read red, on the practice strip and
+  the table overlay both. The four CSS comments beside those two rules
+  once described the older behaviour ("inside one spread", "past one"),
+  and said so long after the code stopped doing it — the classes are
+  chosen by sign alone and never by band, so a comment claiming
+  otherwise is the only place the old rule could still be read.
   **And the crossing catches the eye without a word**: the moment the
   gap tops its first spread — the band leaving `even` — the number
   gives one soft bloom in its own colour (green run-good, red cold),
@@ -1200,7 +1477,30 @@ answers with CORS headers.
   one draw; a steady outlier never pulses again, and a book restored
   already past a spread sets its mark quietly on load, so the pulse
   fires on the crossing itself, on the practice strip and the table
-  overlay both. **And the duel crosses per side**: once a hand-off has
+  overlay both. **And once it IS out, it stays lit**: the flash lasts
+  1.2 s and then the outlier wears nothing at all, so a session sitting
+  at `+2.1σ` could only be known by reading the word `hot` beside it —
+  and a word is exactly what the eye skips. The number now carries it
+  instead: while the gap is past a spread it wears `over` and holds a
+  soft bloom, settling into a slow `2.6s` breath so it reads as alive
+  without moving the layout. **The resting shadow is the real signal
+  and the breath only keeps it alive**, so a player who asks for
+  reduced motion keeps the glow and loses only the movement — an
+  outlier still catches the eye. `over` is the same test as the band
+  edge (`LUCK999.out`), checked against the band across a spread of
+  books, so the glow and the word can never disagree about a session.
+  It rides every number that shows a band — the strip, the coach pill,
+  the duel's two sides, the table's score line and the closing luck —
+  and the decision lives in `luck999.js`, the module both pages load,
+  so the two surfaces cannot drift. On the strip the bloom is the
+  number's own green or red, so it carries the sign too; inside the
+  two tappable clauses it takes that clause's own gold, because those
+  are controls and keep their control colour. Live: a seeded `+2.0σ`
+  book showed `luck ok over` on the practice strip with `luckglow`
+  running and a `rgb(67, 201, 138)` shadow, the table strip the same,
+  the table score line `span.luck.over`, and with the animation
+  forced off the glow stayed at `5.6px` green — the signal survives
+  the motion being taken away. **And the duel crosses per side**: once a hand-off has
   split the book, the strip names two felts — `🎰 the table … · the
   shoe …` — and each carries its OWN accumulated spread, so each gets
   its OWN mark and its OWN bloom. A felt flashes on the draw it first
@@ -1268,6 +1568,42 @@ answers with CORS headers.
   opened the strip without disturbing the settle line, and it lives
   **2313 ms** before the round-end status replaces it, so it is a target
   a hand can actually reach.
+  **And the drill stacks the fork, not the class**: a divergence queues
+  the misplayed hand, and the class name is only how the ledger files it
+  — so the drill now replays **that hand**, the two cards and the
+  dealer it was actually dealt, **suit for suit**, instead of any hand
+  of that class. A class constrains only the total, so hard 16 as 7+9
+  is a real hand the floor's canonical build would never have chosen,
+  and that is exactly the hand the player needs to meet again. The
+  dealer's stored hole card rides with them, so the dealer hand is the
+  one that was played. A cell queued **without** a hand behind it — a
+  plain miss, or a bar tapped on the felt, which carries a class name
+  and nothing else — keeps the canonical build, and a later fork that
+  arrives without its own hand drops the stale one rather than leaving
+  it to outrank the fork that replaced it. **Suits are indices, and
+  clubs is index 0**, so every suit is tested against null and never
+  against truth: a clubs hand read as "any suit" would quietly drift
+  off the hand it was given. The stacker falls back to a fresh shoe
+  when the exact cards are gone, as it always did. Verified against
+  the shipped `leakDeal`: six forked cells over fourteen fresh shoes
+  each, every stack the same hand by rank and suit, each still landing
+  in its own class — and for the same cell the canonical build dealt
+  `6,10,10` where the fork's hand was `7,9,10`, so the two answers
+  cannot be confused.
+  **And the sessions are kept, so they can be compared**: a reset
+  throws the reconciliation away, and the reconciliation is the only
+  place that night's luck was ever recorded. So every reset **banks it
+  first** — the engine's price, the felt's own, the gap between them,
+  how many rounds it took, and which reset ended it — into a rolling
+  history of the last six, newest first. The overlay draws them **side
+  by side**, one row each, every bar drawn to the same scale as the
+  others, so a run of luck is a shape rather than a list of numbers:
+  green where the felt finished ahead of the engine, red behind it,
+  gold level. Hovering a row names what ended it and what it cost.
+  **An unpriced book archives nothing** — a wipe of an untouched
+  session adds no row and says nothing, because there was no gap to
+  grade. Six is deliberate: long enough to see a run, short enough
+  that each row is still a sitting rather than a career.
   **And the reconciliation starts over on demand**: a small
   `↺ new book` tap sits at the end of the strip — one tap
   zeroes the rounds, the engine's expectation, the felt and the
@@ -1305,6 +1641,24 @@ answers with CORS headers.
   only the gap; live, a seeded `19/23 · −891.0 luck · cold` overlay
   clicked down to a bare `Coach` with `999.table.trainstats` back to all
   zeros.
+  **And beside it, the whole sitting**: a `↺ whole sitting` tap ends
+  the sitting outright — the coach's accuracy, the reconciliation, this
+  sitting's chart, **and the practice floor's leak ledger** — all in
+  one. That ledger is what `clear the book` deliberately leaves alone:
+  those chips already left the felt at each settle, and a page-level
+  wipe cannot take them back. `whole sitting` says otherwise, because a
+  sitting that is over should take the drills that read it with it. It
+  reaches **no further than that** — not the reel, not the forks, not
+  the running reconciliation book, each pinned by a test. **Two taps,
+  six seconds**, in the house red while armed: this is the one control
+  in the overlay that destroys a training record rather than a view, and
+  a stray click must never be one tap from it. The first tap arms
+  ("↺ tap again to wipe it all") and disarms itself if the second never
+  comes, so a half-formed intent cannot fire a minute later on a tap
+  that meant something else. It sits in the always-present wipe group
+  rather than under the strip, because the strip only exists once
+  something has crossed it — and a player with a ledger to clear is
+  most likely still below it.
   **The replay reel keeps the
   dealer's hole card**: the European deal holds it in the shoe through
   the player's decision, so each stored miss is back-filled at settle
@@ -1348,6 +1702,14 @@ answers with CORS headers.
   when the loss is spread thin) — and the panel closes on
   "Scorecard: hard 16 v 10 ×2 −50 (59%) · hard 12 v 2 ×1 −25 (29%)
   — 2 of 3 cells carry 88% of the −85. Tap a cell to drill it first."
+  **And each named row wears its week over week too** ("hard 16 v 10 ×2
+  −70 (100%) ▼ 10 v 20"): the review is where a sitting is actually read
+  back, often a day later, and the leak panel's direction is exactly the
+  question asked then — is this cell healing or still bleeding? The
+  scorecard asked the same two helpers the rows and the bars ask, so all
+  three print the same figures in the same tints for the same cell; a
+  cell with no week to compare wears nothing at all, and one born this
+  week reads honestly against a zero last week ("▲ 30 v 0").
   **And each named cell is a tap**: it jumps straight into the leak drill
   on that cell — a one-click "drill now" from the review, accepting cells
   the ledger holds (the felt's hand-offs too, not only this sitting's
@@ -1462,8 +1824,11 @@ answers with CORS headers.
   `89 / 70 / 49`, landing on exactly `100 / 90 / 80`.
   Each carries the cell's week over week as a small
   marker — ▼ green when the leak is bleeding less than last week, ▲ red
-  when it is bleeding more, · when it is flat — so the chart shows which
-  fixes are actually holding. **And every bar names itself on hover**:
+  when it is bleeding more, · when it is flat — **with the chips behind
+  each arrow** ("▼ 8 v 400"), the same figures and the same renderer the
+  panel's leak rows use, so the chart shows which fixes are actually
+  holding and how fast they are holding. **And every bar names itself on
+  hover**:
   the chips behind *that* bar, the miss count the cell carries, and the
   running recovery if you fix every bar down to there — "hard 16 v 10 ·
   −336 chips behind this bar · 9 misses in this cell · 336 back if you
@@ -1485,10 +1850,12 @@ answers with CORS headers.
 | `sw.js` | Installability service worker (network-first, `/hub/` untouched) |
 | `make-icons.js` | Draws the PWA icons procedurally → `media/icon-*.png` |
 | `serve.js` | Static host + same-origin `/hub` proxy (zero-dep Node) |
-| `luck999.js` | The measured-gap module both pages load as `window.LUCK999` — the luck word, band, sigma, sign-only colour, crossing mark and strip markup in one source, so the two surfaces cannot drift |
+| `luck999.js` | The measured-gap module both pages load as `window.LUCK999` — the luck word, band, sigma, sign-only colour, crossing mark, strip markup **and the week-over-week reading** (weekStart, prevWeek, nextWeek, leakedIn, weekSplit, weekDir) in one source, so the two surfaces cannot drift |
 | `shoe999.js` | The shoe + settlement engine both pages load as `window.SHOE999` — one source, no page copy |
 | `ev999.js` | The infinite-deck pricing engine both pages load as `window.EV999` — stand/hit/double as expected chips per unit staked |
 | `index999.js` | The count's corrections both pages load as `window.INDEX999` — the flips that are right only at a count, and insurance at +3 |
+| `room999.js` | The voice registry both pages load as `window.ROOM999` — all ten voices either felt can sound, the gain and room send each ships with, which surface owns it, the stepped ladder a Levels panel dials in, and the one persisted record (`999.room.tuning`) both felts read, so neither page holds a send or gain of its own |
+| `test/roomtune.test.js` | The registry against its own rules: the shipped vocabulary and levels, untouched means untouched, both ladders climbing/falling and clamping (a muted rung stays muted), the dry voice tunable into the room, the lenient restore, reset one or all, and both pages loading, mounting and handling every tap on the panel |
 | `test/engines.test.js` | Single-source guard: both pages load each engine, no inline copy survives, tags load in order |
 | `test/shoe999.test.js` | Settlement/shoe math against the shipped module |
 | `test/ev999.mc.js` | Monte-Carlo + exact-recursion ground truth for the EV999 pricing engine |
@@ -1496,6 +1863,7 @@ answers with CORS headers.
 | `test/leakdrill.test.js` | The stacked-shoe drill: every forced deal must land in its target cell |
 | `test/truecount.test.js` | Decks-left, true count and the bet spread, against real shoes |
 | `test/quizmc.js` | Monte-Carlo of the quiz draw: 30000 counts x 9 discipline/ledger fixtures, each empirical share held to the intended weights (2% band) and the structural claims (uniform floor, a refusal pulling the rich band, a cold bleed pulling the cold one, each aim reading only its half, a flat pull landing where a fair sample lands, a brutal one bending harder without starving a rung) — seeded, ~1.9s, mutation-checked |
+| `test/storeread.test.js` | The storage audit, made permanent: every `localStorage` read in both pages swept for the all-or-nothing restore, the shared `numInto` reader run against every way a field can be unreadable, the ten rewired records pinned, and the clamps that outlived the guards still clamping |
 | `README.md` | This page |
 
 Cloth palettes, the hub client and identity handling are vendored from

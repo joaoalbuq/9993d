@@ -208,12 +208,48 @@
   }
   .training .evstrip b { color: #d8b56a; font-variant-numeric: tabular-nums; }
   .training .evstrip .sd { text-transform: none; }   /* the sigma keeps its case: σ, not sum's Σ */
-  .training .evstrip b.luck.ok { color: #43c98a; }   /* inside one spread: the edge holds */
-  .training .evstrip b.luck.out { color: #e2705f; }  /* past one: an outlier, either way */
+  .training .evstrip b.luck.ok { color: #43c98a; }   /* the SIGN alone: run-good, however far it runs */
+  .training .evstrip b.luck.out { color: #e2705f; }  /* the felt behind the engine, however slightly */
   .training .evstrip b.luck.crossed { animation: luckpulse 1.2s ease-out; }   /* the draw the gap tops a spread */
+  /* an outlier that STAYS out: the number itself carries it, so the eye can
+     catch the session without reading the band word beside it. The resting
+     shadow is the real signal and the breath only keeps it alive — under
+     reduced motion the animation is dropped and the glow stays. */
+  .training b.luck.over, .training span.luck.over { text-shadow: 0 0 0.5em currentColor;
+    animation: luckglow 2.6s ease-in-out infinite; }
+  @keyframes luckglow { 0%, 100% { text-shadow: 0 0 0.4em currentColor; }
+                         50% { text-shadow: 0 0 0.85em currentColor; } }
   @keyframes luckpulse { 0%, 100% { text-shadow: 0 0 0 currentColor; } 40% { text-shadow: 0 0 0.7em currentColor; } }   /* a soft bloom in the tone's own colour */
   .training .evleft { margin-top: 0.5em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.45em;
     min-width: 15em; }
+  .training.review { max-width: 24em; max-height: calc(100vh - 7.5em); overflow-y: auto; }
+    /* the report is placed BELOW the overlay by renderReview, from the
+       overlay's own measured height: both panels are fixed at the same corner,
+       and opening both is a normal thing to do — the strip stays live while the
+       report is read. Pinning by height couples the two to each other's
+       content, and pinning to the far corner collides on a narrow felt. */
+  .training .rvtitle { margin: 0 0 0.4em; letter-spacing: 0.14em; text-transform: uppercase;
+    font-size: 0.9em; color: rgba(255,255,255,0.6); }
+  .training .rvnote { margin: 0 0 0.5em; color: rgba(255,255,255,0.5); font-size: 0.9em;
+    line-height: 1.35; }
+  .training .rvsc { margin: 0 0 0.4em; }
+  .training .rvscrow { display: flex; align-items: baseline; gap: 0.45em; margin: 0.12em 0;
+    font-variant-numeric: tabular-nums; }
+  .training .rvscrow .rvcell { flex: 1 1 auto; color: rgba(255,255,255,0.85); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .training .rvscrow .rvn { color: rgba(255,255,255,0.45); font-size: 0.85em; }
+  .training .rvscrow .rvcost { color: #e2705f; font-size: 0.95em; }
+  .training .rvshare { color: rgba(255,255,255,0.45); font-size: 0.85em; }
+  .training .rvscrow.evtap { cursor: pointer; border-radius: 3px; padding: 0.05em 0.2em; }
+  .training .rvscrow.evtap:hover { background: rgba(216,181,106,0.08); }
+  .training .rvscrow.evtap:hover .rvcell { color: #d8b56a; text-decoration: underline dotted; }
+  .training .rvscrow.evseeded .rvcell { color: #d8b56a; text-decoration: underline dotted; }
+  .training .rvscrow.evno { cursor: default; opacity: 0.55; }
+  .training .rvhand { margin: 0.16em 0; color: rgba(255,255,255,0.75); font-size: 0.9em; }
+  .training .rvhand b { color: #d8b56a; font-weight: normal; }
+  .training .rvexit { cursor: pointer; color: rgba(255,255,255,0.5); text-decoration: underline dotted;
+    margin: 0.5em 0 0; font-size: 0.85em; letter-spacing: 0.08em; text-transform: uppercase; }
+  .training.review .evleft { margin-top: 0.6em; }
   .training .evleft .evtitle { margin: 0 0 0.35em; color: rgba(255,255,255,0.55); letter-spacing: 0.12em;
     text-transform: uppercase; font-size: 0.9em; }
   .training .evleft .evrow { display: flex; align-items: center; gap: 0.5em; margin: 0.2em 0; }
@@ -221,10 +257,74 @@
   .training .evleft .evrow .evbar { flex: 1; height: 0.62em; border-radius: 999px;
     background: rgba(255,255,255,0.12); overflow: hidden; }
   .training .evleft .evrow .evbar i { display: block; height: 100%; background: #e2705f;
-    animation: evgrow 0.55s ease-out both; }   /* the bars grow in with the score */
+    animation: evgrow 0.55s ease-out both; }   /* the bars grow in with the score, worst
+    first and each a beat behind the last, so the eye reads them as one sweep
+    settling into place rather than one row at a time appearing */
+  .training .evleft .evrow .evdir { flex: 0 0 auto; font-size: 0.85em; line-height: 1; }
+  .training .evleft .evrow .evdir.down { color: #43c98a; }   /* leaking less than last week */
+  .training .evleft .evrow .evdir.up { color: #e2705f; }     /* and leaking more */
+  .training .evleft .evrow .evdir.flat { color: rgba(255,255,255,0.4); }
+  /* the archived sessions, one to a scale so a run of luck is a shape
+     rather than a number list */
+  .training .luckhist { margin-top: 0.5em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.45em;
+    min-width: 15em; }
+  .training .luckhist .lucktitle { margin: 0 0 0.35em; color: rgba(255,255,255,0.55); letter-spacing: 0.12em;
+    text-transform: uppercase; font-size: 0.9em; }
+  .training .luckhist .luckrow { display: flex; align-items: center; gap: 0.5em; margin: 0.18em 0; }
+  /* ---- the Levels panel: hear and tune a voice without a round ---- */
+  .levels { margin: 0.55em 0 0; font-size: 0.92em; color: rgba(255,255,255,0.85); }
+  .levels .lvhead, .levels .lvfoot { margin: 0 0 0.4em; font-size: 0.9em; letter-spacing: 0.04em; color: rgba(255,255,255,0.55); }
+  .levels .lvfoot { margin: 0.4em 0 0; }
+  .levels .lvrow { display: flex; align-items: center; gap: 0.45em; margin: 0.16em 0; }
+  .levels .lvrow.tuned .lvname { color: #d8b56a; }
+  .levels .lvname { flex: 1 1 auto; cursor: help; }
+  .levels .lvplay { cursor: pointer; color: #d8b56a; }
+  .levels .lvstep { display: inline-flex; align-items: center; gap: 0.15em; }
+  .levels .lvstep span { color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; min-width: 1.1em; text-align: center; }
+  .levels .lvstep .lvdown, .levels .lvstep .lvup { cursor: pointer; min-width: 0; }
+  .levels .lvstep .lvdown:hover, .levels .lvstep .lvup:hover { color: #d8b56a; }
+  .levels .lvval { color: rgba(255,255,255,0.75); }
+  .levels .lvship { cursor: pointer; color: rgba(255,255,255,0.3); }
+  .levels .lvrow.tuned .lvship { color: #d8b56a; }
+  .levels .lvreset { cursor: pointer; color: #d8b56a; text-decoration: underline dotted; }
+  .training .luckhist .luckbar { flex: 1; height: 0.5em; border-radius: 999px;
+    background: rgba(255,255,255,0.12); overflow: hidden; }
+  .training .luckhist .luckbar i { display: block; height: 100%; background: #d8b56a;
+    animation: evgrow 0.55s ease-out both; }
+  .training .luckhist .luckrow.good .luckbar i { background: #43c98a; }
+  .training .luckhist .luckrow.bad .luckbar i { background: #e2705f; }
+  .training .luckhist .luckrow b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  .training .luckhist .luckrow.good b { color: #43c98a; }
+  .training .luckhist .luckrow.bad b { color: #e2705f; }
+  .training .luckhist .luckrow.even b { color: #d8b56a; }
+  .training .luckhist .sd { color: rgba(255,255,255,0.4); font-variant-numeric: tabular-nums;
+    white-space: nowrap; }   /* the sigma beside each archived row, the strip's own measure */
+  .training .luckhist .sd.na { opacity: 0.6; }   /* a book from before the spread: the absence
+                                                       reads quieter than a measurement, as on the strip */
+  .training .luckhist .luckrow.over b { text-shadow: 0 0 0.5em currentColor;
+    animation: luckglow 2.6s ease-in-out infinite; }   /* an archived freak still wears the glow the
+                                                           live strip gives it: same test, same mark */
+  .training .luckhist .luckrow .luckr { flex: 0 0 auto; color: rgba(255,255,255,0.4); font-size: 0.85em;
+    font-variant-numeric: tabular-nums; }
   .training .evleft .evrow b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
   .training .evleft .evtotal { margin: 0.36em 0 0; color: rgba(255,255,255,0.6); }
   @keyframes evgrow { from { width: 0%; } }
+  /* the chart is a way in, the way the practice floor's own bars are: a tap
+     names the cell to its drill, and the row wears the name once it lands */
+  .training .evleft .evrow.evtap { cursor: pointer; }
+  .training .evleft .evrow.evtap:hover { background: rgba(216,181,106,0.08); }
+  .training .evleft .evrow.evtap:hover .evcell { color: #d8b56a; text-decoration: underline dotted; }
+  .training .evleft .evrow.evseeded .evcell { color: #d8b56a; text-decoration: underline dotted; }
+  .training .evleft .evrow.evno { cursor: default; opacity: 0.55; }
+  .training .evleft .evrow.evno:hover { background: none; }
+  .training .evleft .evrow.evno .evcell { color: rgba(255,255,255,0.85); text-decoration: none; }
+  .training .evleft .evnote { margin: 0.3em 0 0; color: #d8b56a; font-size: 0.9em; }
+  .training .evleft .sitreset { margin: 0.4em 0 0; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 0.8em; }
+  .training .evleft .sitreset-tap { cursor: pointer; color: #d8b56a; text-decoration: underline dotted;
+    text-decoration-color: rgba(216,181,106,0.5); }   /* the chart's own way back: one tap,
+    and it lives under the chart it resets, not beside the book wipe — the two
+    have very different reach and must not read as one control */
   .training .evstrip .newbook { cursor: pointer; color: #d8b56a; text-decoration: underline dotted;
     text-decoration-color: rgba(216,181,106,0.5); position: relative; z-index: 3; }   /* the strip's own
     tap: a fresh book — lifted above the shoe, which overlays the strip on narrow felt */
@@ -232,6 +332,9 @@
     font-size: 0.85em; }
   .training .bookreset-tap { cursor: pointer; color: #d8b56a; text-decoration: underline dotted;
     text-decoration-color: rgba(216,181,106,0.5); }   /* the overlay's own wipe: the whole persisted book */
+  .training .bookreset-tap.armed { color: #e2705f; text-decoration-color: rgba(226,112,95,0.6); }
+    /* armed, and armed in the house red: this is the one control here that
+       ends a sitting outright, and a stray click must never be one tap away */
   .act.chip.on {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
@@ -350,14 +453,18 @@
     <div class="shotpill" id="shotpill">Wide table</div>
   </header>
 
-  <div class="training" id="trainBox" hidden></div>
+  <div class="training" id="trainBox" hidden><div class="levels" id="levelsBox" hidden></div></div>
+  <div class="training review" id="reviewBox" hidden></div>
 
   <div class="tools">
     <a class="tool" id="who" href="login-16x9.html">Sign in</a>
     <button class="tool" id="zoom" type="button">Zoom out</button>
     <button class="tool" id="audioBtn" type="button" title="Toggle sound">🔊 Sound</button>
     <button class="tool" id="cineBtn" type="button" title="Cinematic deal (C)">◻ Normal</button>
+    <button class="tool" id="levelsBtn" type="button"
+    title="Levels — hear and tune each voice without playing a round">🎹 Levels</button>
     <button class="tool" id="coachBtn" type="button" title="Training overlay: book marks and the Hi-Lo count">🎓 Coach</button>
+    <button class="tool" id="reviewBtn" type="button" title="Session review: this sitting's scorecard, your hands off the book's line, and the money still recoverable">⏪ Review</button>
     <button class="tool" id="fsBtn" type="button" title="Toggle fullscreen">⤢ Fullscreen</button>
     <button class="tool" id="installBtn" type="button" hidden>⤓ Install</button>
     <div class="swatches" id="swatches" role="group" aria-label="Table cloth palette"></div>
@@ -385,6 +492,7 @@
 <script src="shoe999.js"></script>
 <script src="ev999.js"></script>
 <script src="index999.js"></script>
+<script src="room999.js"></script>
 <script>
 (function () {
   'use strict';
@@ -716,8 +824,9 @@
        send never buys loudness.                              */
     var c = ready(); if (!c) return;
     var t = c.currentTime + 0.02;
-    tone(c, 659.25, t, 0.3, 'triangle', 0.038, null, null, BONUS_ROOM);
-    tone(c, 1318.5, t + 0.12, 0.3, 'triangle', 0.026, null, null, BONUS_ROOM);
+    var bg = ROOM999.gain('bonus');
+    tone(c, 659.25, t, 0.3, 'triangle', bg * 0.76, null, null, BONUS_ROOM());
+    tone(c, 1318.5, t + 0.12, 0.3, 'triangle', bg * 0.52, null, null, BONUS_ROOM());
     var b = document.getElementById('bonusBtn');
     if (b && typeof amount === 'number') {
       b.hidden = false;
@@ -1396,8 +1505,43 @@
      — the rounds, the engine's expectation, the felt and the
      spread all start over, so the band falls back to nothing. The
      coach's decisions are their own book and stay.        */
+  /* a reset throws the reconciliation away, and a reconciliation is
+     the only place the night's luck was ever recorded. So every reset
+     banks it first: the engine's price, the felt's own, the gap
+     between them, and how many rounds it took to read. Kept newest
+     first and capped, because the question is "how have the last few
+     gone", not "everything, forever" — six sessions is long enough to
+     see a run, short enough that each one is still a sitting. Only a
+     reconciliation that actually priced rounds is worth keeping: a
+     wipe of an untouched book archives nothing, and says nothing. */
+  var LUCK_HIST_MAX = 6;
+  var luckHist = [];
+  try {
+    var lhRaw = JSON.parse(localStorage.getItem('999.table.luckhist') || 'null');
+    if (Array.isArray(lhRaw)) luckHist = lhRaw.filter(function (r) {
+      return r && typeof r.luck === 'number' && typeof r.rounds === 'number';
+    }).slice(0, LUCK_HIST_MAX);
+  } catch (e) { }
+  function saveLuckHist() {
+    try { localStorage.setItem('999.table.luckhist', JSON.stringify(luckHist)); } catch (e) { }
+  }
+  function archiveLuck(why) {
+    if (!(trainStats.rounds > 0)) return null;      /* an unpriced book closes on nothing */
+    var rec = { ev: trainStats.ev || 0, felt: trainStats.felt || 0,
+                rounds: trainStats.rounds, sd2: trainStats.sd2 || 0,
+                luck: (trainStats.felt || 0) - (trainStats.ev || 0),
+                at: Date.now(), why: why };
+    luckHist.unshift(rec);                          /* newest first */
+    while (luckHist.length > LUCK_HIST_MAX) luckHist.pop();
+    saveLuckHist();
+    return rec;
+  }
   function resetT() {
+    archiveLuck('new book');
     trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
+    tSeeded = {};             /* the taps this book made are its own, and go with it */
+    tSeedNote = '';
+    tSitArm = 0;               /* and a pending whole-sitting intent goes with them */
     saveT();
     renderTrain();
   }
@@ -1406,13 +1550,54 @@
      start over, and this sitting's own chart clears with them, so a
      player can begin again without a reload.               */
   function clearBookT() {
+    archiveLuck('clear the book');
     trainStats.decisions = 0; trainStats.book = 0; trainStats.loss = 0; trainStats.lossBase = 0;
     trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
     tOut = null;               /* the crossing mark starts fresh too */
     tSession = {};             /* the sitting's recoverable-money fold rides the same session */
+    tSeeded = {};              /* and so do the taps: a wiped book has named nothing */
+    tSeedNote = '';
+    tSitArm = 0;               /* a pending whole-sitting intent dies with the book it
+                                  was aimed at — otherwise the next tap on that control
+                                  fires a wipe for a wipe the player just did        */
     clearT();
     trainMsg = '';
     saveT();
+    renderTrain();
+  }
+  /* the whole sitting: the coach's accuracy, the leak ledger and the
+     reconciliation, together. `clear the book` stops at this page's own
+     book and leaves the practice floor's ledger alone — which is right, because
+     those chips already left the felt and a page-level wipe cannot take
+     them back. This one says otherwise: the sitting is over, ledger and
+     all, so the drills that read it start from nothing too. Two taps and
+     six seconds, because this is the one control here that destroys a
+     training record, and a stray click must never be one tap from it. */
+  var tSitArm = 0;                    /* the arming stamp; 0 is disarmed */
+  function resetWholeT() {
+    archiveLuck('whole sitting');
+    trainStats.decisions = 0; trainStats.book = 0; trainStats.loss = 0; trainStats.lossBase = 0;
+    trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
+    tOut = null;               /* the crossing mark starts fresh too */
+    tSession = {};             /* the sitting's own chart goes with the sitting */
+    tSeeded = {}; tSeedNote = '';
+    clearT();
+    trainMsg = '';
+    try { localStorage.setItem('999.practice.leaks', '{}'); } catch (e) { }
+    tSitArm = 0;
+    saveT();
+    renderTrain();
+  }
+  function armWholeT() {
+    if (tSitArm) { resetWholeT(); return; }      /* the second tap ends it */
+    var at = Date.now();
+    tSitArm = at;
+    setTimeout(function () {                     /* and it disarms itself, so a
+                                                    half-finished intent cannot
+                                                    fire a minute later on a tap
+                                                    that meant something else */
+      if (tSitArm === at) { tSitArm = 0; renderTrain(); }
+    }, 6000);
     renderTrain();
   }
   /* the hand-off: the felt's misses ride to the practice shoe's
@@ -1447,7 +1632,14 @@
                                                                  queue still weighs the soft cell */
       if (Array.isArray(lk[k].yk)) out[k].yk = lk[k].yk.slice();   /* the re-yank log rides, so the
                                                                  floor's roster trend survives */
+      if (typeof lk[k].qs === 'number') out[k].qs = lk[k].qs;   /* a tapped bar's drill request rides
+                                                                 too: without it the next settle
+                                                                 would merge this cell over and eat
+                                                                 the tap the player just made */
       if (lk[k].m) out[k].m = 1;                              /* a master stays mastered */
+      if (typeof lk[k].mt === 'number') out[k].mt = lk[k].mt;   /* and WHEN it mastered rides with it:
+                                                                 a felt miss must not drop the day the
+                                                                 floor's gold block reads by */
     }
     if (!out[miss.cell]) out[miss.cell] = { n: 0, cost: 0 };
     out[miss.cell].n++;
@@ -1566,6 +1758,20 @@
      draws: the sitting's own miss cells folded to the few behind
      most of the loss (Pareto's cut, at most three rows), each bar
      the chips fixing that cell wins back, scaled to the worst.  */
+  /* the week a cell is weighed in, and the one before it, is measured by
+     luck999.js — the same Monday-midnight split and the same arithmetic the
+     practice floor reads, so a marker here means what a marker there means
+     by construction rather than by two copies agreeing. Only the snapshot
+     READ stays here: this page must not touch the floor's storage, so it
+     reads leniently and hands the map to the shared reading. */
+  function weekBaseT() {
+    var wb = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem('999.practice.weekbase') || 'null');
+      if (raw && typeof raw === 'object') wb = raw;
+    } catch (e) { }
+    return wb;
+  }
   function scoreT(map) {
     var cells = [], k, total = 0;
     for (k in map) if (map[k] && map[k].n) { cells.push({ cell: k, cost: map[k].cost, n: map[k].n }); total += map[k].cost; }
@@ -1585,32 +1791,243 @@
        copy because these are two documents */
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function evBarTitleT(cell, cost, n, cum) {
+  function evBarTitleT(cell, cost, n, cum, note) {
     /* the bar's own name, said plainly on hover: the chips behind
        THIS bar, how many misses the cell carries, and what fixing
-       every bar down to here hands back                  */
+       every bar down to here hands back. A tappable row adds the
+       way in, so the affordance is named where the eye already is  */
     return attrTT(cell) + ' \u00b7 \u2212' + Math.round(cost) + ' chips behind this bar \u00b7 ' +
       n + ' miss' + (n === 1 ? '' : 'es') + ' in this cell \u00b7 ' +
-      Math.round(cum) + ' back if you fix every bar down to here';
+      Math.round(cum) + ' back if you fix every bar down to here' + (note ? ' \u00b7 ' + note : '');
   }
-  function evLeftT() {
+  var tSeeded = {};                /* the cells this sitting named to the practice floor's drill */
+  var tSeedNote = '';              /* what the last tap said, said under the chart */
+  function tLedgerRead() {         /* the floor's ledger, read leniently — the same
+                                       posture flushT takes, one row at a time */
+    var lk = {};
+    try {
+      var raw = JSON.parse(localStorage.getItem('999.practice.leaks') || 'null');
+      if (raw && typeof raw === 'object') lk = raw;
+    } catch (e) { }
+    return lk;
+  }
+  function drillFeedFelt() {
+    /* the floor's own switch, read where the tap happens: a player who
+       drilled the quiz only never asked for felt cells, so the chart says
+       so at the tap rather than taking one it would silently drop       */
+    var src = null;
+    try {
+      var dfRaw = JSON.parse(localStorage.getItem('999.practice.drillfeed') || 'null');
+      if (dfRaw && dfRaw.src) src = dfRaw.src;
+    } catch (e) { }
+    return src !== 'quiz';         /* both and felt take it; a floor from before the
+                                       switch took everything, and still does */
+  }
+  /* a tap on the chart hands the cell to the practice floor's drill. The
+     loss itself is already in the ledger — the settle flushed this very
+     cell there with its chips — so the tap adds no money and no miss. It
+     writes a request stamp on the row the floor already holds, and the
+     floor forces that cell to its next leak hand.                 */
+  function seedDrillFromBar(cell) {
+    if (!cell) return;
+    var lk = tLedgerRead();
+    var row = lk[cell];
+    if (row && row.m) {            /* a master has left the drill for good, here as
+                                     there: the chart does not quietly override it */
+      tSeedNote = cell + ' is mastered \u2014 it has left the drill.';
+      renderTrain(); return;
+    }
+    if (!drillFeedFelt()) {
+      tSeedNote = 'the drill takes quiz misses only \u2014 switch the feed to take this one.';
+      renderTrain(); return;
+    }
+    if (!row) row = lk[cell] = { n: 0, cost: 0 };
+    row.qs = Date.now();
+    try { localStorage.setItem('999.practice.leaks', JSON.stringify(lk)); }
+    catch (e) {
+      tSeedNote = 'the practice floor is not reachable from here \u2014 the ledger would not save.';
+      renderTrain(); return;
+    }
+    tSeeded[cell] = row.qs;
+    tSeedNote = cell + ' \u00b7 named to the practice floor \u2014 its next leak hand deals this cell.';
+    renderTrain();
+  }
+  /* one tap starts the chart over. The chart is drawn from tSession, which is
+     this table's own sitting and lives in memory only, so this is exactly the
+     reset a reload would give — on demand, without the reload. What it must
+     NOT touch is the practice floor's ledger: the chips behind those bars were
+     already handed over at each settle, and a view of them starting over
+     cannot un-teach a drill the player has earned. The coach's decisions, the
+     reconciliation and the whole persisted book stay exactly where they are,
+     which is what makes this one tap and not two.                     */
+  function resetSittingT() {
+    tSession = {};
+    tSeeded = {};
+    tSeedNote = '';
+    renderTrain();
+  }
+  /* the felt's own hands, read back off the reel it hands the practice
+     shoe: the ones that left the book's line, with what each cost. The
+     felt keeps no reel of its own — it flushes at every settle — so this is
+     the same record the floor reviews, read from the same place. */
+  function feltHandsT() {
+    var out = [];
+    try {
+      var raw = JSON.parse(localStorage.getItem('999.practice.replay') || 'null');
+      if (Array.isArray(raw)) {
+        for (var i = raw.length - 1; i >= 0; i--) {
+          var e = raw[i];
+          if (!e || e.felt !== 1 || !e.choice || !e.book || e.choice === e.book) continue;
+          out.push(e);
+        }
+      }
+    } catch (c) { }
+    return out;                          /* newest first, walking the reel backwards */
+  }
+  /* the session report: the scorecard, the hands off the book's line, and
+     the same chart the overlay carries — the felt's recoverable money, which
+     is per-sitting and dies with the page, so the report is where a sitting
+     goes to be read rather than glimpsed. */
+  var tReviewOpen = false;
+  function renderReview() {
+    var b = document.getElementById('reviewBox');
+    if (!b) return;
+    b.hidden = !tReviewOpen;
+    var btn = document.getElementById('reviewBtn');
+    if (btn) btn.classList.toggle('on', tReviewOpen);
+    if (!tReviewOpen) { b.innerHTML = ''; return; }
+    var names = [], k, total = 0, i;
+    for (k in tSession) if (tSession[k] && tSession[k].n) { names.push(k); total += tSession[k].cost; }
+    names.sort(function (a, c) { return tSession[c].cost - tSession[a].cost; });
+    var html = '<p class="rvtitle">Session review</p>';
+    if (!names.length) {
+      html += '<p class="rvnote">No miss yet this sitting \u2014 nothing priced, and nothing lost ' +
+        'to the book. The chart fills the moment a hand goes off the line.</p>';
+    } else {
+      /* the scorecard rows answer a tap exactly as the bars below them do:
+         same cell, same two refusals, same drill. The two lists are the same
+         data read twice, so a row that promised nothing would be a lie the
+         player could check by scrolling one line.                      */
+      var rlk = tLedgerRead(), rfed = drillFeedFelt();
+      var rows = '';
+      for (i = 0; i < names.length; i++) {
+        var c2 = tSession[names[i]];
+        var share = total > 0 ? Math.round(100 * c2.cost / total) : 0;
+        var rtap = rfed && !(rlk[names[i]] && rlk[names[i]].m);
+        rows += '<div class="rvscrow' + (rtap ? ' evtap' : ' evno') +
+          (tSeeded[names[i]] ? ' evseeded' : '') + '"' +
+          (rtap ? ' data-cell="' + attrTT(names[i]) + '"' : '') +
+          ' title="' + attrTT(names[i]) + ' \u00b7 \u2212' + Math.round(c2.cost) +
+            ' chips behind this cell \u00b7 ' + c2.n + ' miss' + (c2.n === 1 ? '' : 'es') +
+            ' \u00b7 ' + share + '% of the sitting' +
+            (rtap ? ' \u00b7 tap to drill this cell at the practice floor' : '') + '">' +
+          '<span class="rvcell">' + names[i] + '</span>' +
+          '<span class="rvn">\u00d7' + c2.n + '</span>' +
+          '<span class="rvcost">\u2212' + Math.round(c2.cost) + '</span>' +
+          '<span class="rvshare">' + share + '%</span></div>';
+      }
+      html += '<p class="rvnote">Your misses this sitting, costliest first \u2014 the whole ' +
+        '\u2212' + Math.round(total) + ' sits in ' + names.length + (names.length === 1 ? ' cell' : ' cells') +
+        '. Tap a row, or a bar below, to name a cell to the practice floor\u2019s drill.</p>' +
+        '<div class="rvsc">' + rows + '</div>';
+    }
+    var hands = feltHandsT();
+    if (hands.length) {
+      var hr = '';
+      for (i = 0; i < hands.length && i < 6; i++) {
+        var h = hands[i];
+        hr += '<p class="rvhand">' + (h.cell ? h.cell + ' \u00b7 ' : '') +
+          'you played <b>' + h.choice + '</b>, book <b>' + h.book + '</b>' +
+          (h.cost ? ' \u00b7 \u2212' + Math.round(h.cost) : '') + '</p>';
+      }
+      html += '<p class="rvnote">Hands you took off the book\u2019s line, most recent first ' +
+        '(' + hands.length + ' in the shoe).</p>' + hr;
+    }
+    html += evLeftT('R');
+    html += '<p class="rvexit" id="evCloseReviewT">Close the review</p>';
+    b.innerHTML = html;
+    /* stand under the overlay, whatever height it has taken, so the two can
+       never sit on one another */
+    var ov = document.getElementById('trainBox');
+    b.style.top = (ov && !ov.hidden) ? Math.round(ov.getBoundingClientRect().bottom + 8) + 'px' : '';
+  }
+  /* the sessions side by side: each archived reconciliation as one row, its
+     gap drawn on the SAME scale the strip already speaks: as a distance in
+     THAT session's own spreads, banded even / cool / warm / cold / hot /
+     freak, with the signed sigma beside the word. Raw chips cannot carry a
+     run of sessions — a −1 over three rounds and a −10 over thirty are not
+     the same luck, and one chip axis calls them alike. The band already
+     measures each session against itself. Green is the felt ahead of the
+     engine, red behind it, gold when the two finished level — the same
+     tones the strip already spends on luck.                        */
+  function luckHistHtml() {
+    if (!luckHist.length) return '';
+    var rows = '', i, r, zz, tn, ov, sd;
+    for (i = 0; i < luckHist.length; i++) {
+      r = luckHist[i];
+      /* the same three readings the strip takes off the same book, so a
+         row can never band a session the strip would have called even */
+      zz = LUCK999.z(r);
+      sd = zz == null ? '' : LUCK999.zSig(zz);
+      /* the SIGN alone, as everywhere else: the tone is the same call the
+         strip makes, so the row can never contradict the book above it */
+      tn = r.luck > 0.05 ? 'good' : r.luck < -0.05 ? 'bad' : 'even';
+      ov = LUCK999.out(r);
+      /* the bar rides the SIGMA, not the chips: three spreads fills the
+         row, so a freak reads as the outlier it is against a session
+         that merely drifted. A book from before the spread has no scale
+         of its own, and says so instead of borrowing one. */
+      rows += '<div class="luckrow ' + tn + (ov ? ' over' : '') + '" title="' +
+        (r.why ? 'ended by ' + attrTT(r.why) + ' \u00b7 ' : '') +
+        'engine ' + attrTT(fmtT(r.ev)) + ' \u00b7 felt ' + attrTT(fmtT(r.felt)) +
+        ' \u00b7 ' + r.rounds + ' round' + (r.rounds === 1 ? '' : 's') + '">' +
+        '<span class="luckbar"><i style="width:' +
+        (zz == null ? 0 : Math.min(100, Math.round(100 * Math.abs(zz) / 3))) + '%"></i></span>' +
+        '<b' + (tn === 'even' ? '' : ' class="luck ' + tn + (ov ? ' over' : '') + '"') + '>' +
+        fmtT(Math.round(r.luck * 10) / 10) + '</b>' +
+        (zz == null
+          ? '<span class="sd na">no spread</span>'
+          : '<span class="sd">' + sd + '</span> ' + LUCK999.bandOf(zz)) +
+        '<span class="luckr">' + r.rounds + '</span></div>';
+    }
+    return '<div class="luckhist"><p class="lucktitle">Sessions \u00b7 luck vs the engine</p>' + rows + '</div>';
+  }
+  function evLeftT(sfx) {
     var sc = scoreT(tSession);
     if (!sc || !sc.rows.length) return '';
+    var lk = tLedgerRead(), fed = drillFeedFelt(), wb = weekBaseT(), now = Date.now();
     var cum = 0, mx = 0, i, bars = '';
     for (i = 0; i < sc.rows.length; i++) if (sc.rows[i].cost > mx) mx = sc.rows[i].cost;
     for (i = 0; i < sc.rows.length; i++) {
       var c = sc.rows[i].cost;
       cum += c;
-      bars += '<div class="evrow" title="' + evBarTitleT(sc.rows[i].cell, c, sc.rows[i].n, cum) + '">' +
-        '<span class="evcell">' + sc.rows[i].cell + '</span>' +
-        '<span class="evbar"><i style="width:' + Math.round(100 * (mx ? c / mx : 0)) + '%"></i></span>' +
-        '<b>\u2212' + Math.round(c) + '</b></div>';
+      var cell = sc.rows[i].cell;
+      var tap = fed && !(lk[cell] && lk[cell].m);   /* the same two refusals the tap
+                                                           itself makes, so a row never
+                                                           offers what a tap would refuse */
+      var d = LUCK999.weekDir(lk, wb, cell, now);
+      var mark = d == null ? '' : '<span class="evdir ' + (d < 0 ? 'down' : d > 0 ? 'up' : 'flat') + '"' +
+        ' title="' + attrTT(cell) + ' \u00b7 ' + (d < 0 ? 'leaking less than last week' :
+          d > 0 ? 'leaking more than last week' : 'leaking the same as last week') + '">' +
+        (d < 0 ? '\u25BC' : d > 0 ? '\u25B2' : '\u00b7') + '</span>';
+      bars += '<div class="evrow' + (tap ? ' evtap' : ' evno') +
+        (tSeeded[cell] ? ' evseeded' : '') + '"' +
+        (tap ? ' data-cell="' + attrTT(cell) + '"' : '') +
+        ' title="' + evBarTitleT(cell, c, sc.rows[i].n, cum, tap ? 'tap to drill this cell at the practice floor' : '') + '">' +
+        '<span class="evcell">' + cell + '</span>' +
+        '<span class="evbar"><i style="width:' + Math.round(100 * (mx ? c / mx : 0)) +
+          '%;animation-delay:' + (i * 70) + 'ms"></i></span>' +
+        '<b>\u2212' + Math.round(c) + '</b>' + mark + '</div>';
     }
     var behind = sc.total - cum;
     return '<div class="evleft"><p class="evtitle">EV left on the table</p>' + bars +
       '<p class="evtotal">Fix ' + (sc.rows.length === 1 ? 'it' : 'all ' + sc.rows.length) +
       ': +' + Math.round(cum) + ' back' +
-      (behind > 0.5 ? ' \u00b7 ' + Math.round(behind) + ' still behind the rest.' : '.') + '</p></div>';
+      (behind > 0.5 ? ' \u00b7 ' + Math.round(behind) + ' still behind the rest.' : '.') + '</p>' +
+      (tSeedNote ? '<p class="evnote">' + tSeedNote + '</p>' : '') +
+      '<p class="sitreset"><span class="sitreset-tap" id="evFreshSitT' + (sfx || '') + '"' +
+      ' title="start this sitting over \u2014 the bars and the chips behind them \u2014 and keep everything else">' +
+      '\u21ba fresh sitting</span></p></div>';
   }
   function renderTrain() {
     var b = document.getElementById('trainBox');
@@ -1635,8 +2052,11 @@
     /* the gap rides the score the way the practice pill reads it:
        the word, its band, and the sigma that measures it        */
     var tBand = trainStats.rounds ? LUCK999.band(trainStats) : '', tSig = trainStats.rounds ? LUCK999.sigma(trainStats) : '';
+    var tOver = trainStats.rounds && LUCK999.out(trainStats);   /* past a spread: the number glows
+                                                                    on its own account, so an outlier
+                                                                    sitting reads without the band */
     var tLuck = trainStats.rounds
-      ? ' \u00b7 ' + LUCK999.word(trainStats) + ' luck' + (tBand ? ' \u00b7 ' + tBand : '') + (tSig ? ' \u00b7 ' + tSig : '')
+      ? ' \u00b7 <span class="luck' + (tOver ? ' over' : '') + '">' + LUCK999.word(trainStats) + '</span> luck' + (tBand ? ' \u00b7 ' + tBand : '') + (tSig ? ' \u00b7 ' + tSig : '')
       : '';
     html += '<br>' + (tPct == null ? 'Coach'
       : 'Coach ' + tPct + '% \u00b7 ' + trainStats.book + '/' + trainStats.decisions + tPer + tLuck);
@@ -1647,15 +2067,27 @@
     var strip = LUCK999.stripLine(trainStats, crossT.fire);      /* the reconciliation strip, under the score */
     if (strip) html += '<div class="evstrip">' + strip +
       ' \u00b7 <span class="newbook" id="evNewBookT">\u21ba new book</span></div>';   /* the strip's own tap */
-    html += evLeftT();                     /* the felt's recoverable money, folded */
+    html += luckHistHtml();                /* the sessions already ended, side by side */
+    html += evLeftT('');                   /* the felt's recoverable money, folded */
     if (game.dealer.cards.length === 1 && game.dealer.cards[0] && game.dealer.cards[0].rank === 'A') {
       var insTc = Math.round(hiLo / Math.max(shoeArr.length / 52, 0.25));
       html += '<br>Insurance turns at true +' + INDEX999.INSURE_AT + ' (now ' + fmtT(insTc) + ')';
     }
     /* the fresh-book control: one tap wipes the persisted book and
        starts the session over                                   */
-    html += '<p class="bookreset"><span class="bookreset-tap" id="clearBookT" title="wipe the persisted book \u2014 decisions, cost and reconciliation \u2014 and start the session over">\u232b clear the book</span></p>';
+    /* the wipe group, in reach of each other and always present: the strip's
+       own `new book` only exists once something has crossed it, and a player
+       with a bad ledger to clear is most likely still below it. */
+    html += '<p class="bookreset">' +
+      '<span class="bookreset-tap' + (tSitArm ? ' armed' : '') + '" id="evWholeSitT"' +
+      ' title="' + (tSitArm
+        ? 'the second tap ends the sitting \u2014 coach accuracy, the leak ledger and the reconciliation'
+        : 'end the whole sitting \u2014 coach accuracy, the leak ledger and the reconciliation, together') + '">' +
+      (tSitArm ? '\u21ba tap again to wipe it all' : '\u21ba whole sitting') + '</span>' +
+      ' \u00b7 <span class="bookreset-tap" id="clearBookT" title="wipe the persisted book \u2014 decisions, cost and reconciliation \u2014 and start the session over">\u232b clear the book</span></p>';
     b.innerHTML = html;
+    if (tReviewOpen) renderReview();   /* the report rides the same redraw, so it never
+                                          disagrees with the strip it repeats */
   }
   function markT() {
     if (!coachOn || game.phase !== 'acting' || game.acting !== YOUR) return;
@@ -2468,15 +2900,77 @@
   document.addEventListener('pointerdown', wakeAudio);
   document.addEventListener('keydown', wakeAudio);
 
-  var RIFFLE_ROOM = 1.7, STINGER_ROOM = 1.4, WHOOSH_ROOM = 1.5, CLACK_ROOM = 0.6;
+  /* The sends are NOT written here: ROOM999 holds every voice both
+     felts share, its shipped gain and shipped send, and whatever the
+     Levels panel has tuned since. These bindings are one-line reads, so
+     the table and the floor cannot drift on a number that lives in
+     exactly one place.                                                */
+  var RIFFLE_ROOM = function () { return ROOM999.send('riffle'); };
+  var WHOOSH_ROOM = function () { return ROOM999.send('whoosh'); };
+  var STINGER_ROOM = function () { return ROOM999.send('stinger'); };
+  var CLACK_ROOM = function () { return ROOM999.send('clack'); };
   /* the three small voices, each sent for its own moment: the
      whisper leans in because paper is nearly all room, the
      chime leans in hardest because calling a round across a
      quiet felt IS the room, and the shoe's tap stays nearly dry
      because it fires on every card and must never stack. */
-  var CUT_ROOM = 1.25, BETS_ROOM = 1.6, TAP_ROOM = 0.45, BONUS_ROOM = 1.3;
+  var CUT_ROOM = function () { return ROOM999.send('cut'); };
+  var BETS_ROOM = function () { return ROOM999.send('bets'); };
+  var TAP_ROOM = function () { return ROOM999.send('tap'); };
+  var BONUS_ROOM = function () { return ROOM999.send('bonus'); };
   /* the ceremony fills the air, the whoosh IS air and swims, the
      verdict blooms, and the clacks stay dry-ish near the cloth */
+  /* ---- the Levels panel: hear and tune a voice on its own -------
+     Same rows as the floor's, from ROOM999, so both felts show the same
+     voices and the same numbers; playing one fires its REAL function, so
+     what you hear is exactly what a round will play.                    */
+  var levelsOn = false;
+  (function () {
+    var btn = document.getElementById('levelsBtn'), box = document.getElementById('levelsBox');
+    if (btn) btn.addEventListener('click', function () {
+      levelsOn = !levelsOn;
+      if (box) box.hidden = !levelsOn;
+      if (levelsOn) renderLevels();
+    });
+    if (box) box.addEventListener('click', levelsClick);
+  })();
+  function renderLevels() {
+    var b = document.getElementById('levelsBox');
+    if (!b) return;
+    b.innerHTML = ROOM999.panelHtml('table');
+  }
+  function playVoice(id) {
+    if (id === 'riffle') riffleSound(null);
+    else if (id === 'whoosh') { cardWhoosh(0, null, null); }
+    else if (id === 'snap') cardSnap(0, null);
+    else if (id === 'clack') chipClack(0);
+    else if (id === 'stinger') stinger('win');
+    else if (id === 'cut') cutCue();
+    else if (id === 'bets') betsOpen(0);
+    else if (id === 'tap') shoeTap(0);
+    else if (id === 'bonus') bonusWin(100);
+  }
+  function levelsClick(e) {
+    var play = e.target.closest && e.target.closest('[data-lvplay]');
+    if (play) { playVoice(play.getAttribute('data-lvplay')); return; }
+    var reset = e.target.closest && e.target.closest('[data-lvreset]');
+    if (reset) {
+      var rid = reset.getAttribute('data-lvreset');
+      ROOM999.reset(rid === 'all' ? undefined : rid);
+      renderLevels();
+      return;
+    }
+    var step = e.target.closest && e.target.closest('[data-lvstep]');
+    if (!step) return;
+    var dir = step.getAttribute('data-lvstep');
+    var voice = step.closest('[data-lvvoice]');
+    var kindBox = step.closest('[data-lvkind]');
+    if (dir == null || !voice || !kindBox) return;
+    var id = voice.getAttribute('data-lvvoice');
+    if (ROOM999.step(id, kindBox.getAttribute('data-lvkind'), Number(dir)) == null) return;
+    playVoice(id);
+    renderLevels();
+  }
   function toRoom(node, room) {
     /* every voice answers the room at its own level: the shared
        bus trims 0.35, a voice leans in or out with its send -
@@ -2545,10 +3039,10 @@
       out = c.createStereoPanner();     /* the chip's stereo seat */
       out.pan.setValueAtTime(clamp(pan, -1, 1), t);
       out.connect(master);
-      toRoom(out, CLACK_ROOM);          /* the send sits after the pan: the room keeps the direction */
+      toRoom(out, CLACK_ROOM());          /* the send sits after the pan: the room keeps the direction */
     }
-    burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out, CLACK_ROOM);
-    tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out, CLACK_ROOM);
+    burst(c, t, 0.05, 'bandpass', far ? lerp(1750, 2900, near) : 2600, 1.6, 0.30 * g * dg, out, CLACK_ROOM());
+    tone(c, far ? lerp(248, 318, near) : 300, t, 0.075, 'triangle', 0.20 * g * dg, 170, out, CLACK_ROOM());
   }
   function cardSnap(delay, dist) {
     /* The card hits the cloth at the end of its 430ms flight —
@@ -2611,7 +3105,7 @@
       var p = c.createStereoPanner();   /* the card's stereo seat: shoe to box */
       p.pan.setValueAtTime(clamp(panFrom == null ? pan : panFrom, -1, 1), t);
       if (panFrom != null) p.pan.linearRampToValueAtTime(clamp(pan, -1, 1), t + D);
-      g.connect(p); p.connect(master); toRoom(p, WHOOSH_ROOM);   /* the send sits after the pan */
+      g.connect(p); p.connect(master); toRoom(p, WHOOSH_ROOM());   /* the send sits after the pan */
       if (wetPan && wet.hold <= t) {
         /* the far wall: the return leans subtly OPPOSITE the flyer -
            0.35 of its seat, ramping across the flight, re-centered
@@ -2624,7 +3118,7 @@
         wet.hold = t + D + 0.75;
       }
     } else {
-      g.connect(master); toRoom(g, WHOOSH_ROOM);     /* no panning API: the whoosh stays centered */
+      g.connect(master); toRoom(g, WHOOSH_ROOM());     /* no panning API: the whoosh stays centered */
     }
     s.start(t); s.stop(t + D + 0.03);
   }
@@ -2646,17 +3140,17 @@
        the animation it belongs to                          */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay0 || 0);
-    burst(c, t + 0.06, 0.34, 'bandpass', 850, 0.7, 0.09, null, RIFFLE_ROOM);   /* the halves lift apart */
+    burst(c, t + 0.06, 0.34, 'bandpass', 850, 0.7, 0.09, null, RIFFLE_ROOM());   /* the halves lift apart */
     for (var k = 0; k < 14; k++) {
       /* the riffle: a rapid run of shaped snaps, one per card */
       var at = t + 0.55 + k * 0.062;
-      burst(c, at, 0.055, 'bandpass', 1500 + Math.random() * 1400, 2.6, 0.11, null, RIFFLE_ROOM);
-      if (k % 3 === 0) tone(c, 240 + Math.random() * 60, at, 0.05, 'triangle', 0.035, 170, null, RIFFLE_ROOM);
+      burst(c, at, 0.055, 'bandpass', 1500 + Math.random() * 1400, 2.6, 0.11, null, RIFFLE_ROOM());
+      if (k % 3 === 0) tone(c, 240 + Math.random() * 60, at, 0.05, 'triangle', 0.035, 170, null, RIFFLE_ROOM());
     }
-    burst(c, t + 1.58, 0.05, 'bandpass', 1900, 1.2, 0.12, null, RIFFLE_ROOM);  /* squaring up: two taps */
-    tone(c, 190, t + 1.58, 0.09, 'triangle', 0.15, 120, null, RIFFLE_ROOM);
-    burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11, null, RIFFLE_ROOM);
-    tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105, null, RIFFLE_ROOM);
+    burst(c, t + 1.58, 0.05, 'bandpass', 1900, 1.2, 0.12, null, RIFFLE_ROOM());  /* squaring up: two taps */
+    tone(c, 190, t + 1.58, 0.09, 'triangle', 0.15, 120, null, RIFFLE_ROOM());
+    burst(c, t + 1.80, 0.055, 'bandpass', 1500, 1.2, 0.11, null, RIFFLE_ROOM());
+    tone(c, 165, t + 1.80, 0.11, 'triangle', 0.13, 105, null, RIFFLE_ROOM());
   }
   /* the betting chime: two soft notes over "place your bets".
      Of the three small voices this is the one whose moment IS
@@ -2667,8 +3161,9 @@
   function betsOpen(delay) {
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0);
-    tone(c, 783.99, t, 0.34, 'triangle', 0.038, 659.25, null, BETS_ROOM);
-    tone(c, 1046.5, t + 0.12, 0.3, 'triangle', 0.022, null, null, BETS_ROOM);
+    var bg2 = ROOM999.gain('bets');
+    tone(c, 783.99, t, 0.34, 'triangle', bg2 * 0.76, 659.25, null, BETS_ROOM());
+    tone(c, 1046.5, t + 0.12, 0.3, 'triangle', bg2 * 0.44, null, null, BETS_ROOM());
   }
   function cutCue() {
     /* the cut card surfaces at the shoe: one soft paper whisper
@@ -2678,8 +3173,33 @@
        further than it looks and gives the dry half back.      */
     var c = ready(); if (!c) return;
     var t = c.currentTime + 0.02;
-    burst(c, t, 0.32, 'bandpass', 900, 0.8, 0.04, null, CUT_ROOM);
-    tone(c, 233.08, t + 0.14, 0.12, 'triangle', 0.044, 155, null, CUT_ROOM);
+    var cg2 = ROOM999.gain('cut');
+    burst(c, t, 0.32, 'bandpass', 900, 0.8, cg2 * 0.8, null, CUT_ROOM());
+    tone(c, 233.08, t + 0.14, 0.12, 'triangle', cg2 * 0.88, 155, null, CUT_ROOM());
+  }
+  /* The tap RISES with penetration: the first card off a full stack
+     speaks from the weight of all the cards still behind it, and the
+     last one off a bare stack has nothing left to push against — so
+     it reads emptier, higher and thinner the deeper the shoe gets.
+     One pure mapping, so a row's voice can be asked for directly
+     rather than heard: `pen` is how far through the shoe this card
+     sits, 0 at the top of a fresh stack and 1 at the cut.
+     The band-pass tick climbs and sharpens (a tighter Q is a more
+     selective filter, which is what "empty" sounds like), the body
+     tone climbs with it and stops falling so far, and the body GAIN
+     drops away furthest — that is the emptiness: by the cut there is
+     almost no low voice left under the click.                      */
+  function tapVoice(pen) {
+    if (!(pen > 0)) pen = 0;            /* NaN and negatives read as a fresh shoe */
+    else if (pen > 1) pen = 1;
+    return {
+      tick: 2100 + 1300 * pen,
+      q: 2.2 + 1.8 * pen,
+      body: 196 + 150 * pen,
+      slide: 150 + 170 * pen,
+      tickG: 0.055 * (1 - 0.18 * pen),
+      bodyG: 0.028 * (1 - 0.45 * pen)
+    };
   }
   function shoeTap(delay) {
     /* the card LEAVES the shoe: one dry click of the stack
@@ -2688,18 +3208,25 @@
        and answers the room least, or one deal would read as a
        machine rather than a shoe. It carries the shoe's SEAT and
        is panned BEFORE it sends, so the reflection keeps the
-       shoe's side of the room the way the clacks keep theirs.  */
+       shoe's side of the room the way the clacks keep theirs.
+       Its pitch rides the shoe's penetration: emptier the
+       deeper it gets. Its LEVEL comes from ROOM999, so tuning the
+       tap from the Levels panel moves every card it sounds.   */
     var c = ready(); if (!c) return;
     var t = c.currentTime + (delay || 0);
+    var v = tapVoice(shoeCut ? shoeDealt / shoeCut : 0);
+    var tg = ROOM999.gain('tap');
+    v.tickG *= tg / ROOM999.ship('tap').gain;      /* the tuning rides the voice, not the voice */
+    v.bodyG *= tg / ROOM999.ship('tap').gain;
     var out = null;
     if (c.createStereoPanner) {
       out = c.createStereoPanner();
       out.pan.setValueAtTime(clamp(panFor({ x: SHOE[0], y: SHOE[1], z: SHOE[2] }), -1, 1), t);
       out.connect(master);
-      toRoom(out, TAP_ROOM);          /* the send sits after the pan, like the clack */
+      toRoom(out, TAP_ROOM());          /* the send sits after the pan, like the clack */
     }
-    burst(c, t, 0.028, 'bandpass', 2100, 2.2, 0.055, out, TAP_ROOM);
-    tone(c, 196, t, 0.05, 'triangle', 0.028, 150, out, TAP_ROOM);
+    burst(c, t, 0.028, 'bandpass', v.tick, v.q, v.tickG, out, TAP_ROOM());
+    tone(c, v.body, t, 0.05, 'triangle', v.bodyG, v.slide, out, TAP_ROOM());
   }
   function stinger(result) {
     /* one stinger per round is ceremony; six would be noise —
@@ -2709,14 +3236,14 @@
     if (result === 'win') {
       /* a bright rising triad — C5 E5 G5 with an octave shimmer,
          leaning into the room: the verdict is allowed to bloom */
-      tone(c, 523.25, t, 0.32, 'triangle', 0.18, null, null, STINGER_ROOM);
-      tone(c, 659.25, t + 0.09, 0.32, 'triangle', 0.18, null, null, STINGER_ROOM);
-      tone(c, 783.99, t + 0.18, 0.55, 'triangle', 0.20, null, null, STINGER_ROOM);
-      tone(c, 1567.98, t + 0.18, 0.5, 'sine', 0.07, null, null, STINGER_ROOM);
+      tone(c, 523.25, t, 0.32, 'triangle', 0.18, null, null, STINGER_ROOM());
+      tone(c, 659.25, t + 0.09, 0.32, 'triangle', 0.18, null, null, STINGER_ROOM());
+      tone(c, 783.99, t + 0.18, 0.55, 'triangle', 0.20, null, null, STINGER_ROOM());
+      tone(c, 1567.98, t + 0.18, 0.5, 'sine', 0.07, null, null, STINGER_ROOM());
     } else {
       /* lose / bust: a short sigh falling to the felt */
-      tone(c, 392, t, 0.22, 'triangle', 0.15, 262, null, null, STINGER_ROOM);
-      tone(c, 196, t + 0.13, 0.42, 'sine', 0.13, 147, null, null, STINGER_ROOM);
+      tone(c, 392, t, 0.22, 'triangle', 0.15, 262, null, null, STINGER_ROOM());
+      tone(c, 196, t + 0.13, 0.42, 'sine', 0.13, 147, null, null, STINGER_ROOM());
     }
   }
   function walkCue(b, h) {
@@ -2986,6 +3513,11 @@
   if (trainBoxEl) trainBoxEl.addEventListener('click', function (e) {
     if (e.target && e.target.id === 'evNewBookT') resetT();
     if (e.target && e.target.id === 'clearBookT') clearBookT();
+    if (e.target && e.target.id === 'evWholeSitT') armWholeT();
+    if (e.target && e.target.id === 'evFreshSitT') resetSittingT();
+    var bar = e.target && e.target.closest ? e.target.closest('.training .evrow.evtap') : null;
+    if (bar) seedDrillFromBar(bar.getAttribute('data-cell'));   /* a tapped EV bar names its
+                                                                cell to the floor's drill */
   });
   var btnDealNow = document.getElementById('btnDealNow');
   if (btnDealNow) btnDealNow.addEventListener('click', endBets);
@@ -3033,6 +3565,29 @@
   /* the training overlay toggle — book marks + the count meter */
   var coachBtn = document.getElementById('coachBtn');
   if (coachBtn) coachBtn.addEventListener('click', function () { setCoach(!coachOn); });
+  /* the session report has its own open, and its own taps — it repeats the
+     chart, so it carries its own ids and catches its own bar rather than
+     reaching across into the live overlay. The taps are the same ones: a bar
+     named here names the cell exactly as a bar named there would. */
+  var reviewBtnEl = document.getElementById('reviewBtn');
+  if (reviewBtnEl) reviewBtnEl.addEventListener('click', function () {
+    tReviewOpen = !tReviewOpen;
+    renderReview();
+  });
+  var reviewBoxEl = document.getElementById('reviewBox');
+  if (reviewBoxEl) reviewBoxEl.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'evCloseReviewT') { tReviewOpen = false; renderReview(); return; }
+    /* the report's own way back — suffixed, so matched by its stem rather than
+       by an id the overlay also uses */
+    if (e.target && e.target.id && e.target.id.indexOf('evFreshSitT') === 0) { resetSittingT(); return; }
+    /* the scorecard row first: it sits above the chart and shares the chart's
+       class, so one selector over both would answer either, but naming them
+       apart keeps a future row that is not a drill from catching it */
+    var srow = e.target && e.target.closest ? e.target.closest('.training.review .rvscrow.evtap') : null;
+    if (srow) { seedDrillFromBar(srow.getAttribute('data-cell')); return; }
+    var bar = e.target && e.target.closest ? e.target.closest('.training.review .evrow.evtap') : null;
+    if (bar) seedDrillFromBar(bar.getAttribute('data-cell'));
+  });
   setCoach(coachOn);
 
   /* ================= fullscreen (mobile landscape) ==========
