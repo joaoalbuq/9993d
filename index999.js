@@ -55,7 +55,48 @@
                                         breakeven at p = 1/3, near true +3       */
     return 3 * tenDensity(stack) - 1;
   }
+  /* A CELL FAMILY: every total that flips at the SAME upcard. The
+     chart's corrections are not scattered singles — they are columns
+     of one shape: every hard total that turns at a 10 turns with
+     every other, because the reason (tens left, the draw busts too
+     often) is a property of the DECK, not of the total. Drilling
+     "hard 16 v 10" and stopping there taught a fifth of the lesson
+     and left 15, 14 and 13 standing next to it untaught. So a tap
+     on one cell takes the whole column with it.
+     The family is read from INDICES itself, never a hand-written
+     list: a total that is not in the chart does not flip at that
+     upcard, so it cannot be in the family. A column with one member
+     is that member, and the cell itself is always included — a tap
+     must never drill LESS than it used to. */
+  function parseCell(c) {
+    var m = /^(soft|hard) (\d+) v (A|10|J|Q|K|\d+)$/.exec(c || '');
+    if (!m) return null;
+    /* upcards read as the number they are worth: A is 11 and the
+       faces are 12, so two cells naming the same upcard compare
+       equal whether one of them wrote Q or 12                   */
+    var u = m[3];
+    var up = u === 'A' ? 11 : (u === 'J' || u === 'Q' || u === 'K') ? 12 : parseInt(u, 10);
+    return { soft: m[1] === 'soft', t: parseInt(m[2], 10), up: up };
+  }
+  function cellFamily(c) {
+    var p = parseCell(c);
+    if (!p) return [c];                   /* not a chart cell: nothing to widen */
+    var fam = Object.keys(INDICES).filter(function (k) {
+      var q = parseCell(k);
+      return q && q.up === p.up && q.soft === p.soft;
+    });
+    /* the tapped cell leads, then the rest by total, so the drill
+       starts on what was asked for and walks up the column */
+    fam.sort(function (a, b) {
+      if (a === c) return -1;                 /* the tapped cell always leads */
+      if (b === c) return 1;
+      return parseCell(a).t - parseCell(b).t;  /* then up the column */
+    });
+    if (fam.indexOf(c) < 0) fam.unshift(c);
+    return fam;
+  }
   return { INDICES: INDICES, INSURE_AT: INSURE_AT, INS_WHY_IN: INS_WHY_IN,
            INS_WHY_OUT: INS_WHY_OUT, cell: cell,
-           flip: flip, tenDensity: tenDensity, insEdge: insEdge };
+           flip: flip, tenDensity: tenDensity, insEdge: insEdge,
+           parseCell: parseCell, cellFamily: cellFamily };
 });

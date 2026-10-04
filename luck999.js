@@ -21,6 +21,15 @@
   /* plain chips: whole numbers grouped, halves to one decimal   */
   function chips(n) { return n % 1 ? n.toFixed(1) : n.toLocaleString(); }
   function gap(s) { return s.felt - s.ev; }
+  /* a signed figure in the strip's own spelling: one decimal where the
+     engine is quoted (its prices are fractions), grouped chips where the
+     felt is, and the typographic minus either way. It was a helper
+     inside stripLine; it is lifted out because a hover has to say the
+     same figures in plain text, and a second spelling of the engine's
+     leg would be one more thing to keep in agreement. */
+  function signed(v, dec) {
+    return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : chips(Math.abs(v)));
+  }
   /* the gap's own word: felt minus engine, one decimal, signed —
      the one number both the strip and the score lines read      */
   function word(s) {
@@ -140,12 +149,9 @@
      so the glow and the word can never disagree about a session.  */
   function stripLine(s, crossed) {
     if (!s || !s.rounds) return '';
-    function w(v, dec) {
-      return (v < 0 ? '\u2212' : '+') + (dec ? Math.abs(v).toFixed(1) : chips(Math.abs(v)));
-    }
     var b = band(s), sig = sigma(s), tn = tone(s), ov = out(s);
     var cls = 'luck' + (tn ? ' ' + tn : '') + (ov ? ' over' : '') + (crossed ? ' crossed' : '');
-    return 'EV <b>' + w(s.ev, true) + '</b> engine \u00b7 <b>' + w(s.felt) + '</b> felt \u00b7 <b' +
+    return 'EV <b>' + signed(s.ev, true) + '</b> engine \u00b7 <b>' + signed(s.felt) + '</b> felt \u00b7 <b' +
       (tn || ov || crossed ? ' class="' + cls + '"' : '') + '>' + word(s) + '</b> luck \u00b7 ' +
       s.rounds + ' round' + (s.rounds === 1 ? '' : 's') +
       (sig ? ' \u00b7 <span class="sd">' + sig + '</span>' + (b ? ' ' + b : '') : '');
@@ -234,11 +240,153 @@
     var w = weekSplit(lk, wb, cell, now);
     return w ? w.dir : null;
   }
-  return { HAND_SD: HAND_SD, chips: chips, word: word, band: band, sigma: sigma,
+  /* THE TREND SPARKLINE, shared so both felts draw the same shape
+     from the same numbers. It lived on the practice floor alone,
+     which meant the table could show a cell's direction (this week
+     against last) but never its line: two answers to "how has this
+     cell been bleeding", from the one ledger both surfaces read.
+     So the walk, the glyphs and the direction all moved here, and
+     the floor now calls these. Eight weeks is the window EVERYWHERE
+     it is drawn — the leak rows and the EV bars are the same series
+     for the same cell, and two lengths of one series would be two
+     answers. A week never seen is skipped, not zero-filled: a
+     zero-filling line would read as a week that leaked nothing.  */
+  var SPARK_WEEKS = 8;
+  /* EVERY readable week, oldest first. The window below pages over
+     this walk rather than slicing it off the end, so a week that
+     leaves the line has not left the record: it is one page back.  */
+  function sparkAll(lk, wb, cell, now) {
+    now = now || Date.now();
+    var keys = [], k;
+    for (k in wb) keys.push(Number(k));
+    keys.sort(function (a, b) { return a - b; });
+    var out = [], i;
+    for (i = 0; i < keys.length; i++) {
+      var l = leakedIn(lk, wb, cell, keys[i], now);
+      if (l != null) out.push({ ws: keys[i], v: l });
+    }
+    return out;
+  }
+  /* how many windows of history a cell actually has. Never zero:
+     with nothing to page through there is still the newest page.  */
+  function sparkPages(lk, wb, cell, now) {
+    var n = sparkAll(lk, wb, cell, now).length;
+    return n < 2 ? 1 : Math.ceil(n / SPARK_WEEKS);
+  }
+  /* ONE window of weeks, oldest first. `back` counts whole windows
+     scrolled into the past, clamped to what exists — a player can
+     walk the whole ladder but never off the end of it. The oldest
+     window is short when the record does not fill it.            */
+  function sparkWeeks(lk, wb, cell, now, back) {
+    var a = sparkAll(lk, wb, cell, now);
+    var pages = a.length < 2 ? 1 : Math.ceil(a.length / SPARK_WEEKS);
+    back = Math.floor(Number(back) || 0);
+    if (!(back > 0)) back = 0;               /* NaN and junk read as the newest */
+    if (back > pages - 1) back = pages - 1;
+    var end = a.length - back * SPARK_WEEKS;
+    var start = end - SPARK_WEEKS;
+    if (start < 0) start = 0;
+    if (end < 0) end = 0;
+    return a.slice(start, end);
+  }
+  function sparkValues(lk, wb, cell, now, back) {
+    var w = sparkWeeks(lk, wb, cell, now, back), vals = [], i;
+    for (i = 0; i < w.length; i++) vals.push(w[i].v);
+    return vals;
+  }
+  /* eight steps of ink, the series scaled to its own range: a flat
+     series sits on the mid glyph, a rising one climbs left to
+     right. Fewer than two points, or no leak anywhere, is no line. */
+  function sparkLine(vals) {
+    if (!vals || vals.length < 2) return '';
+    var max = vals[0], min = vals[0], i;
+    for (i = 1; i < vals.length; i++) {
+      if (vals[i] > max) max = vals[i];
+      if (vals[i] < min) min = vals[i];
+    }
+    if (!(max > 0)) return '';                 /* no leak anywhere: no line */
+    var glyph = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588';   /* the ladder of eight: no canvas, no font swap */
+    var out = '';
+    for (i = 0; i < vals.length; i++) {
+      var v = max > min ? (vals[i] - min) / (max - min) : 0.5;
+      if (!(v > 0)) v = 0;
+      if (v > 1) v = 1;
+      out += glyph.charAt(Math.min(7, Math.round(v * 7)));
+    }
+    return out;
+  }
+  /* the line's own direction: newest against oldest. -1 is
+     improving — the latest week bled less than the first.  */
+  function sparkDir(vals) {
+    if (!vals || vals.length < 2) return 0;
+    var first = vals[0], last = vals[vals.length - 1];
+    return last < first ? -1 : last > first ? 1 : 0;
+  }
+  /* the week-over-week marker, built ONCE for both felts. The glyph
+     says which way a cell is bleeding; the figures say by how much.
+     A direction with no magnitude beside it is only half an answer,
+     and the live table used to draw exactly that half. Nothing here
+     needs escaping: the figures are numbers and the wording is ours.*/
+  /* The two books, side by side. `combined` is the WHOLE reconciliation
+   and `named` the part of it belonging to one felt; `rest` is the
+   other felt's own. It only reads as two when BOTH sides hold rounds
+   — a book with none of its own has no luck to set beside the other's,
+   and a reset on either side (the counts disagreeing) reads as one. */
+  function splitFelt(combined, named) {
+    if (!named || !(named.rounds > 0)) return null;
+    if (!combined || combined.rounds <= named.rounds) return null;
+    return {
+      named: { rounds: named.rounds, ev: named.ev, felt: named.felt, sd2: named.sd2 },
+      rest: { rounds: combined.rounds - named.rounds, ev: combined.ev - named.ev,
+              felt: combined.felt - named.felt, sd2: combined.sd2 - named.sd2 }
+    };
+  }
+  /* one felt of the duel, read the strip's way: the signed gap, its
+     band and the sigma that measures it — each book against its OWN
+     accumulated spread, so each side's hot and cold are sizes too,
+     not just a sign. `crossed` blooms THIS side on the one draw its
+     own gap tops its own first spread. A book from before the spread
+     banked no width, so its sigma is genuinely unknown — the side
+     says so rather than standing there as a bare sign the player
+     could read as "no spreads run".                               */
+  function feltTag(label, s, crossed) {
+    var tn = tone(s);            /* the same sign-only colour the strip keeps */
+    var bd = band(s), sg = sigma(s), ov = out(s);
+    var cls = 'luck' + (tn ? ' ' + tn : '') + (ov ? ' over' : '') + (crossed ? ' crossed' : '');
+    return label + ' <b' + (tn || ov || crossed ? ' class="' + cls + '"' : '') + '>' + word(s) + '</b>' +
+      (bd ? ' ' + bd : '') +
+      ' <span class="sd' + (sg ? '' : ' na') + '">' + (sg || 'no spread yet') + '</span>';
+  }
+  function leakFig(v) {
+    /* a leak figure in the floor's shorthand: a minus for chips thrown
+       away, and NOTHING in front of a figure that is already negative.
+       A cell being drilled away reads negative, so prefixing that sign
+       gave a double one — an em dash then a minus — that reads as
+       nothing at all rather than as a recovery.                    */
+    var n = Math.round(v);
+    return n < 0 ? String(n) : '\u2212' + n;
+  }
+  function weekPillHtml(wk) {
+    if (!wk) return '';                 /* no basis on either end: no marker at all */
+    var tone = wk.dir < 0 ? 'down' : wk.dir > 0 ? 'up' : 'flat';
+    var why = wk.dir < 0 ? 'bleeding less than last week'
+      : wk.dir > 0 ? 'bleeding more than last week' : 'bleeding the same as last week';
+    return ' <span class="wk evdir ' + tone + '" title="chips leaked this week v last week \u00b7 ' +
+      leakFig(wk.now) + ' this week against ' + leakFig(wk.was) + ' last week \u00b7 ' + why + '">' +
+      (wk.dir < 0 ? '\u25BC' : wk.dir > 0 ? '\u25B2' : '\u00b7') + ' ' +
+      Math.round(wk.now) + ' v ' + Math.round(wk.was) + '</span>';
+  }
+  return { HAND_SD: HAND_SD, chips: chips, signed: signed, word: word, band: band, sigma: sigma,
            tone: tone, out: out, cross: cross, stripLine: stripLine,
            z: z, bandOf: bandOf, zSig: zSig,
            weekStart: weekStart, prevWeek: prevWeek, nextWeek: nextWeek,
            leakedIn: leakedIn, weekSplit: weekSplit, weekDir: weekDir,
+           SPARK_WEEKS: SPARK_WEEKS,
+           sparkWeeks: sparkWeeks, sparkValues: sparkValues,
+           sparkAll: sparkAll, sparkPages: sparkPages,
+           sparkLine: sparkLine, sparkDir: sparkDir,
+           weekPillHtml: weekPillHtml, leakFig: leakFig,
+           splitFelt: splitFelt, feltTag: feltTag,
            evFields: EV_FIELDS.slice(), evRestore: evRestore, evMigrated: evMigrated,
            numInto: numInto };
 });

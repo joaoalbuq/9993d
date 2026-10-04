@@ -261,6 +261,9 @@
     first and each a beat behind the last, so the eye reads them as one sweep
     settling into place rather than one row at a time appearing */
   .training .evleft .evrow .evdir { flex: 0 0 auto; font-size: 0.85em; line-height: 1; }
+  .training .evleft .wk { margin-left: 0.35em; font-variant-numeric: tabular-nums;
+    white-space: nowrap; }   /* the figures beside the arrow must not wrap away
+                                 from it, or a cell reads as two answers */
   .training .evleft .evrow .evdir.down { color: #43c98a; }   /* leaking less than last week */
   .training .evleft .evrow .evdir.up { color: #e2705f; }     /* and leaking more */
   .training .evleft .evrow .evdir.flat { color: rgba(255,255,255,0.4); }
@@ -318,6 +321,35 @@
   .training .evleft .evrow.evno { cursor: default; opacity: 0.55; }
   .training .evleft .evrow.evno:hover { background: none; }
   .training .evleft .evrow.evno .evcell { color: rgba(255,255,255,0.85); text-decoration: none; }
+  /* the trend line, drawn beside the bar: the floor's sparkline on
+     the table's own bars. Same eight weeks, same glyphs, same ledger
+     — one series, two surfaces, so the shape beside a bar is the
+     shape beside its cell on the floor and the two cannot disagree. */
+  .training .evleft .evrow .spark { flex: 0 0 auto; margin-left: 0.35em; font-size: 1.05em;
+    line-height: 1; letter-spacing: -0.06em; white-space: nowrap; }
+  .training .evleft .evrow .spark.down { color: #43c98a; }   /* the line falls: leaking less than it used to */
+  .training .evleft .evrow .spark.up { color: #e2705f; }     /* it climbs: leaking more */
+  .training .evleft .evrow .spark.flat { color: rgba(255,255,255,0.5); }
+  .training .evleft .evrow .sparkpg { margin-left: 0.3em; padding: 0 0.12em; cursor: pointer;
+    border-radius: 3px; color: rgba(255,255,255,0.45); font-size: 0.8em; line-height: 1; }
+  .training .evleft .evrow .sparkpg:hover, .training .evleft .evrow .sparkpg:focus-visible {
+    color: #d8b56a; background: rgba(216,181,106,0.12); }
+  /* the ladder is a set of controls, not one picture: each week answers
+     on its own, the way the floor's does */
+  .training .evleft .evrow .sparkwk { cursor: pointer; border-radius: 2px; }
+  .training .evleft .evrow .sparkwk:hover, .training .evleft .evrow .sparkwk:focus-visible {
+    background: rgba(216,181,106,0.16); }
+  .training .evleft .evrow .sparkwk.on { color: #d8b56a; }   /* the week the figures are on */
+  .training .evleft .sparkdetail { display: flex; flex-wrap: wrap; gap: 0.15em 0.7em;
+    margin: 0.15em 0 0.35em 0.4em; font-size: 0.82em; line-height: 1.5; color: rgba(255,255,255,0.7); }
+  .training .evleft .sparkdetail .sw { white-space: nowrap; }
+  .training .evleft .sparkdetail .sw b { color: rgba(255,255,255,0.45); font-weight: 400; }
+  .training .evleft .sparkdetail .sw.on { color: #d8b56a; }
+  .training .evleft .sparkdetail .sw.sum { color: #d8b56a; }
+  .training .evleft .sparkdetail .sw.sum b { color: #d8b56a; }
+  .training .evleft .cnt { font-variant-numeric: tabular-nums; }   /* the chips count up
+     without the figure jittering sideways: a number that changes width while it climbs
+     reads as two numbers, not one being counted */
   .training .evleft .evnote { margin: 0.3em 0 0; color: #d8b56a; font-size: 0.9em; }
   .training .evleft .sitreset { margin: 0.4em 0 0; letter-spacing: 0.08em; text-transform: uppercase;
     font-size: 0.8em; }
@@ -813,6 +845,19 @@
       }
       renderBonus();
     });
+  }
+  /* The crossing's chime. A felt has just topped its OWN accumulated
+     spread — a statistical outlier, not a win — so this is said, not
+     celebrated: a low fifth on triangles, quiet, and long in the room
+     so it arrives from somewhere rather than snapping at the ear.
+     It never carries the panner: a crossing is a property of a book,
+     not of a seat, so it sits where the strip sits.           */
+  function crossChime() {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + 0.02;
+    var g = ROOM999.gain('chime');
+    tone(c, 392.00, t, 0.62, 'triangle', g * 0.62, null, null, CHIME_ROOM());
+    tone(c, 587.33, t + 0.055, 0.52, 'triangle', g * 0.40, null, null, CHIME_ROOM());
   }
   function bonusWin(amount) {
     /* one two-note chime (the betsOpen shape, one octave apart) for
@@ -1501,6 +1546,32 @@
   /* the crossing math lives in luck999.js; the overlay keeps only
      its own mark — the last draw's outlier state              */
   var tOut = null;           /* the last draw's outlier mark */
+  /* the duel's marks, banked per side: each felt blooms on the draw
+     its OWN gap first tops its OWN spread, so one side crossing never
+     re-arms the other                                          */
+  var duelOutT = { named: null, rest: null };
+  /* the practice floor's own book, read leniently — the same posture
+     the shoe's tableBook() keeps, through the shared restore, so a
+     book from before the spread still names its rounds and its gap */
+  function practiceBookT() {
+    try {
+      var p = JSON.parse(localStorage.getItem('999.practice.evsession') || 'null');
+      if (p && typeof p === 'object') {
+        var b = LUCK999.evRestore(p);
+        if (b.rounds > 0) return b;
+      }
+    } catch (e) { }
+    return null;
+  }
+  /* the WHOLE reconciliation as the player has actually played it. The
+     practice book IS it: this page writes each settled round into that
+     same key so the floor's entries are never clobbered, so a night at
+     the felt and a sitting at the shoe already read as ONE running
+     book. Adding this table's own book to it would count those rounds
+     twice — the split below is a subtraction, not an addition.     */
+  function combinedT() {
+    return practiceBookT();
+  }
   /* a new book: the overlay's reconciliation zeroed on demand
      — the rounds, the engine's expectation, the felt and the
      spread all start over, so the band falls back to nothing. The
@@ -1539,6 +1610,7 @@
   function resetT() {
     archiveLuck('new book');
     trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
+    duelOutT = { named: null, rest: null };   /* a fresh book has crossed nothing */
     tSeeded = {};             /* the taps this book made are its own, and go with it */
     tSeedNote = '';
     tSitArm = 0;               /* and a pending whole-sitting intent goes with them */
@@ -1554,6 +1626,10 @@
     trainStats.decisions = 0; trainStats.book = 0; trainStats.loss = 0; trainStats.lossBase = 0;
     trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
     tOut = null;               /* the crossing mark starts fresh too */
+    duelOutT = { named: null, rest: null };   /* and so does each side's own mark:
+                                                 a wiped book has crossed nothing, so the
+                                                 next real crossing blooms again rather
+                                                 than inheriting a mark from the old ledger */
     tSession = {};             /* the sitting's recoverable-money fold rides the same session */
     tSeeded = {};              /* and so do the taps: a wiped book has named nothing */
     tSeedNote = '';
@@ -1579,6 +1655,10 @@
     trainStats.decisions = 0; trainStats.book = 0; trainStats.loss = 0; trainStats.lossBase = 0;
     trainStats.ev = 0; trainStats.felt = 0; trainStats.rounds = 0; trainStats.sd2 = 0;
     tOut = null;               /* the crossing mark starts fresh too */
+    duelOutT = { named: null, rest: null };   /* and so does each side's own mark:
+                                                 a wiped book has crossed nothing, so the
+                                                 next real crossing blooms again rather
+                                                 than inheriting a mark from the old ledger */
     tSession = {};             /* the sitting's own chart goes with the sitting */
     tSeeded = {}; tSeedNote = '';
     clearT();
@@ -1800,7 +1880,133 @@
       n + ' miss' + (n === 1 ? '' : 'es') + ' in this cell \u00b7 ' +
       Math.round(cum) + ' back if you fix every bar down to here' + (note ? ' \u00b7 ' + note : '');
   }
+  /* The bar's TREND: the floor's sparkline, drawn here from the same
+     ledger and the same eight weeks. The table already showed a
+     cell's direction — this week against last — but never its line,
+     so the same cell could read as one thing here and another on the
+     floor. One series, drawn twice: the glyphs, the window and the
+     scaling all come from LUCK999, so the shape beside a bar is the
+     shape beside its cell, not a second opinion about it.
+     It is drawn, not tappable: the bar itself is the way into the
+     drill, and a second control inside one row would answer two
+     questions with one tap. A cell with one week on record, or a
+     ledger that never saw it bleed, draws nothing at all — a
+     zero-filled ladder would read as a real reading.          */
+  function evSparkT(lk, wb, cell, now) {
+    /* the same paged walk the floor draws: eight weeks on the line,
+       every older week still one scroll back rather than gone */
+    var pages = LUCK999.sparkPages(lk, wb, cell, now);
+    var pg = evSparkPageT(cell, pages);
+    var vals = LUCK999.sparkValues(lk, wb, cell, now, pg);
+    var line = LUCK999.sparkLine(vals);
+    if (!line) return '';
+    var d = LUCK999.sparkDir(vals);
+    var w = LUCK999.sparkWeeks(lk, wb, cell, now, pg);
+    var total = 0, i, ch, g = '';
+    for (i = 0; i < w.length; i++) total += w[i].v;
+    /* Each week is its own tap, exactly as on the floor: eight
+       controls rather than one picture, so the week a player wants
+       can be the week they touched. The glyphs come off the SAME
+       walk the figures are read from, zipped against the very
+       values the line was scaled from, so a step and its number can
+       never part company.                                            */
+    var open = tSparkOpen === cell;
+    for (i = 0; i < w.length && i < line.length; i++) {
+      ch = line.charAt(i);
+      g += '<span class="sparkwk' + (open && tSparkWeek === w[i].ws ? ' on' : '') +
+        '" data-spark="' + attrTT(cell) + '" data-week="' + w[i].ws +
+        '" role="button" tabindex="0" aria-label="' +
+        attrTT(weekLabelT(w[i].ws) + ' week of ' + cell + ', ' + LUCK999.leakFig(w[i].v) + ' chips') +
+        '" title="' + attrTT(weekLabelT(w[i].ws) + ' ' + LUCK999.leakFig(w[i].v) +
+          ' chips \u2014 tap for this cell\u2019s weeks') + '">' + ch + '</span>';
+    }
+    /* only the way that leads somewhere is drawn: a control that
+       cannot move is a lie about the record                  */
+    var nav = '';
+    if (pages > 1) {
+      if (pg < pages - 1) nav += '<span class="sparkpg" data-spark="' + attrTT(cell) +
+        '" data-delta="-1" role="button" tabindex="0" aria-label="older weeks of ' + attrTT(cell) +
+        '" title="the eight weeks before these">\u2039</span>';
+      if (pg > 0) nav += '<span class="sparkpg" data-spark="' + attrTT(cell) +
+        '" data-delta="1" role="button" tabindex="0" aria-label="newer weeks of ' + attrTT(cell) +
+        '" title="' + (pg === pages - 1 ? 'back to the newest weeks' : 'the next eight weeks') + '">\u203a</span>';
+    }
+    /* which window is on show, said in the hover: a scrolled-back line
+       that did not say so would read as the whole record          */
+    var where = pg === 0 ? 'the newest ' + w.length + ' weeks'
+      : 'weeks ' + (pg * LUCK999.SPARK_WEEKS + 1) + '-' + (pg * LUCK999.SPARK_WEEKS + w.length) +
+        ' back, of ' + w.length + ' shown';
+    /* the line itself is a tap too, opening every figure it was drawn
+       from — the same gesture the floor's line answers */
+    return '<span class="sparktap' + (open ? ' on' : '') + '" data-spark="' + attrTT(cell) +
+      '" role="button" tabindex="0" aria-expanded="' + (open ? 'true' : 'false') +
+      '" title="' + attrTT(cell + ' \u00b7 ' + w.length + ' weeks \u00b7 ' + LUCK999.leakFig(total) +
+        ' over them \u00b7 ' + (d < 0 ? 'leaking less than it used to' :
+          d > 0 ? 'leaking more than it used to' : 'leaking the same as it used to') +
+        ' \u00b7 ' + where + '. Tap a week, or the line, for the figures') + '">' +
+      '<span class="spark ' + (d < 0 ? 'down' : d > 0 ? 'up' : 'flat') + '">' + g + '</span>' +
+      nav + '</span>';
+  }
+  /* the window a cell is scrolled to, clamped to the record that
+     exists now: a cell's history can shrink under a player */
+  function evSparkPageT(cell, pages) {
+    var pg = Number(tSparkPage[cell]) || 0;
+    return pg > pages - 1 ? pages - 1 : pg;
+  }
+  function weekLabelT(ts) {                 /* the Monday, said short — the
+                                               floor's own wording, so the two
+                                               felts name the same week alike */
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var d = new Date(ts);
+    return d.getDate() + ' ' + MONTHS[d.getMonth()];
+  }
+  /* What the shape was hiding: one figure per week, oldest first, and
+     the window's own total — so "it is getting worse" can be checked
+     against the chips instead of believed. Read from the SAME window
+     the line was drawn from, so a step and its number stay one
+     answer rather than two that happen to sit near each other.   */
+  function evSparkDetailT(lk, wb, cell, now) {
+    if (tSparkOpen !== cell) return '';
+    var pages = LUCK999.sparkPages(lk, wb, cell, now);
+    var pg = evSparkPageT(cell, pages);
+    var vals = LUCK999.sparkValues(lk, wb, cell, now, pg);
+    if (!LUCK999.sparkLine(vals)) return '';   /* no shape, nothing to open */
+    var w = LUCK999.sparkWeeks(lk, wb, cell, now, pg);
+    if (w.length < 2) return '';
+    var total = 0, i, parts = [];
+    for (i = 0; i < w.length; i++) {
+      total += w[i].v;
+      parts.push('<span class="sw' + (tSparkWeek === w[i].ws ? ' on' : '') + '"><b>' +
+        weekLabelT(w[i].ws) + '</b> ' + LUCK999.leakFig(w[i].v) + '</span>');
+    }
+    return '<span class="sparkdetail">' + parts.join('') +
+      '<span class="sw sum">' + LUCK999.leakFig(total) + ' over ' + w.length + ' weeks</span></span>';
+  }
+  /* Scroll the ladder. One step, clamped to what the record holds, and
+     the page kept per cell so scrolling one line does not move any
+     other. Shared with the floor's own control, so the two felts
+     answer a scroll the same way.                                  */
+  function sparkScrollT(el) {
+    var cell = el.getAttribute('data-spark'), delta = Number(el.getAttribute('data-delta')) || 0;
+    var was = Number(tSparkPage[cell]) || 0;
+    var want = was + delta, lk = tLedgerRead(), wb = weekBaseT();
+    var have = LUCK999.sparkPages(lk, wb, cell, Date.now());
+    if (want < 0) want = 0;
+    if (want > have - 1) want = have - 1;
+    if (want === was) return false;
+    tSparkPage[cell] = want;
+    return true;
+  }
   var tSeeded = {};                /* the cells this sitting named to the practice floor's drill */
+  var tSparkPage = {};           /* cell → how many windows back its ladder is
+                                     scrolled. Per cell, like the floor's  */
+  var tSparkOpen = null;            /* the one cell whose weekly figures are
+                                       open, or none — one at a time, so
+                                       two open ladders never read as two
+                                       answers */
+  var tSparkWeek = null;            /* the week inside it a tap chose — the
+                                       one its figures are highlighting */
   var tSeedNote = '';              /* what the last tap said, said under the chart */
   function tLedgerRead() {         /* the floor's ledger, read leniently — the same
                                        posture flushT takes, one row at a time */
@@ -1946,6 +2152,7 @@
     html += evLeftT('R');
     html += '<p class="rvexit" id="evCloseReviewT">Close the review</p>';
     b.innerHTML = html;
+    countUp(b);                 /* the bars' chips count up on their own beat */
     /* stand under the overlay, whatever height it has taken, so the two can
        never sit on one another */
     var ov = document.getElementById('trainBox');
@@ -2005,11 +2212,7 @@
       var tap = fed && !(lk[cell] && lk[cell].m);   /* the same two refusals the tap
                                                            itself makes, so a row never
                                                            offers what a tap would refuse */
-      var d = LUCK999.weekDir(lk, wb, cell, now);
-      var mark = d == null ? '' : '<span class="evdir ' + (d < 0 ? 'down' : d > 0 ? 'up' : 'flat') + '"' +
-        ' title="' + attrTT(cell) + ' \u00b7 ' + (d < 0 ? 'leaking less than last week' :
-          d > 0 ? 'leaking more than last week' : 'leaking the same as last week') + '">' +
-        (d < 0 ? '\u25BC' : d > 0 ? '\u25B2' : '\u00b7') + '</span>';
+      var mark = LUCK999.weekPillHtml(LUCK999.weekSplit(lk, wb, cell, now));
       bars += '<div class="evrow' + (tap ? ' evtap' : ' evno') +
         (tSeeded[cell] ? ' evseeded' : '') + '"' +
         (tap ? ' data-cell="' + attrTT(cell) + '"' : '') +
@@ -2017,7 +2220,9 @@
         '<span class="evcell">' + cell + '</span>' +
         '<span class="evbar"><i style="width:' + Math.round(100 * (mx ? c / mx : 0)) +
           '%;animation-delay:' + (i * 70) + 'ms"></i></span>' +
-        '<b>\u2212' + Math.round(c) + '</b>' + mark + '</div>';
+        '<b>\u2212<span class="cnt" data-count="' + Math.round(c) +
+          '" data-delay="' + (i * 70) + '">0</span></b>' + mark +
+        evSparkT(lk, wb, cell, now) + '</div>' + evSparkDetailT(lk, wb, cell, now);
     }
     var behind = sc.total - cum;
     return '<div class="evleft"><p class="evtitle">EV left on the table</p>' + bars +
@@ -2028,6 +2233,56 @@
       '<p class="sitreset"><span class="sitreset-tap" id="evFreshSitT' + (sfx || '') + '"' +
       ' title="start this sitting over \u2014 the bars and the chips behind them \u2014 and keep everything else">' +
       '\u21ba fresh sitting</span></p></div>';
+  }
+  /* The BARS COUNT UP, exactly as the practice floor's do — same
+     550ms, same cubic ease-out, same per-bar stagger riding the bar's
+     own grow. The table already animated every bar's WIDTH from zero,
+     so the figure beside it used to snap to its final value the
+     instant the bar began to grow: the bar climbed and the number
+     stood still, and a number that does not move while the thing it
+     counts does is the one part of the chart that reads as pasted on.
+     Now the two arrive together, each figure on its own beat.
+     Two guards, both learned from the floor's copy: a reduced-motion
+     player is handed the numbers outright, and the landing is also
+     armed on a TIMER, because a tab that is not painting has its
+     frames throttled to nothing and a frozen "0" where a chip count
+     belongs is worse than no animation at all.               */
+  var COUNT_MS = 550;
+  var countT = 0;
+  function countUp(box) {
+    if (!box) return;
+    var mine = ++countT;                     /* bumped even with nothing to count, so a
+                                                 redraw always cancels the tween in flight */
+    var spans = box.querySelectorAll('[data-count]');
+    if (!spans.length) return;
+    var targets = [], delays = [], i;
+    for (i = 0; i < spans.length; i++) {
+      targets.push(Number(spans[i].getAttribute('data-count')) || 0);
+      delays.push(Number(spans[i].getAttribute('data-delay')) || 0);
+    }
+    var last = 0;
+    for (i = 0; i < delays.length; i++) if (delays[i] > last) last = delays[i];
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var now = (window.performance && window.performance.now) ? function () { return window.performance.now(); }
+      : function () { return Date.now(); };
+    var land = function () {
+      if (mine !== countT) return;
+      for (var k = 0; k < spans.length; k++) spans[k].textContent = String(targets[k]);
+    };
+    if (reduced) { land(); return; }
+    setTimeout(land, last + COUNT_MS + 80);
+    var t0 = now();
+    (function frame() {
+      if (mine !== countT) return;                 /* a redraw took these spans away */
+      var el = now() - t0;
+      for (var j = 0; j < spans.length; j++) {
+        if (el < delays[j]) { spans[j].textContent = '0'; continue; }
+        var e = 1 - Math.pow(1 - Math.min(1, (el - delays[j]) / COUNT_MS), 3);
+        spans[j].textContent = String(Math.round(targets[j] * e));
+      }
+      if (el < last + COUNT_MS) requestAnimationFrame(frame);
+      else land();
+    })();
   }
   function renderTrain() {
     var b = document.getElementById('trainBox');
@@ -2065,6 +2320,29 @@
     var crossT = LUCK999.cross(tOut, trainStats);
     tOut = crossT.out;
     var strip = LUCK999.stripLine(trainStats, crossT.fire);      /* the reconciliation strip, under the score */
+    /* The two felts, side by side — the duel the practice floor's strip
+       has always drawn, and this one never could: the overlay priced
+       only its own book, so every round learned on the floor sat
+       outside its luck entirely. Built by the SAME shared split the
+       floor uses, so neither felt can describe one reconciliation
+       two different ways. Each side reads its own signed gap, its own
+       band and the sigma that measures it against its OWN spread.  */
+    var duelT = LUCK999.splitFelt(combinedT(), trainStats);
+    var fired = crossT.fire;                 /* the draws the pulse marks, this redraw */
+    if (duelT && strip) {
+      var cTn = LUCK999.cross(duelOutT.named, duelT.named); duelOutT.named = cTn.out;
+      var cTr = LUCK999.cross(duelOutT.rest, duelT.rest);   duelOutT.rest = cTr.out;
+      if (cTn.fire || cTr.fire) fired = true;
+      strip += ' \u00b7 \uD83C\uDFB0 ' + LUCK999.feltTag('the table', duelT.named, cTn.fire) +
+        ' \u00b7 ' + LUCK999.feltTag('the floor', duelT.rest, cTr.fire) + ' luck';
+    }
+    /* the crossing's chime, keyed to the VERY draw the pulse marks — the
+       ear hears the same event the eye does, not an approximation of
+       it. One chime per redraw however many sides crossed: three
+       felts at once is a chord, and a bell struck three times at once
+       is a mistake, not an event. A crossing is an outlier, so it is
+       said, not celebrated — a low fifth, quiet, long in the room. */
+    if (fired) crossChime();
     if (strip) html += '<div class="evstrip">' + strip +
       ' \u00b7 <span class="newbook" id="evNewBookT">\u21ba new book</span></div>';   /* the strip's own tap */
     html += luckHistHtml();                /* the sessions already ended, side by side */
@@ -2088,6 +2366,8 @@
     b.innerHTML = html;
     if (tReviewOpen) renderReview();   /* the report rides the same redraw, so it never
                                           disagrees with the strip it repeats */
+    else countUp(b);            /* the bars' chips count up on their own beat — unless
+                                    the review just redrew them, which counts its own */
   }
   function markT() {
     if (!coachOn || game.phase !== 'acting' || game.acting !== YOUR) return;
@@ -2918,6 +3198,7 @@
   var BETS_ROOM = function () { return ROOM999.send('bets'); };
   var TAP_ROOM = function () { return ROOM999.send('tap'); };
   var BONUS_ROOM = function () { return ROOM999.send('bonus'); };
+  var CHIME_ROOM = function () { return ROOM999.send('chime'); };
   /* the ceremony fills the air, the whoosh IS air and swims, the
      verdict blooms, and the clacks stay dry-ish near the cloth */
   /* ---- the Levels panel: hear and tune a voice on its own -------
@@ -2949,6 +3230,7 @@
     else if (id === 'bets') betsOpen(0);
     else if (id === 'tap') shoeTap(0);
     else if (id === 'bonus') bonusWin(100);
+    else if (id === 'chime') crossChime();
   }
   function levelsClick(e) {
     var play = e.target.closest && e.target.closest('[data-lvplay]');
@@ -3547,6 +3829,37 @@
     if (e.target && e.target.id === 'clearBookT') clearBookT();
     if (e.target && e.target.id === 'evWholeSitT') armWholeT();
     if (e.target && e.target.id === 'evFreshSitT') resetSittingT();
+    var sparw = e.target && e.target.closest ? e.target.closest('.training .sparkpg') : null;
+    if (sparw) {                       /* the ladder's scroll wins over the bar's
+                                          own drill: it sits inside the bar, and a
+                                          player reaching for an older week must
+                                          not be handed a hand to play          */
+      if (sparkScrollT(sparw)) renderTrain();
+      return;
+    }
+    var swk = e.target && e.target.closest ? e.target.closest('.training .sparkwk') : null;
+    if (swk) {                         /* A WEEK off the ladder: this cell's
+                                          figures open on THAT week. Checked
+                                          before the line and the bar, both of
+                                          which sit inside it. It does NOT seed
+                                          the drill — the bar is that gesture
+                                          here, and a player asking "which week?"
+                                          must not queue a hand as the price     */
+      var wcell = swk.getAttribute('data-spark'), wws = Number(swk.getAttribute('data-week'));
+      tSparkOpen = wcell;
+      tSparkWeek = (tSparkOpen === wcell && tSparkWeek === wws) ? null : wws;
+      renderTrain();
+      return;
+    }
+    var sln = e.target && e.target.closest ? e.target.closest('.training .sparktap') : null;
+    if (sln) {                         /* the line itself: open or close every
+                                          figure it was drawn from */
+      var lcell = sln.getAttribute('data-spark');
+      tSparkOpen = (tSparkOpen === lcell) ? null : lcell;
+      tSparkWeek = null;               /* the line alone names no week */
+      renderTrain();
+      return;
+    }
     var bar = e.target && e.target.closest ? e.target.closest('.training .evrow.evtap') : null;
     if (bar) seedDrillFromBar(bar.getAttribute('data-cell'));   /* a tapped EV bar names its
                                                                 cell to the floor's drill */
@@ -3615,6 +3928,29 @@
     /* the scorecard row first: it sits above the chart and shares the chart's
        class, so one selector over both would answer either, but naming them
        apart keeps a future row that is not a drill from catching it */
+    var sarrow = e.target && e.target.closest ? e.target.closest('.training .sparkpg') : null;
+    if (sarrow) {                      /* the review draws the same ladders, so the
+                                          scroll answers here too — before the rows */
+      if (sparkScrollT(sarrow)) renderReview();
+      return;
+    }
+    var srwk = e.target && e.target.closest ? e.target.closest('.training .sparkwk') : null;
+    if (srwk) {                        /* the same week tap, on the report's own
+                                          copy of the ladder */
+      var rcell = srwk.getAttribute('data-spark'), rws = Number(srwk.getAttribute('data-week'));
+      tSparkOpen = rcell;
+      tSparkWeek = (tSparkOpen === rcell && tSparkWeek === rws) ? null : rws;
+      renderReview();
+      return;
+    }
+    var sln2 = e.target && e.target.closest ? e.target.closest('.training .sparktap') : null;
+    if (sln2) {
+      var rcell2 = sln2.getAttribute('data-spark');
+      tSparkOpen = (tSparkOpen === rcell2) ? null : rcell2;
+      tSparkWeek = null;
+      renderReview();
+      return;
+    }
     var srow = e.target && e.target.closest ? e.target.closest('.training.review .rvscrow.evtap') : null;
     if (srow) { seedDrillFromBar(srow.getAttribute('data-cell')); return; }
     var bar = e.target && e.target.closest ? e.target.closest('.training.review .evrow.evtap') : null;

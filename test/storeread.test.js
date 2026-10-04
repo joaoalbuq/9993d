@@ -115,7 +115,7 @@ console.log('the sweep: ' + reads + ' reads across both pages, no all-or-nothing
 const FIXED = [
   ['coachstats', 'coachStats = LUCK999.numInto(cs, { decisions: 0, book: 0, streak: 0, best: 0, loss: 0, lossBase: 0 });'],
   ['ixstats', 'ixStats = LUCK999.numInto(ixRaw, { asked: 0, followed: 0, byCell: {} });'],
-  ['luckrange', 'luckRange = LUCK999.numInto(lrRaw, { hi: null, lo: null, hiAt: null, loAt: null });'],
+  ['luckrange', 'luckRange = LUCK999.numInto(lrRaw, { hi: null, lo: null, hiAt: null, loAt: null,\n      hiEv: null, hiFelt: null, hiSd2: null, loEv: null, loFelt: null, loSd2: null });'],
   ['lucklast', 'luckClose = LUCK999.numInto(lcRaw, { rounds: 0, ev: 0, felt: 0, sd2: 0,'],
   ['forks', 'forkStats = LUCK999.numInto(fsRaw, { forks: 0, book: 0 });'],
   ['quizscore', 'quizStats = LUCK999.numInto(qs, { asked: 0, clean: 0 });'],

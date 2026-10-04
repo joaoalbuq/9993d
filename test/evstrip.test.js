@@ -426,8 +426,8 @@ if (!/s\.appendChild\(document\.createTextNode\(text\.slice\(0, at\)\)\);/.test(
   throw new Error('the clause must wrap the gap as a node, not as pasted markup');
 if (!/Closing luck: <b class="luck' \+/.test(src) || !/LUCK999\.out\(s\) \? ' over' : ''/.test(src))
   throw new Error('the closing luck must say whether it was an outlier');
-if (!/var bd = LUCK999\.band\(s\), sg = LUCK999\.sigma\(s\), ov = LUCK999\.out\(s\);/.test(src) ||
-    !/\(ov \? ' over' : ''\)/.test(src))
+if (!/var bd = band\(s\), sg = sigma\(s\), ov = out\(s\);/.test(modsrc) ||
+    !/\(ov \? ' over' : ''\)/.test(modsrc))
   throw new Error('each duel side must glow on its own outlier');
 console.log('the outlier glow: standing on the number, never on the band word alone');
 if (!/\.training \.evstrip b\.luck\.crossed \{ animation: luckpulse/.test(tsrc) || !/@keyframes luckpulse/.test(tsrc))
@@ -460,9 +460,10 @@ const splitFelt = makeFn(grab('  function splitFelt(', '\n  }'));
 const feltTag = makeFn(grab('  function feltTag(', '\n  }'));
 function drawStrip(session, prev, table, marks) {
   const el = { hidden: false, innerHTML: 'stale' };
-  if (!marks) marks = { table: null, shoe: null };
+  const chimed = [];
+  if (!marks) marks = { named: null, rest: null };
   new Function('document', 'LUCK999', 'evSession', 'evOut', 'splitFelt', 'tableBook', 'feltTag',
-    'duelOut',
+    'duelOut', 'crossChime', 'chimed',
     'return function renderEvStrip() {' + renderBody + '}')(
     /* the table book is read the way tableBook() reads it: leniently,
        through evRestore, so a book from before the spread arrives
@@ -470,7 +471,11 @@ function drawStrip(session, prev, table, marks) {
     { getElementById: () => el }, LUCK, session, prev, splitFelt,
     function () { if (!table) return null; const b = LUCK.evRestore(table); return b.rounds > 0 ? b : null; },
     feltTag,
-    marks)();
+    marks,
+    /* the crossing chime is wired to the same fire the pulse marks, so
+       the harness counts it rather than silencing it */
+    function () { chimed.push(1); },
+    chimed)();
   return el;
 }
 const drawn = drawStrip({ rounds: 2, ev: -2, felt: 234, sd2: 13225 });
@@ -503,7 +508,7 @@ if (/(the table|the shoe) <b class="luck [^"]*crossed/.test(quiet.innerHTML))
 const hotFelt = drawStrip({ rounds: 9, ev: -60, felt: 240, sd2: 8000 }, true,
   { rounds: 5, ev: -40, felt: 400, sd2: 4000 },
   /* the table's felt was inside its spread last draw; the shoe's already was not */
-  { table: false, shoe: true });
+  { named: false, rest: true });
 function sideClass(html, label) {
   const m = html.match(new RegExp(label + ' <b class="([^"]*)"'));
   return m ? m[1] : '';
@@ -518,26 +523,26 @@ if (/crossed/.test(shoeCls))
    on the very draw the OTHER side crosses                     */
 const calmFelt = drawStrip(COMBINED, true,
   { rounds: 4, ev: 0, felt: 0, sd2: 4000 },        /* the table: dead even  */
-  { table: false, shoe: false });
+  { named: false, rest: false });
 if (/crossed/.test(sideClass(calmFelt.innerHTML, 'the table')))
   throw new Error('a side inside its own spread never blooms: ' + calmFelt.innerHTML);
 /* the marks are banked apart, so the strip's own crossing and a
    felt's never stand in for one another                    */
-if (!/LUCK999\.cross\(duelOut\.table, duel\.table\)/.test(src) ||
-    !/LUCK999\.cross\(duelOut\.shoe, duel\.shoe\)/.test(src))
+if (!/LUCK999\.cross\(duelOut\.named, duel\.named\)/.test(src) ||
+    !/LUCK999\.cross\(duelOut\.rest, duel\.rest\)/.test(src))
   throw new Error('each side must read its OWN mark, not the strip\u2019s');
-if (!/var duelOut = \{ table: null, shoe: null \};/.test(src))
+if (!/var duelOut = \{ named: null, rest: null \};/.test(src))
   throw new Error('the duel banks a mark per side');
-if (!/duelOut = \{ table: null, shoe: null \};/.test(src.split('function resetEv')[1] || ''))
+if (!/duelOut = \{ named: null, rest: null \};/.test(src.split('function resetEv')[1] || ''))
   throw new Error('a fresh book must return both duel marks to null');
 console.log('the duel: each felt blooms on the draw it first tops its OWN spread, once, independently');
 
 /* --- each side names HOW MANY spreads it has run, not just the sign:
        a book from before the spread says so rather than standing
        there as a bare number the player could misread         --- */
-if (!/sg \|\| 'no spread yet'/.test(src))
+if (!/sg \|\| 'no spread yet'/.test(modsrc))
   throw new Error('a felt with no width banked must say so, not go silent');
-if (!/class="sd' \+ \(sg \? '' : ' na'\)/.test(src))
+if (!/class="sd' \+ \(sg \? '' : ' na'\)/.test(modsrc))
   throw new Error('the absence must read quieter than a measurement');
 if (!/\.evstrip \.sd\.na \{ opacity: 0\.6;/.test(src))
   throw new Error('the no-spread marker must wear its own quiet weight');
@@ -582,10 +587,10 @@ if (splitFelt(combined, null) !== null || splitFelt(combined, { rounds: 0, ev: 0
 if (splitFelt({ rounds: 2, ev: 4, felt: 40, sd2: 2000 }, tbl) !== null)
   throw new Error('a shoe with no rounds of its own is no side-by-side');
 const sp = splitFelt(combined, tbl);
-if (!sp || sp.table.rounds !== 2 || sp.shoe.rounds !== 3)
+if (!sp || sp.named.rounds !== 2 || sp.rest.rounds !== 3)
   throw new Error('the split must differ the counts: ' + JSON.stringify(sp));
-if (Math.abs(sp.shoe.ev - 6) > 1e-9 || Math.abs(sp.shoe.felt - 50) > 1e-9 || Math.abs(sp.shoe.sd2 - 3000) > 1e-9)
-  throw new Error('the shoe is the combined less the table: ' + JSON.stringify(sp.shoe));
+if (Math.abs(sp.rest.ev - 6) > 1e-9 || Math.abs(sp.rest.felt - 50) > 1e-9 || Math.abs(sp.rest.sd2 - 3000) > 1e-9)
+  throw new Error('the rest is the combined less the named felt: ' + JSON.stringify(sp.rest));
 const duelDraw = drawStrip(combined, null, tbl);
 if (!/\uD83C\uDFB0 the table <b[^>]*>[+\u2212]/.test(duelDraw.innerHTML) ||
     !/the shoe <b[^>]*>[+\u2212]/.test(duelDraw.innerHTML))
@@ -599,13 +604,15 @@ if (!/the table <b class="luck ok">\+36\.0<\/b> even <span class="sd">\+0\.8\u03
   throw new Error('the table\u2019s luck must carry its own band and sigma: ' + duelDraw.innerHTML);
 if (!/the shoe <b class="luck ok">\+44\.0<\/b> even <span class="sd">\+0\.8\u03c3<\/span>/.test(duelDraw.innerHTML))
   throw new Error('the shoe\u2019s own luck must be banded the same way: ' + duelDraw.innerHTML);
-if (!/var bd = LUCK999\.band\(s\), sg = LUCK999\.sigma\(s\), ov = LUCK999\.out\(s\);/.test(src))
+if (!/var bd = band\(s\), sg = sigma\(s\), ov = out\(s\);/.test(modsrc))
   throw new Error('each felt must band against its own accumulated spread');
 const oneFelt = drawStrip(combined, null, null);
 if (/the table/.test(oneFelt.innerHTML))
   throw new Error('with no hand-off, the strip stays one felt: ' + oneFelt.innerHTML);
-if (!/splitFelt\(evSession, tableBook\(\)\)/.test(src) || !/feltTag\('the shoe', duel\.shoe, cs\.fire\)/.test(src))
+if (!/splitFelt\(evSession, tableBook\(\)\)/.test(src) || !/feltTag\('the shoe', duel\.rest, cs\.fire\)/.test(src))
   throw new Error('the strip must draw the duel through splitFelt and feltTag, each side carrying its own crossing');
+if (!/return LUCK999\.splitFelt\(combined, table\);/.test(src) || !/return LUCK999\.feltTag\(label, s, crossed\);/.test(src))
+  throw new Error('the floor must delegate both to the shared module, so the table can split its own book the same way');
 console.log('two felts: each banded by its OWN spread \u2014 the table\u2019s and the shoe\u2019s luck as sizes, one felt until a hand-off');
 
 /* --- the band's far ends: the best and worst z the gap has EVER
@@ -614,9 +621,9 @@ if (!/'999\.practice\.luckrange'/.test(src) || !/function noteLuck\(\)/.test(src
   throw new Error('the extremes must persist and be folded in');
 const noteSrc = grab('  function noteLuck() {', '\n  }');
 function noteRun(book, range) {
-  return new Function('LUCK999', 'evSession', 'luckRange', 'saveRange',
+  return new Function('LUCK999', 'evSession', 'evLedgerRounds', 'luckRange', 'saveRange',
     noteSrc + '\nreturn function () { noteLuck(); return luckRange; };')(
-    LUCK, book, range, function () {})();
+    LUCK, book, book.rounds, range, function () {})();
 }
 const r0 = noteRun({ rounds: 7, ev: 0, felt: 115, sd2: 13225 }, { hi: null, lo: null, hiAt: null, loAt: null });
 if (Math.abs(r0.hi - 1) > 1e-9 || Math.abs(r0.lo - 1) > 1e-9)
@@ -637,9 +644,16 @@ if (noteRun({ rounds: 0, ev: 0, felt: 0, sd2: 0 }, { hi: null, lo: null }).hi !=
   throw new Error('a book with no spread sets no extreme');
 if (!/evSession\.sd2 \+= Math\.pow\(HAND_SD[\s\S]{0,400}noteLuck\(\);[\s\S]{0,300}renderCoach\(\);/.test(src))
   throw new Error('the extremes must ride the settle commit ahead of the pill');
-if (!/' \\u00b7 best ' \+ LUCK999\.bandOf\(luckRange\.hi\) \+ ' ' \+ LUCK999\.zSig\(luckRange\.hi\)/.test(src) ||
-    !/' \\u00b7 worst ' \+ LUCK999\.bandOf\(luckRange\.lo\) \+ ' ' \+ LUCK999\.zSig\(luckRange\.lo\)/.test(src))
+/* the extremes ride as NODES (a title needs an element), built from the
+   one pair of helpers the closing line prints with, so the pill and the
+   review can never describe an extreme two different ways          */
+if (!/\? \[\['best', luckRange\.hi, luckRange\.hiAt, luckRange\.hiEv, luckRange\.hiFelt, luckRange\.hiSd2\],/.test(src) ||
+    !/\['worst', luckRange\.lo, luckRange\.loAt, luckRange\.loEv, luckRange\.loFelt, luckRange\.loSd2\]\]/.test(src) ||
+    !/node\.textContent = ' \\u00b7 ' \+ luckEndTxt\(e5\[0\], e5\[1\], e5\[2\]\);/.test(src))
   throw new Error('the pill must name the best and worst bands beside the current one');
+if (!/if \(ext\) el\.appendChild\(ext\);/.test(src) ||
+    !/setScore\(el, score, luck, tail, luckGlow, extBox\)/.test(src))
+  throw new Error('the extremes must ride the pill as real nodes, or their titles print as text');
 if (!/evSession\.rounds && luckRange\.hi != null && luckRange\.lo != null/.test(src))
   throw new Error('the extremes wait for a priced round');
 /* the pill says WHEN, not just how big */
@@ -650,10 +664,10 @@ if (roundTxt(null) !== '' || roundTxt(undefined) !== '')
   throw new Error('an unstamped extreme keeps its silence \u2014 a legacy save names no round');
 if (roundTxt(NaN) !== '' || roundTxt(Infinity) !== '')
   throw new Error('a stamp that is not a number is no stamp');
-if (!/luckRoundTxt\(luckRange\.hiAt\)/.test(src) || !/luckRoundTxt\(luckRange\.loAt\)/.test(src))
+if (!/luckRoundTxt\(at\)/.test(src) || !/function luckEndTxt\(label, z, at\) \{/.test(src))
   throw new Error('the pill must read each end\u2019s own stamp');
-if (!/luckRange\.hiAt = evSession\.rounds/.test(src) || !/luckRange\.loAt = evSession\.rounds/.test(src))
-  throw new Error('the stamp must be the book\u2019s own round count');
+if (!/luckRange\.hiAt = evLedgerRounds/.test(src) || !/luckRange\.loAt = evLedgerRounds/.test(src))
+  throw new Error('the stamp must be the LEDGER\u2019s round count, which no new book restarts');
 console.log('the far ends: the best and worst z ever read \u2014 kept across sessions, named beside the current band, stamped with the round');
 if (!/\.evstrip \.newbook \{ cursor: pointer;/.test(src))
   throw new Error('the practice new-book tap must read as a control');

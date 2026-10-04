@@ -271,8 +271,14 @@ if (!/tone\(c, 659\.25, t, 0\.3, 'triangle', bg \* (0\.\d+), null, null, BONUS_R
    plain voice: it lands on the cloth directly under the player's
    eyes, so it stays close and dry on purpose — pinned below so the
    choice is stated rather than merely omitted.               */
-const declared = ['RIFFLE_ROOM', 'STINGER_ROOM', 'WHOOSH_ROOM', 'CLACK_ROOM',
-  'CUT_ROOM', 'BETS_ROOM', 'TAP_ROOM', 'BONUS_ROOM'];
+/* Derived, not listed: a wrapper counts only if it is a real one, bound
+   to ROOM999.send. A hardcoded list had already gone stale here (it named
+   neither the coach cue nor the crossing chime), and a stale list is a
+   list that will silently stop holding the next voice too.          */
+const declared = [...src.matchAll(/var ([A-Z_]+_ROOM) = function \(\) \{ return ROOM999\.send\(/g)]
+  .map((m) => m[1]);
+if (declared.length < 8)
+  throw new Error('the page must bind its own send wrappers: ' + declared.join(','));
 const voiceFns = [...src.matchAll(/^  function ([A-Za-z0-9_]+)\(/gm)];
 const stragglers = [];
 for (let vi = 0; vi < voiceFns.length; vi++) {

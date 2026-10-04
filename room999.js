@@ -36,7 +36,7 @@
   /* The sent values are the table's own, value for value, and the
      floor reads them unchanged — the whole point of the last change.
      `where` says which surface can sound a voice: 'both' for the
-     six they share, or the single surface for the voices only it
+     seven they share, or the single surface for the voices only it
      has (the floor's coach cue, the table's cut whisper, betting
      chime, shoe tap and bonus chime).                                  */
   var VOICES = [
@@ -49,7 +49,8 @@
     { id: 'cut',    label: 'cut whisper', where: 'table', note: 'paper is nearly all air',                  gain: 0.05,  send: 1.25 },
     { id: 'bets',   label: 'betting chime', where: 'table', note: 'calls the round across the felt',          gain: 0.05,  send: 1.6 },
     { id: 'tap',    label: 'shoe tap', where: 'table',  note: 'one per card \u2014 must never stack',        gain: 0.055, send: 0.45 },
-    { id: 'bonus',  label: 'bonus chime', where: 'table', note: 'pays out rather than calls',               gain: 0.05,  send: 1.3 }
+    { id: 'bonus',  label: 'bonus chime', where: 'table', note: 'pays out rather than calls',               gain: 0.05,  send: 1.3 },
+    { id: 'chime', label: 'crossing chime', where: 'both', note: 'a felt tops its own spread \u2014 said, not celebrated', gain: 0.045, send: 2.0 }
   ];
 
   var BY_ID = {};

@@ -11,6 +11,7 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
 /* the canon: the shipped module itself, not a page copy */
 const SHOE999 = require('../shoe999.js');
+const INDEX999 = require('../index999.js');   /* the real chart, so a tap widens as it ships */
 
 /* mimic the page's module state */
 let shoeArr = [];
@@ -28,6 +29,7 @@ const ldSrc = src.slice(ldStart, ldClose);
 if (ldSrc.split('{').length !== ldSrc.split('}').length) throw new Error('extraction unbalanced');
 const factory = new Function('leakMode', 'leakQueue', 'draw', 'shoeArr', 'leakCell', 'buildShoe', 'forkHand',
   'refillQueue = function () {}, gradWakeDue = function () { return 0; }, gradClock = 0, saveGrad = function () {}',   /* graduation stubs */
+  'leaks = {}, rememberIx = function () {}, leakFamily = []',   /* the tapped column the walk reads */
   ldSrc + '\nreturn leakDeal;');
 
 function run(cell, expectSoft, expectT, expectUp) {
@@ -141,7 +143,9 @@ const dnSrc = dnFull;
 const buildDrillNow = new Function('sessionLeaks', 'leaks', 'reviewMode', 'leakMode', 'leakQueue',
   'refillQueue', 'leakCell', 'saveLeaks', 'renderCoach', 'renderLeaks', 'phase', 'bet',
   'placeChip', 'deal', 'setStatus', 'DRILLFREE', 'DRILLREOPEN', 'rememberIx',
-  'var drillFree = DRILLFREE, drillReopen = DRILLREOPEN;\n' +
+  'DRILLAUTO', 'hiLo', 'roundNo', 'undoBarTap', 'LEAKFAMILY', 'INDEX999',
+  'var drillFree = DRILLFREE, drillReopen = DRILLREOPEN, drillAuto = DRILLAUTO;\n' +
+  'var leakFamily = LEAKFAMILY;\n' +
   'return function drillNow(cell, now) {' + dnBody + '};');
 function tapBar(cell, st) {
   const drillNow = buildDrillNow(st.sessionLeaks, st.leaks, st.reviewMode, st.leakMode,
@@ -149,7 +153,11 @@ function tapBar(cell, st) {
     () => {}, () => {}, st.phase, st.bet,
     (v) => { st.placed = (st.placed || 0) + v; st.bet += v; },
     () => { st.dealt = (st.dealt || 0) + 1; }, (s) => { st.status = s; },
-    !!st.drillFree, !!st.drillReopen, (c) => { st.remembered = c; });
+    !!st.drillFree, !!st.drillReopen, (c) => { st.remembered = c; },
+    st.drillAuto || null, st.hiLo || 0, st.roundNo || 0,
+    () => { st.undone = (st.undone || 0) + 1; return true; },
+    st.leakFamily || [], st.familyOf || INDEX999);
+  st.leakFamily = st.leakFamily || [];
   st.flags = drillNow(cell, st.now !== false);
   return st;
 }
@@ -215,8 +223,11 @@ if (!/evRound = !reviewMode && !drillFree;/.test(src))
 if (!/drillNow\(e\.target\.closest\('\.evtap'\)\.getAttribute\('data-cell'\), true\);/.test(src))
   throw new Error('the EV bar tap is the immediate one; a named cell is not');
 const nr = grab('  function newRound() {', '\n  }');
-if (!/if \(drillReopen\) \{/.test(nr) || !/drillReopen = false;\s*drillFree = false;/.test(nr))
+if (!/if \(drillReopen\) \{/.test(nr) || !/drillReopen = false;/.test(nr) || !/drillFree = false;/.test(nr))
   throw new Error('the next hand must close the free hand and reopen the panel');
+/* the free hand is over, so it is no longer open to being taken back */
+if (!/drillAuto = null;/.test(nr))
+  throw new Error('the settled free hand must close the undo');
 if (!/leakView = 'session';/.test(nr)) throw new Error('the panel must come back on its session view');
 console.log('the free hand: priced by nothing \u2014 no chips, no luck figure, no EV entry invented');
 

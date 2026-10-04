@@ -720,7 +720,8 @@ if (!/var ratios = leakRatios\(\);               \/\* read once: the ladder is 1
                  'hard 16 v 10': { n: 1, cost: 10, ts: now, d: 0 },
                  'hard 11 v A':  { n: 1, cost: 40, ts: now, d: 0, m: 1 },
                  'hard 10 v 10': { n: 0, cost: 0 } };
-  const leakWeight = extract('leakWeight', 'LEAK_HALF, LEAK_DRILL_HALF, LEAK_CAP')(7 * 864e5, 250, 100);
+  const drillCool250 = extract('drillCool', 'LEAK_DRILL_HALF')(250);
+  const leakWeight = extract('leakWeight', 'LEAK_HALF, LEAK_DRILL_HALF, LEAK_CAP, drillCool')(7 * 864e5, 250, 100, drillCool250);
   const leakRatios = extract('leakRatios', 'leaks, leakWeight')(LEKY, leakWeight);
   const fresh = leakRatios(now, 0);
   if (Math.abs(fresh['hard 15 v 10'] - 1) > 1e-9)

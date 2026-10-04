@@ -349,6 +349,10 @@
   .leaks .goldmore { margin: 0.15em 0 0; font-size: 0.9em; color: rgba(255,255,255,0.45); }
   .leaks li.cooling { opacity: 0.5; }    /* cooled past half its toll: the row fades */
   .leaks .cool { margin-left: 0.35em; color: #7fa7c4; font-size: 0.9em; white-space: nowrap; }
+  .leaks .cool .csplit { color: rgba(255,255,255,0.45); }   /* the two shares, quieter than the retention they make */
+  .leaks .cool .ccap { color: rgba(255,255,255,0.35); }     /* the cap held it: a clamp, not a memory */
+  .leaks .cool .coff { color: rgba(255,255,255,0.35); }     /* the drill memory is switched off */
+  .luckext { cursor: help; border-bottom: 1px dotted rgba(255,255,255,0.25); }   /* an extreme, hoverable for the figures that round was made of */
   .leaks .pull { color: rgba(255,255,255,0.6); font-size: 0.9em; white-space: nowrap; }  /* the cooled pull, beside the honest cost */
   .leaks .leakwin { margin: 0.4em 0 0; font-size: 0.9em; letter-spacing: 0.04em; color: rgba(255,255,255,0.55); }
   /* ---- the Levels panel: hear and tune a voice without a round ---- */
@@ -393,6 +397,10 @@
   .leaks .sparkwk:focus-visible { outline: 1px solid #d8b56a; outline-offset: 1px; border-radius: 2px; }
   .leaks .sparkwk.on { color: #d8b56a; }   /* the week the drill was opened on */
   .leaks .sparktap .spark { margin-left: 0.35em; text-decoration: underline dotted rgba(255,255,255,0.28); text-underline-offset: 0.22em; }
+  .leaks .sparkpg { margin-left: 0.3em; padding: 0 0.12em; cursor: pointer; border-radius: 3px;
+    color: rgba(255,255,255,0.45); font-size: 0.95em; line-height: 1; }
+  .leaks .sparkpg:hover, .leaks .sparkpg:focus-visible { color: #d8b56a; background: rgba(216,181,106,0.12); }
+  /* the arrows sit outside the line's own underline: they scroll it, they are not it */
   .leaks .sparktap:hover .spark, .leaks .sparktap:focus-visible .spark { text-decoration-color: rgba(255,255,255,0.7); }
   .leaks .sparktap:focus-visible { outline: 1px solid #d8b56a; outline-offset: 2px; border-radius: 2px; }
   /* the ladder opens as its row's OWN next line, never over the next
@@ -687,6 +695,7 @@
   var RED = [false, true, true, false];
 
   var phase = 'betting';            /* betting | shuffling | dealing | acting | dealer | settle */
+  var drillAuto = null;            /* the auto-staked bar hand still open to being taken back */
   var drillFree = false;           /* a bar tap's hand: the house staked it, so it
                                      never books - no chips, no luck figure, no
                                      EV-left entry invented for a hand nobody bet on */
@@ -796,8 +805,16 @@
      drilling are two different memories and a player may want one
      short and the other long, so both are set in the same panel row
      and both persist. The presets are the whole menu; the pick rides
-     beside the window's, so neither reset touches the other.    */
+     beside the window's, so neither reset touches the other.
+     OFF is one of those presets and a real setting, not a missing
+     one: a player who wants a leak retired by age alone — a long
+     ledger where nothing should be forgotten just for having been
+     drilled — needs the hands served to stop counting, and needs to
+     be able to say so afterwards. So 0 is a number the record keeps
+     and the panel names, and every reader of the half-life asks
+     drillCool() rather than dividing by it.                    */
   var LEAK_DRILLS = [
+    { n: 0, label: 'off' },
     { n: 100, label: '100' },
     { n: 250, label: '250' },
     { n: 500, label: '500' },
@@ -805,7 +822,8 @@
   ];
   try {
     var dhRaw = JSON.parse(localStorage.getItem('999.practice.drillhalf') || 'null');
-    if (dhRaw && typeof dhRaw.n === 'number' && dhRaw.n > 0) LEAK_DRILL_HALF = dhRaw.n;
+    if (dhRaw && typeof dhRaw.n === 'number' && isFinite(dhRaw.n) && dhRaw.n >= 0)
+      LEAK_DRILL_HALF = dhRaw.n;
   } catch (e) { }
   function saveDrillHalf() {
     try { localStorage.setItem('999.practice.drillhalf', JSON.stringify({ n: LEAK_DRILL_HALF })); } catch (e) { }
@@ -815,11 +833,25 @@
     for (i = 0; i < LEAK_DRILLS.length; i++) if (LEAK_DRILLS[i].n === LEAK_DRILL_HALF) return LEAK_DRILLS[i].label;
     return String(LEAK_DRILL_HALF);
   }
+  /* the half-life in the words the row and both titles share, so an
+     off switch is named as plainly as 250 is — never "one per 0"   */
+  function drillHalfPhrase() {
+    return LEAK_DRILL_HALF > 0 ? 'one per ' + LEAK_DRILL_HALF : 'off \u2014 the drill cools nothing';
+  }
   function setDrillHalf(n) {
-    if (!(n > 0)) return false;
+    if (typeof n !== 'number' || !isFinite(n) || n < 0) return false;
     LEAK_DRILL_HALF = n;
     saveDrillHalf();
     return true;
+  }
+  /* the drill's share of the cooling, as a factor, in ONE place: with
+     the switch off the hands served count for nothing, and with the
+     ranking and the chip both reading this, neither can be right about
+     the other                                              */
+  function drillCool(served) {
+    if (!(LEAK_DRILL_HALF > 0)) return 1;
+    if (!(served > 0)) return 1;
+    return Math.pow(0.5, served / LEAK_DRILL_HALF);
   }
   /* which mistake source feeds the drill is the player's too: the felt
      (a hand played against the book) and the quiz (a card blown) both
@@ -857,11 +889,12 @@
     var age = now - (e.ts || now);
     if (!(age > 0)) age = 0;
     /* the drill clock retires too: hands served since the stamp,
-       each LEAK_DRILL_HALF of them halving the pull            */
+       each LEAK_DRILL_HALF of them halving the pull — unless the
+       player has switched that memory off, which drillCool knows   */
     var served = e.d == null ? 0 : (drills || 0) - e.d;
     if (!(served > 0)) served = 0;
     return Math.min((e.cost || 0) * Math.pow(0.5, age / LEAK_HALF) *
-      Math.pow(0.5, served / LEAK_DRILL_HALF), LEAK_CAP);
+      drillCool(served), LEAK_CAP);
   }
   function weakestCells(now) {
     now = now || Date.now();
@@ -887,6 +920,53 @@
     if (!(k >= 0)) k = 0;
     if (k > 1) k = 1;
     return k;
+  }
+  /* the SAME retention, taken apart: how much is left, and how much
+     of what went is age against how much is drilling. The two shares
+     are the ranking's own factors — the same two powers leakWeight
+     multiplies — so the chip can never disagree with the pull beside
+     it, and a player can see WHICH memory is doing the forgetting
+     rather than only that something is. Age and the drill are set by
+     the player separately, so a row that has cooled says so in the
+     one currency both settings are written in.
+     LEAK_CAP can hold the retention below the product of the two, so
+     the flag is reported: a row held by the cap is not the same row
+     as a row the cap does not touch, and the figures should not read
+     as if age and the drill together accounted for it.        */
+  function coolParts(c, now, drills) {
+    if (!c || !(c.cost > 0) || c.w == null) return null;
+    var age = now - (c.ts || now);
+    if (!(age > 0)) age = 0;
+    var served = c.d == null ? 0 : (drills || 0) - c.d;
+    if (!(served > 0)) served = 0;
+    var a = Math.pow(0.5, age / LEAK_HALF);
+    var d = drillCool(served);
+    var keep = coolKeep(c);
+    return { keep: keep, age: a, drill: d,
+      halves: age / LEAK_HALF, served: served, off: !(LEAK_DRILL_HALF > 0),
+      capped: keep < a * d - 1e-9 };
+  }
+  /* the chip's own words: the retention, then the two shares that
+     made it. A player sets the age window and the drill's hands
+     SEPARATELY, so a single number they cannot split is a number
+     they cannot act on — age and the drill are two different
+     memories and only one of them is the one to change. The two
+     raw halves ride the title, exactly as the pull's do, so the
+     figures and the maths are never two stories.              */
+  function coolSplit(p) {
+    return ' <span class="csplit" title="' +
+      p.halves.toFixed(1) + ' half-lives old (one per ' + leakWindowLabel() +
+      ') \u00b7 ' + p.served + ' hands served since the drill (' +
+      drillHalfPhrase() + ')">age ' + Math.round(p.age * 100) + '% \u00b7 drill ' +
+      /* with the switch off the drill keeps all of it, and says so:
+         "drill 100%" beside a setting the player turned off would
+         read as a memory that had done nothing, not as one that is
+         switched off                                         */
+      (p.off ? '<span class="coff">off</span>' : Math.round(p.drill * 100) + '%') +
+      (p.capped
+        ? ' \u00b7 <span class="ccap" title="the queue weighs no row past ' + LEAK_CAP +
+          ', so the cap holds this one below what age and the drill alone would leave it">cap</span>'
+        : '') + '</span>';
   }
   /* the ledger's own view, folded per cell to 0..1 so it can stand
      beside the discipline signal: the worst leak still warm reads 1,
@@ -1125,14 +1205,10 @@
      could catch disagreeing, and a marker that outgrows its bar would cost
      the bar its own figure to say it. */
   function weekPillHtml(wk) {
-    if (!wk) return '';                 /* no basis on either end: no marker at all */
-    var tone = wk.dir < 0 ? 'down' : wk.dir > 0 ? 'up' : 'flat';
-    var why = wk.dir < 0 ? 'bleeding less than last week'
-      : wk.dir > 0 ? 'bleeding more than last week' : 'bleeding the same as last week';
-    return ' <span class="wk evdir ' + tone + '" title="chips leaked this week v last week \u00b7 \u2212' +
-      Math.round(wk.now) + ' this week against \u2212' + Math.round(wk.was) + ' last week \u00b7 ' + why + '">' +
-      (wk.dir < 0 ? '\u25BC' : wk.dir > 0 ? '\u25B2' : '\u00b7') + ' ' +
-      Math.round(wk.now) + ' v ' + Math.round(wk.was) + '</span>';
+    return LUCK999.weekPillHtml(wk);   /* built once for both felts: the live
+                                          table's marker is this same markup, so
+                                          the two cannot drift into saying
+                                          different things about one cell */
   }
   /* the record's own drift: a cell's LAST CLOSED week weighed
      against the average week its lifetime has run. The sitting's
@@ -1183,23 +1259,23 @@
      player is shown can never be a different series from the shape
      that was drawn beside them. A week never seen is skipped, not
      zero-filled — same as the line has always done.       */
-  function sparkWeeks(cell, now) {
-    now = now || Date.now();
-    var keys = [], k;
-    for (k in weekBase) keys.push(Number(k));
-    keys.sort(function (a, b) { return a - b; });
-    if (keys.length > SPARK_WEEKS) keys = keys.slice(keys.length - SPARK_WEEKS);
-    var out = [], i;
-    for (i = 0; i < keys.length; i++) {
-      var l = leakedIn(cell, keys[i], now);
-      if (l != null) out.push({ ws: keys[i], v: l });
-    }
-    return out;
+  function sparkWeeks(cell, now, back) {
+    return LUCK999.sparkWeeks(leaks, weekBase, cell, now, back);
   }
-  function sparkValues(cell, now) {
-    var w = sparkWeeks(cell, now), vals = [], i;
-    for (i = 0; i < w.length; i++) vals.push(w[i].v);
-    return vals;
+  function sparkValues(cell, now, back) {
+    return LUCK999.sparkValues(leaks, weekBase, cell, now, back);
+  }
+  function sparkPages(cell, now) {
+    return LUCK999.sparkPages(leaks, weekBase, cell, now);
+  }
+  /* which window of this cell's ladder is on show: 0 is the newest
+     eight, 1 the eight before those, and so on. Kept per cell, so
+     scrolling one cell's line does not scroll every other.       */
+  function sparkPage(cell, now) {
+    var p = Number(sparkPageOf(cell)) || 0;
+    var pages = sparkPages(cell, now);
+    return p > pages - 1 ? pages - 1 : p;      /* the record can shrink under
+                                                   a player mid-scroll */
   }
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1215,57 +1291,50 @@
      and the window's own total — so "it is getting worse" can be
      checked against the chips instead of believed.              */
   function sparkDetail(cell, now) {
-    var w = sparkWeeks(cell, now);
+    /* the SAME window the line was drawn from: scrolling the ladder
+       scrolls the figures too, so a step and its number stay one
+       answer rather than two that happen to sit near each other */
+    var pg = sparkPage(cell, now);
+    var w = sparkWeeks(cell, now, pg);
     /* no shape, nothing to open: a cell that never bled has weeks on
        paper and zeros on them, and a ladder of minus-zero would
        read as a real reading the line itself refused to draw   */
-    if (!sparkLine(sparkValues(cell, now))) return '';
+    if (!sparkLine(sparkValues(cell, now, pg))) return '';
     if (w.length < 2) return '';
     var total = 0, i, parts = [];
     for (i = 0; i < w.length; i++) {
       total += w[i].v;
       parts.push('<span class="sw' + (sparkWeek === w[i].ws ? ' on' : '') + '"><b>' +
-        weekLabel(w[i].ws) + '</b> \u2212' +
-        Math.round(w[i].v) + '</span>');
+        weekLabel(w[i].ws) + '</b> ' + LUCK999.leakFig(w[i].v) + '</span>');
     }
     return '<span class="sparkdetail">' + parts.join('') +
-      '<span class="sw sum">\u2212' + Math.round(total) + ' over ' + w.length + ' weeks</span></span>';
+      '<span class="sw sum">' + LUCK999.leakFig(total) + ' over ' + w.length + ' weeks</span></span>';
   }
   /* eight steps of ink, the series scaled to its own range: a flat
      series sits on the mid glyph, a rising one climbs left to
      right. Fewer than two points is no line at all.         */
   function sparkLine(vals) {
-    if (!vals || vals.length < 2) return '';
-    var max = vals[0], min = vals[0], i;
-    for (i = 1; i < vals.length; i++) {
-      if (vals[i] > max) max = vals[i];
-      if (vals[i] < min) min = vals[i];
-    }
-    if (!(max > 0)) return '';                 /* no leak anywhere: no line */
-    var glyph = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588';
-    var out = '';
-    for (i = 0; i < vals.length; i++) {
-      var v = max > min ? (vals[i] - min) / (max - min) : 0.5;
-      if (!(v > 0)) v = 0;
-      if (v > 1) v = 1;
-      out += glyph.charAt(Math.min(7, Math.round(v * 7)));
-    }
-    return out;
+    return LUCK999.sparkLine(vals);
   }
   /* the line's own direction: newest against oldest. -1 is
      improving — the latest week bled less than the first.  */
   function sparkDir(vals) {
-    if (!vals || vals.length < 2) return 0;
-    var first = vals[0], last = vals[vals.length - 1];
-    return last < first ? -1 : last > first ? 1 : 0;
+    return LUCK999.sparkDir(vals);
   }
-  function sparkHtml(vals, cell) {
+  function sparkHtml(cell, now) {
+    /* the window this cell is on: the newest eight unless the player
+       has walked back through the ones behind them. Every figure on
+       the line, and every figure the detail strip shows, is read from
+       THIS window — the line can never show one week set and the
+       figures beside it another.                                */
+    var pg = sparkPage(cell, now);
+    var vals = sparkValues(cell, now, pg);
     var line = sparkLine(vals);
     if (!line) return '';
     var dir = sparkDir(vals);
     /* the line is a button, not a picture: a tap opens the very
        figures it was drawn from, in the row it sits in. Only one
-       shape stays open, so opening a second closes the first — 
+       shape stays open, so opening a second closes the first —
        two open ladders would read as two answers.           */
     var open = sparkOpen === cell;
     /* Each week is its own tap: eight controls rather than one picture,
@@ -1273,19 +1342,37 @@
        glyphs come off the SAME key walk the figures are read from, zipped
        against the very values the line was scaled from, so a step and
        its number can never part company.                        */
-    var w = sparkWeeks(cell), g = '', i, ch;
+    var w = sparkWeeks(cell, now, pg), g = '', i, ch;
     for (i = 0; i < w.length && i < line.length; i++) {
       ch = line.charAt(i);
       g += '<span class="sparkwk' + (open && sparkWeek === w[i].ws ? ' on' : '') +
         '" data-spark="' + attrT(cell) + '" data-week="' + w[i].ws +
         '" role="button" tabindex="0" aria-label="' + weekLabel(w[i].ws) + ' week of ' + cell +
-        '" title="' + weekLabel(w[i].ws) + ' \u2212' + Math.round(w[i].v) +
+        '" title="' + weekLabel(w[i].ws) + ' ' + LUCK999.leakFig(w[i].v) +
         ' chips \u2014 tap to drill ' + cell + '">' + ch + '</span>';
     }
+    var pages = sparkPages(cell, now);
+    /* the scroll itself: only the way that leads somewhere is drawn.
+       A control that cannot move is a lie about the record.      */
+    var nav = '';
+    if (pages > 1) {
+      if (pg < pages - 1) nav += '<span class="sparkpg" data-spark="' + attrT(cell) +
+        '" data-delta="-1" role="button" tabindex="0" aria-label="older weeks of ' + cell +
+        '" title="the ' + SPARK_WEEKS_TEXT + ' weeks before these \u2014 tap to scroll back">\u2039</span>';
+      if (pg > 0) nav += '<span class="sparkpg" data-spark="' + attrT(cell) +
+        '" data-delta="1" role="button" tabindex="0" aria-label="newer weeks of ' + cell +
+        '" title="' + (pg === pages - 1 ? 'back to the newest weeks' : 'the next ' + SPARK_WEEKS_TEXT + ' weeks') + '">\u203a</span>';
+    }
+    /* which window is on show, said in the hover: a scrolled-back line
+       that did not say so would read as the whole record          */
+    var where = pg === 0 ? 'the newest ' + w.length + ' weeks'
+      : 'weeks ' + (pg * SPARK_WEEKS + 1) + '-' + (pg * SPARK_WEEKS + w.length) + ' back, of ' + w.length + ' shown';
     return ' <span class="sparktap' + (open ? ' on' : '') + '" data-spark="' + attrT(cell) +
       '" role="button" tabindex="0" aria-expanded="' + (open ? 'true' : 'false') +
-      '" title="chips leaked per week, oldest to newest \u2014 tap a week to drill it, or the line for the figures">' +
-      '<span class="spark ' + (dir < 0 ? 'down' : dir > 0 ? 'up' : 'flat') + '">' + g + '</span></span>';
+      '" title="chips leaked per week, oldest to newest \u2014 ' + where +
+      '. Tap a week to drill it, or the line for the figures">' +
+      '<span class="spark ' + (dir < 0 ? 'down' : dir > 0 ? 'up' : 'flat') + '">' + g + '</span>' +
+      nav + '</span>';
   }
   function gradGap(g) {
     var gap = GRAD_GAP;
@@ -1597,6 +1684,28 @@
   function saveEv() {
     try { localStorage.setItem('999.practice.evsession', JSON.stringify(evSession)); } catch (e) { }
   }
+  /* The ledger's OWN round counter: every round this player has ever
+     priced, counted once and never restarted. The book's own `rounds`
+     starts again at 1 with every new book, so it cannot say WHERE an
+     extreme happened — "round 9" would name two different books and
+     the older one's figures would be read against the newer one's.
+     The extremes outlive a new book by design, so their stamps have
+     to outlive it too, and only a count that keeps going can say that.
+     It is not part of any wipe: the fresh shoe clears the session's
+     books, and the extremes ride that wipe untouched, so a counter
+     restarted beside them would hand out the same stamp twice.
+     Read leniently, and lifted to the book's own count when that is
+     the later truth — a hand-off from the table adds a round to this
+     book while the player is away, and a record saved before the
+     counter existed has none of its own.                     */
+  var evLedgerRounds = 0;
+  try {
+    evLedgerRounds = LUCK999.numInto(JSON.parse(localStorage.getItem('999.practice.evrounds') || 'null'), { n: 0 }).n;
+  } catch (e) { }
+  if (!(evLedgerRounds >= evSession.rounds)) evLedgerRounds = evSession.rounds;
+  function saveRounds() {
+    try { localStorage.setItem('999.practice.evrounds', JSON.stringify({ n: evLedgerRounds })); } catch (e) { }
+  }
   /* the far ends of the running band: the best (highest) and worst
      (lowest) signed gap the reconciliation has EVER read, kept as
      z-scores across sessions so the pill can name the extremes
@@ -1606,10 +1715,12 @@
      best and worst say WHEN: a hot run means more beside the round
      that made it. The stamps ride the same record as the scores, so
      an older save without them still reads — it just names no round. */
-  var luckRange = { hi: null, lo: null, hiAt: null, loAt: null };
+  var luckRange = { hi: null, lo: null, hiAt: null, loAt: null,
+    hiEv: null, hiFelt: null, hiSd2: null, loEv: null, loFelt: null, loSd2: null };
   try {
     var lrRaw = JSON.parse(localStorage.getItem('999.practice.luckrange') || 'null');
-    luckRange = LUCK999.numInto(lrRaw, { hi: null, lo: null, hiAt: null, loAt: null });
+    luckRange = LUCK999.numInto(lrRaw, { hi: null, lo: null, hiAt: null, loAt: null,
+      hiEv: null, hiFelt: null, hiSd2: null, loEv: null, loFelt: null, loSd2: null });
   } catch (e) { }
   function saveRange() {
     try { localStorage.setItem('999.practice.luckrange', JSON.stringify(luckRange)); } catch (e) { }
@@ -1618,8 +1729,24 @@
     var z = LUCK999.z(evSession);
     if (z == null) return;
     var moved = false;
-    if (luckRange.hi == null || z > luckRange.hi) { luckRange.hi = z; luckRange.hiAt = evSession.rounds; moved = true; }
-    if (luckRange.lo == null || z < luckRange.lo) { luckRange.lo = z; luckRange.loAt = evSession.rounds; moved = true; }
+    /* the legs are banked with the stamp, because a round number
+       says WHEN and nothing else: the same round is worth a different
+       thing on a different book, so the engine's and the felt's own
+       figures have to travel with the stamp or the player is left
+       to guess which gap the σ was measured on. And the stamp is
+       the LEDGER's round, not the book's — a new book counts from
+       one again, and an extreme from the old one must not be read
+       as the new book's round 9.                           */
+    if (luckRange.hi == null || z > luckRange.hi) {
+      luckRange.hi = z; luckRange.hiAt = evLedgerRounds;
+      luckRange.hiEv = evSession.ev; luckRange.hiFelt = evSession.felt; luckRange.hiSd2 = evSession.sd2;
+      moved = true;
+    }
+    if (luckRange.lo == null || z < luckRange.lo) {
+      luckRange.lo = z; luckRange.loAt = evLedgerRounds;
+      luckRange.loEv = evSession.ev; luckRange.loFelt = evSession.felt; luckRange.loSd2 = evSession.sd2;
+      moved = true;
+    }
     if (moved) saveRange();
   }
   /* the round stamp as the pill reads it: present only when the
@@ -1627,6 +1754,31 @@
      silence instead of claiming a round it never said.        */
   function luckRoundTxt(n) {
     return (typeof n === 'number' && isFinite(n)) ? ' (round ' + n + ')' : '';
+  }
+  /* an extreme, and what it was made of. The text is unchanged —
+     the band, the σ, the round — and the figures ride the title, in
+     the strip's own spelling: the engine's leg to one decimal, the
+     felt's in chips, and the gap between them as the shared word
+     reads it. One figure, one source: the hover cannot say a
+     different gap from the one the σ was measured on.
+     A record from before the legs were banked carries none, and then
+     the extreme is printed exactly as it always was — plain text, no
+     title, no pair of figures invented after the fact.          */
+  function luckEndTitle(at, ev, felt, sd2) {
+    if (!(typeof at === 'number' && isFinite(at)) ||
+        !(typeof ev === 'number' && isFinite(ev)) ||
+        !(typeof felt === 'number' && isFinite(felt))) return null;
+    return 'the ledger\u2019s round ' + at + ', and the book as it stood then \u2014 engine ' + LUCK999.signed(ev, true) +
+      ' \u00b7 felt ' + LUCK999.signed(felt) +
+      ' \u00b7 the gap that read ' + LUCK999.word({ rounds: at, ev: ev, felt: felt }) +
+      (sd2 ? ' in ' + Math.round(Math.sqrt(sd2)) + ' of spread' : '');
+  }
+  function luckEndTxt(label, z, at) {
+    return label + ' ' + LUCK999.bandOf(z) + ' ' + LUCK999.zSig(z) + luckRoundTxt(at);
+  }
+  function luckEndHtml(label, z, at, ev, felt, sd2) {
+    var txt = luckEndTxt(label, z, at), title = luckEndTitle(at, ev, felt, sd2);
+    return title ? '<span class="luckext" title="' + title + '">' + txt + '</span>' : txt;
   }
   /* the session's CLOSING reading: the gap graded and KEPT. The strip
      shows it live, and it moves with every hand; this is the same
@@ -1644,7 +1796,9 @@
        unreadable figure inside it                                 */
     if (lcRaw && typeof lcRaw === 'object' && typeof lcRaw.rounds === 'number' && lcRaw.rounds > 0)
       luckClose = LUCK999.numInto(lcRaw, { rounds: 0, ev: 0, felt: 0, sd2: 0,
-        hi: null, lo: null, hiAt: null, loAt: null, at: 0, was: null });
+        hi: null, lo: null, hiAt: null, loAt: null,
+        hiEv: null, hiFelt: null, hiSd2: null, loEv: null, loFelt: null, loSd2: null,
+        at: 0, was: null });
   } catch (e) { }
   function saveLuckClose() {
     try { localStorage.setItem('999.practice.lucklast', JSON.stringify(luckClose)); } catch (e) { }
@@ -1656,7 +1810,10 @@
     var prev = luckClose;                           /* the closing before it, kept beside it */
     luckClose = {
       rounds: evSession.rounds, ev: evSession.ev, felt: evSession.felt, sd2: evSession.sd2,
-      hi: luckRange.hi, lo: luckRange.lo, hiAt: luckRange.hiAt, loAt: luckRange.loAt, at: Date.now(),
+      hi: luckRange.hi, lo: luckRange.lo, hiAt: luckRange.hiAt, loAt: luckRange.loAt,
+      hiEv: luckRange.hiEv, hiFelt: luckRange.hiFelt, hiSd2: luckRange.hiSd2,
+      loEv: luckRange.loEv, loFelt: luckRange.loFelt, loSd2: luckRange.loSd2,
+      at: Date.now(),
       was: prev ? { rounds: prev.rounds, ev: prev.ev, felt: prev.felt, sd2: prev.sd2 } : null
     };
     saveLuckClose();
@@ -1678,8 +1835,8 @@
       ' \u00b7 ' + lc.rounds + ' round' + (lc.rounds === 1 ? '' : 's') + ' priced \u2014 ' +
       luckVerdict(s) + '.' +
       (lc.hi != null && lc.lo != null
-        ? ' Best ' + LUCK999.bandOf(lc.hi) + ' ' + LUCK999.zSig(lc.hi) + luckRoundTxt(lc.hiAt) +
-          ' \u00b7 worst ' + LUCK999.bandOf(lc.lo) + ' ' + LUCK999.zSig(lc.lo) + luckRoundTxt(lc.loAt) + '.'
+        ? ' ' + luckEndHtml('Best', lc.hi, lc.hiAt, lc.hiEv, lc.hiFelt, lc.hiSd2) +
+          ' \u00b7 ' + luckEndHtml('worst', lc.lo, lc.loAt, lc.loEv, lc.loFelt, lc.loSd2) + '.'
         : '') +
       (lc.was ? ' The closing before it read ' + LUCK999.word(lc.was) +
         (LUCK999.band(lc.was) ? ' \u00b7 ' + LUCK999.band(lc.was) : '') + '.' : '') +
@@ -1717,7 +1874,7 @@
      when THEY first top THEIR OWN spread, so a felt going hot
      lights up on the draw it happened — not a round later when
      the combined gap happens to cross                        */
-  var duelOut = { table: null, shoe: null };
+  var duelOut = { named: null, rest: null };
   /* the live table's book, as it left it: the same reconciliation
      the table page keeps, read here so the shoe can name the two
      felts apart. Validated like every other cross-page read.  */
@@ -1736,34 +1893,15 @@
     return null;
   }
   /* the two felts, side by side: the shoe's OWN book is the whole
-     reconciliation less the rounds the live table handed over. It
-     only reads as two when BOTH sides hold rounds — a shoe with
-     none of its own has no luck to show beside the table's, and a
-     reset on either side (the counts disagreeing) reads as one. */
+     reconciliation less the rounds the live table handed over. Built
+     once in the shared module, because the live table's strip splits
+     its own book the same way and the two must not drift into
+     describing the same reconciliation differently.            */
   function splitFelt(combined, table) {
-    if (!table || !(table.rounds > 0)) return null;
-    if (!combined || combined.rounds <= table.rounds) return null;
-    return {
-      table: { rounds: table.rounds, ev: table.ev, felt: table.felt, sd2: table.sd2 },
-      shoe: { rounds: combined.rounds - table.rounds, ev: combined.ev - table.ev,
-              felt: combined.felt - table.felt, sd2: combined.sd2 - table.sd2 }
-    };
+    return LUCK999.splitFelt(combined, table);
   }
-  /* one felt of the duel, read the pill's way: the signed gap, its
-     band and the sigma that measures it — each book against its
-     OWN accumulated spread, so the table's hot and cold are sizes
-     too, not just a sign. `crossed` blooms THIS side on the one
-     draw its own gap tops its own first spread.
-     A book from before the spread banked no width, so its sigma is
-     genuinely unknown — the side says so rather than standing there
-     as a bare sign the player could read as "no spreads run".   */
   function feltTag(label, s, crossed) {
-    var tn = LUCK999.tone(s);          /* the same sign-only colour the strip keeps */
-    var bd = LUCK999.band(s), sg = LUCK999.sigma(s), ov = LUCK999.out(s);
-    var cls = 'luck' + (tn ? ' ' + tn : '') + (ov ? ' over' : '') + (crossed ? ' crossed' : '');
-    return label + ' <b' + (tn || ov || crossed ? ' class="' + cls + '"' : '') + '>' + LUCK999.word(s) + '</b>' +
-      (bd ? ' ' + bd : '') +
-      ' <span class="sd' + (sg ? '' : ' na') + '">' + (sg || 'no spread yet') + '</span>';
+    return LUCK999.feltTag(label, s, crossed);
   }
   function renderEvStrip() {
     var el = document.getElementById('evStrip');
@@ -1781,12 +1919,21 @@
        outlier pulses once and the other side's crossing does not
        re-arm it.                                              */
     var duel = splitFelt(evSession, tableBook());
+    var fired = cross.fire;                  /* the draws the pulse marks, this redraw */
     if (duel && line) {
-      var ct = LUCK999.cross(duelOut.table, duel.table); duelOut.table = ct.out;
-      var cs = LUCK999.cross(duelOut.shoe, duel.shoe);   duelOut.shoe = cs.out;
-      line += ' \u00b7 \uD83C\uDFB0 ' + feltTag('the table', duel.table, ct.fire) +
-        ' \u00b7 ' + feltTag('the shoe', duel.shoe, cs.fire) + ' luck';
+      var ct = LUCK999.cross(duelOut.named, duel.named); duelOut.named = ct.out;
+      var cs = LUCK999.cross(duelOut.rest, duel.rest);   duelOut.rest = cs.out;
+      if (ct.fire || cs.fire) fired = true;
+      line += ' \u00b7 \uD83C\uDFB0 ' + feltTag('the table', duel.named, ct.fire) +
+        ' \u00b7 ' + feltTag('the shoe', duel.rest, cs.fire) + ' luck';
     }
+    /* the crossing's chime, keyed to the VERY draw the pulse marks — the
+       ear hears the same event the eye does, not an approximation of
+       it. One chime per redraw however many sides crossed: three
+       felts at once is a chord, and a bell struck three times at once
+       is a mistake, not an event. A crossing is an outlier, so it is
+       said, not celebrated — a low fifth, quiet, long in the room. */
+    if (fired) crossChime();
     el.hidden = !line;
     /* the strip's own tap: a fresh book on demand. It rides the
        rebuilt innerHTML, so it is re-drawn here, not bound once. */
@@ -1804,7 +1951,7 @@
        book has crossed nothing, so the next real crossing blooms
        again instead of inheriting a mark from the old ledger    */
     evOut = null;
-    duelOut = { table: null, shoe: null };
+    duelOut = { named: null, rest: null };
     saveEv();
     renderEvStrip();
     renderCoach();          /* the pill drops the gap and the band too */
@@ -1846,7 +1993,7 @@
     bank = 1000; bet = 0; doubled = false; saveBank();
     leaks = {}; sessionLeaks = {}; leakCell = null; leakUnseen = 0; reelUnseen = 0; unseenForget(); saveUnseen(); forkHand = {};
     weekBase = {}; gradClock = 0; drillReport = null; drillChart = null;
-    drillFree = false; drillReopen = false;
+    drillFree = false; drillReopen = false; drillAuto = null;
     saveLeaks(); saveGrad(); saveWeek();
     replay = []; reviewIdx = 0; fork = null; forkStats = { forks: 0, book: 0 }; saveReplay(); saveForks();
     coachStats = { decisions: 0, book: 0, streak: 0, best: 0, loss: 0, lossBase: 0 }; saveCoach();
@@ -2144,10 +2291,11 @@
   /* a score line in three parts: the score, the gap (its own tap),
      and whatever else rides along — built as nodes, so the clause
      is real markup rather than text pretending to be a control   */
-  function setScore(el, score, luck, rest, glow) {
+  function setScore(el, score, luck, rest, glow, ext) {
     if (!el) return;
     el.textContent = score;
     if (luck) el.appendChild(luckClause(luck, glow));
+    if (ext) el.appendChild(ext);          /* the extremes, between the gap and the rest */
     if (rest) el.appendChild(document.createTextNode(rest));
   }
   function openLuck() {
@@ -2186,10 +2334,25 @@
     /* the band's far ends: the best and worst the gap has ever read,
        named beside where it stands now — the extremes are sizes too,
        kept as z-scores across sessions, each stamped with the round
-       it happened on                                        */
-    if (evSession.rounds && luckRange.hi != null && luckRange.lo != null)
-      tail += ' \u00b7 best ' + LUCK999.bandOf(luckRange.hi) + ' ' + LUCK999.zSig(luckRange.hi) + luckRoundTxt(luckRange.hiAt) +
-        ' \u00b7 worst ' + LUCK999.bandOf(luckRange.lo) + ' ' + LUCK999.zSig(luckRange.lo) + luckRoundTxt(luckRange.loAt);
+       it happened on, and each hoverable for the figures that round
+       was made of. They ride as NODES, like the gap clause: a string
+       pasted into the tail would be set as text and show its own
+       angle brackets, and a title needs an element to sit on.    */
+    var ends = evSession.rounds && luckRange.hi != null && luckRange.lo != null
+      ? [['best', luckRange.hi, luckRange.hiAt, luckRange.hiEv, luckRange.hiFelt, luckRange.hiSd2],
+        ['worst', luckRange.lo, luckRange.loAt, luckRange.loEv, luckRange.loFelt, luckRange.loSd2]]
+      : null;
+    var extBox = null;
+    if (ends) {
+      extBox = document.createElement('span');
+      for (var ei = 0; ei < ends.length; ei++) {
+        var e5 = ends[ei], title = luckEndTitle(e5[2], e5[3], e5[4], e5[5]);
+        var node = document.createElement('span');
+        if (title) { node.className = 'luckext'; node.title = title; }
+        node.textContent = ' \u00b7 ' + luckEndTxt(e5[0], e5[1], e5[2]);
+        extBox.appendChild(node);
+      }
+    }
     /* the drill's roster rides the pill: cells holding honours
        beside cells still drilling — the panel's two crowds,
        read in one glance                                */
@@ -2207,7 +2370,8 @@
     var wt = weekTrend();
     if (wt) tail += ' \u00b7 \uD83E\uDE79 ' + wt.cell +
       (wt.dir < 0 ? ' \u25BC' : wt.dir > 0 ? ' \u25B2' : ' \u00b7');
-    setScore(el, score, luck, tail, luckGlow);   /* the gap rides as its own tap */
+    setScore(el, score, luck, tail, luckGlow, extBox);   /* the gap rides as its own tap,
+                                       and the extremes as their own hovers */
     document.getElementById('coachPill').classList.toggle('off', !coachOn);
     var lb = document.getElementById('btnLeaks');
     if (lb) {
@@ -2240,6 +2404,12 @@
      the target upcard — so the exact decision returns, not
      one like it.                                         */
   var leakMode = false, leakQueue = [], leakCell = null;
+  /* the column a tap widened to: [tapped, ...the rest]. leakCell
+     alone would never walk it — the queue only advances when the
+     current cell is retired — so the family is held here and each
+     served hand steps to the next member. Empty whenever the drill
+     was NOT opened by a tap, so an ordinary drill is untouched.    */
+  var leakFamily = [];
   /* the exact cards a forked hand was dealt, per cell. A fork is the one
      drill hand that was not invented: the player held those two cards and
      that dealer, and the class name is only a label for it. So the drill
@@ -2273,6 +2443,13 @@
   seedTake();
   var sparkWeek = null;            /* the week inside it a tap chose — the
                                      one its drill was opened on        */
+  var sparkPaged = {};            /* cell → how many windows back its ladder
+                                     is scrolled. Kept per cell so one
+                                     line's scroll does not move the rest */
+  function sparkPageOf(cell) {
+    return sparkPaged[cell] || 0;
+  }
+  var SPARK_WEEKS_TEXT = LUCK999.SPARK_WEEKS === 8 ? 'eight' : String(LUCK999.SPARK_WEEKS);
   var sparkOpen = null;            /* the one cell whose weekly
                                        figures are open, or none */
   var leakView = 'session';          /* the panel's tab: this sitting vs the whole ledger */
@@ -2560,7 +2737,7 @@
           var wk = weekSplit(r4.cell);        /* the same figures the leak row shows, beside
                                                  the bar rather than beside the chips: one
                                                  reading, so the two can never disagree  */
-          var spark = sparkHtml(sparkValues(r4.cell), r4.cell);   /* the cell's own eight weeks: a bar
+          var spark = sparkHtml(r4.cell);   /* the cell's own ladder of weeks: a bar
                                                                says how much, this says whether
                                                                it is getting worse or being
                                                                drilled away. Same series as the
@@ -2625,13 +2802,15 @@
       var tap = leakView === 'session' && !c.m ? ' <span class="drilltap" data-cell="' + c.cell + '">drill now</span>' : '';
       var wk = weekSplit(c.cell);        /* this week's chips against last week's, tinted */
       var wkHtml = weekPillHtml(wk);
-      var spark = sparkHtml(sparkValues(c.cell), c.cell);   /* the weekly line, beside the chip */
+      var spark = sparkHtml(c.cell);   /* the weekly line, beside the chip, on the
+                                     window this cell is scrolled to      */
       /* the cooling read: only the all-time ranking weighs the row,
          so only it can show how much of the toll survives. A fresh
          row (nothing lost) stays bare; a cooled one wears the
          snowflake with its retention, and past COOL_AT the whole
          row fades.                                              */
-      var keep = leakView === 'session' ? null : coolKeep(c);
+      var parts = leakView === 'session' ? null : coolParts(c, leakNow, gradClock);
+      var keep = parts == null ? null : parts.keep;
       /* the pull beside the honest cost: the ranking's OWN weight, so a
          heavy row that has cooled can be seen to fall below a lighter
          one instead of only appearing to. The snowflake rides with it,
@@ -2639,13 +2818,17 @@
          that did it — age, and hands served since the drill.       */
       var ages = c.ts ? Math.max(0, (leakNow - c.ts) / LEAK_HALF) : 0;
       var served = c.d == null ? 0 : Math.max(0, gradClock - c.d);
-      var cool = keep == null || keep > 0.995 ? '' :
+      /* EVERY memory wears its own retention, not only the cooled
+         ones: a fresh row is a memory too, and ❄ 100% beside it is
+         how a player sees the split below as the ONE that moved.    */
+      var cool = keep == null ? '' :
         ' <span class="cool" title="the share of its toll the queue still weighs \u2014 the rest has cooled off">' +
-        '\u2744 ' + Math.round(keep * 100) + '%</span>';
+        '\u2744 ' + Math.round(keep * 100) + '%' +
+        (keep > 0.995 ? '' : coolSplit(parts)) + '</span>';
       var pull = keep == null ? '' :
         ' \u00b7 <span class="pull" title="what the queue weighs this row at, not what it cost: ' +
         ages.toFixed(1) + ' half-lives old (one per ' + leakWindowLabel() + ') \u00b7 ' +
-        served + ' hands served since the drill (one per ' + LEAK_DRILL_HALF + ')">pulls ' +
+        served + ' hands served since the drill (' + drillHalfPhrase() + ')">pulls ' +
         Math.round(c.w) + '</span>' + cool;
       var cls = c.r ? 'grad' : c.m ? 'master' : '';
       if (keep != null && keep < COOL_AT) { cls = (cls ? cls + ' ' : '') + 'cooling'; coolN++; }
@@ -2698,14 +2881,18 @@
       (next ? 'Next hand: ' + next.cell + ' \u2014 the shoe deals it to you.'
             : 'All graduated \u2014 the classic 16 v 10 keeps the drill honest.') +
       heldHtml +
-      (leakView === 'session' ? '' : ' Ranks by the freshest tolls \u2014 age and the drill both cool a leak.' +
-        (coolN ? ' \u2744 marks a row cooled below half its toll.' : '') +
+      (leakView === 'session' ? '' : ' Ranks by the freshest tolls \u2014 ' +
+        (LEAK_DRILL_HALF > 0 ? 'age and the drill both cool a leak.' : 'the drill is off, so age alone cools a leak \u2014 hands served no longer count against it.') +
+        ' \u2744 is each cell\u2019s own retention, and the two shares beside it say how much is age and how ' +
+        'much is drilling \u2014 the one number a player can act on is the memory they set shorter.' +
+        (coolN ? ' The rows faded past half their toll are the ones the drill has already retired.' : '') +
         (goldRows ? ' \uD83C\uDFC5 The gold rows carry the day each cell mastered, newest first.' : '') +
-        ' The pull beside each cost is what the queue weighs it at \u2014 age and the drill halve it, ' +
-        'so a heavier row can rank below a lighter one.' +
+        ' The pull beside each cost is what the queue weighs it at \u2014 ' +
+        (LEAK_DRILL_HALF > 0 ? 'age and the drill halve it' : 'age halves it') +
+        ', so a heavier row can rank below a lighter one.' +
         ' \u25B2 = last week harder than the cell\u2019s own average week.') + '</p>' +
       (leakView === 'all'
-        ? '<p class="leakwin" title="how fast a leak cools \u2014 with age, and with drill hands served">' +
+        ? '<p class="leakwin" title="how fast a leak cools \u2014 with age, and with drill hands served (or not at all, on off)">' +
           'Fade window: ' +
           LEAK_WINDOWS.map(function (w) {
             return '<span class="lw' + (w.ms === LEAK_HALF ? ' on' : '') + '" data-ms="' + w.ms + '">' + w.label + '</span>';
@@ -3528,11 +3715,35 @@
                                                                     or one the ledger already holds
                                                                     (the felt handed it over) */
     if (reviewMode) { reviewMode = false; reviewIdx = 0; }   /* one mode at a time */
+    /* the SAME bar tapped twice takes the auto-stake back: the hand
+       it dealt is undecided, so the player may still change their
+       mind and stack a different cell instead */
+    if (now && drillAuto && drillAuto.cell === cell && phase !== 'betting') return undoBarTap();
+    /* A BAR TAP TAKES THE WHOLE COLUMN. The chart's corrections come
+       in families: every hard total that flips at a 10 flips because
+       tens left make the draw bust too often, and that reason belongs
+       to the deck, not to the total. Drilling one cell and stopping
+       taught a fifth of the lesson and left its neighbours standing
+       beside it untaught — so a tap now widens to every total that
+       flips at the same upcard, the tapped cell first. The family
+       comes from INDEX999 itself, so a total the chart does not carry
+       cannot be drilled as though it did, and the tapped cell is
+       always present: a tap never drills LESS than it used to. */
+    var family = now ? INDEX999.cellFamily(cell) : [cell];
     if (!leakMode) { leakMode = true; if (!leakQueue.length) refillQueue(); }
     var e = leaks[cell];
     if (e && e.m) return;                        /* a master has left the drill for good */
     if (e && e.r) { e.r = 0; e.back = 0; e.s = 0; saveLeaks(); }
     leakCell = cell;                             /* the forced cell — the queue keeps its order */
+    /* the rest of the column queues behind it: drilled in turn, each
+       one its own hand, so the family is worked rather than merely
+       named. Cells the ledger has never seen are not invented — the
+       tap widens the drill, it does not manufacture leaks. */
+    if (family.length > 1) {
+      var rest = family.filter(function (c) { return c !== cell; });
+      leakQueue = rest.concat(leakQueue.filter(function (c) { return rest.indexOf(c) < 0; }));
+      leakFamily = family.slice();   /* the column walks itself, one hand each */
+    } else leakFamily = [];
     rememberIx(cell);                            /* a count cell drilled is remembered across visits */
     if (now) {
       drillReopen = true;                         /* the panel the bar was read from comes back */
@@ -3553,12 +3764,49 @@
     if (now && phase === 'betting') {
       drillFree = true;
       if (!bet) placeChip(25);
+      drillAuto = { cell: cell, hiLo: hiLo, roundNo: roundNo };
       deal();
-      setStatus('Drill: ' + cell + ' \u2014 the house staked this one, it costs nothing');
+      setStatus('Drill: ' + cell + ' \u2014 the house staked this one, it costs nothing. Tap that bar again to take it back.');
       return;
     }
     if (phase === 'betting' && !bet) setStatus('Drill: ' + cell + ' \u2014 place any bet, the shoe stacks it');
     else setStatus('Drill: ' + cell + ' \u2014 the next hand stacks it');
+  }
+  /* A BAR TAP STAKES ITS CELL AT ONCE, and the floor took that
+     further than it should have: it dealt the hand with no way
+     back. A player who taps a bar and then reads it twice has
+     locked themselves into a cell they did not choose, and the
+     only honest way out was to play a hand they never wanted.
+     So the tap is REVERSIBLE while it is still undecided: tap
+     the SAME bar again and the auto-staked hand is taken back —
+     the round is cancelled before it can settle or book, the
+     house's chip comes straight back off the tray, the count is
+     put back what the cancelled cards added, and betting reopens
+     so any OTHER bar may be stacked instead.
+     The shoe is honest about this one thing: the cancelled cards
+     stay spent, because they really were dealt off it. It is a
+     practice shoe and it reshuffles; a card cannot be un-drawn.
+     Only a hand nobody acted on may be taken back — once the
+     player has hit, stood or doubled, the hand was played and the
+     ledger may keep it.                                   */
+  function undoBarTap() {
+    var saved = drillAuto;
+    if (!saved) return false;
+    drillAuto = null;
+    token++;                                   /* nothing of that round still fires */
+    you = []; dealerArr = []; hands = []; splitActive = 0;
+    insBet = 0; insOpen = false; doubled = false;
+    closeDrill(); drillOpen = false; drillChart = null; drillReopen = false;
+    drillFree = false;
+    phase = 'betting';                         /* clearBet only pays out while betting,
+                                                  so the phase must reopen FIRST: set
+                                                  it after and the chip stays on the tray */
+    clearBet();                                /* the house's chip returns to the bank */
+    hiLo = saved.hiLo;                         /* the count forgets the cancelled cards */
+    roundNo = saved.roundNo;
+    renderShoe(); renderCount(); renderBank(); renderBet(); renderCoach(); renderLeaks(); syncUI();
+    setStatus('Taken back \u2014 nothing was played and nothing was booked. Tap any bar to stack a different cell.');
+    return true;
   }
   /* The count's plays are drilled from the sheet itself — the never
      record's red chip, the refused ask, a quiz cell you keep missing —
@@ -3706,6 +3954,24 @@
       return true;
     }
     if (!findAndStack()) { buildShoe(); findAndStack(); }
+    /* a tapped column walks itself: this hand has been served, so
+       the next member takes the seat. The tapped cell is first, so
+       the player gets what they asked for before the family runs.
+       A retired or mastered member is skipped rather than drilled —
+       the family widens the drill, it never revives a cell.        */
+    if (leakFamily.length) {
+      var at2 = leakFamily.indexOf(leakCell);
+      var nx = null;
+      for (var q = at2 + 1; q < leakFamily.length; q++) {
+        var ce = leaks[leakFamily[q]];
+        if (!ce || (!ce.m && !ce.r)) { nx = leakFamily[q]; break; }
+      }
+      /* the column empties as its LAST member is served: keep it
+         alive and the final cell would be dealt a second time   */
+      if (at2 >= leakFamily.length - 1) leakFamily = [];
+      else if (nx) { leakCell = nx; rememberIx(nx); }
+      else leakFamily = [];         /* the column is worked through */
+    }
   }
   /* The meter tells the truth a card counter watches: the
      RUNNING count (2-6 = +1, 7-9 = 0, 10-A = -1), reset with
@@ -4135,6 +4401,7 @@
   var STINGER_ROOM = function () { return ROOM999.send('stinger'); };
   var CLACK_ROOM = function () { return ROOM999.send('clack'); };
   var CUE_ROOM = function () { return ROOM999.send('cue'); };
+  var CHIME_ROOM = function () { return ROOM999.send('chime'); };
   function tone(c, freq, t, dur, type, gain, slideTo, out, room) {
     var o = c.createOscillator(), g = c.createGain();
     o.type = type;
@@ -4246,6 +4513,19 @@
   }
   /* the coach's voice: a bright two-note tick at a book play,
      a low sigh at a deviation — quiet, and never over the felt */
+  /* The crossing's chime. A felt has just topped its OWN accumulated
+     spread — a statistical outlier, not a win — so this is said, not
+     celebrated: a low fifth on triangles, quiet, and long in the room
+     so it arrives from somewhere rather than snapping at the ear.
+     It never carries the panner: a crossing is a property of a book,
+     not of a seat, so it sits where the strip sits.           */
+  function crossChime() {
+    var c = ready(); if (!c) return;
+    var t = c.currentTime + 0.02;
+    var g = ROOM999.gain('chime');
+    tone(c, 392.00, t, 0.62, 'triangle', g * 0.62, null, null, CHIME_ROOM());
+    tone(c, 587.33, t + 0.055, 0.52, 'triangle', g * 0.40, null, null, CHIME_ROOM());
+  }
   function coachCue(ok) {
     var c = ready(); if (!c) return;
     var t = c.currentTime;
@@ -4288,6 +4568,7 @@
     else if (id === 'clack') chipClack(0);
     else if (id === 'cue') coachCue(true);
     else if (id === 'stinger') stinger('win');
+    else if (id === 'chime') crossChime();   /* the crossing said aloud, to hear it before a round earns one */
   }
   /* one handler for the whole panel: a voice to hear, a rung to climb,
      or a voice to put back where it shipped */
@@ -4573,6 +4854,7 @@
   }
   function hit() {
     if (phase !== 'acting') return;
+    drillAuto = null;                 /* the hand was played from: no taking it back */
     evPrice('hit');
     coachVerdict('hit');
     phase = 'dealing';
@@ -4586,6 +4868,7 @@
   }
   function stand() {
     if (phase !== 'acting') return;
+    drillAuto = null;                 /* the hand was played from: no taking it back */
     evPrice('stand');
     coachVerdict('stand');
     handDone();
@@ -4593,6 +4876,7 @@
   function doubleDown() {
     var h = activeHand();
     if (phase !== 'acting' || !h || h.aces || h.cards.length !== 2 || bank < h.stake) return;
+    drillAuto = null;                 /* the hand was played from: no taking it back */
     evPrice('double');
     coachVerdict('double');
     bank -= h.stake; h.stake *= 2; h.doubled = true;
@@ -4824,6 +5108,8 @@
        the felt's movement - one round, committed once             */
     if (evRound && evPriced) {
       evSession.rounds++;
+      evLedgerRounds++;                 /* the ledger's own count, which no wipe restarts */
+      saveRounds();
       evSession.ev += evRoundExp + evInsExp;
       evSession.felt += myNet + insWin - insStake;
       evSession.sd2 += Math.pow(HAND_SD * (doubled ? 2 * bet : bet), 2);   /* the round's own
@@ -4978,6 +5264,7 @@
        never booked, and the next one is the player's own again */
     if (drillReopen) {
       drillReopen = false;
+      drillAuto = null;                      /* the free hand is over: it cannot be taken back */
       drillFree = false;
       drillChart = null;
       leakMode = true;
@@ -5115,6 +5402,25 @@
       /* the source pick: which mistakes feed the ledger from here on */
       if (setDrillFeed(e.target.getAttribute('data-src'))) renderLeaks();
     }
+    else if (e.target && e.target.closest && e.target.closest('.sparkpg')) {
+      /* The ladder's SCROLL. Checked before the week, the strip and the
+         bar's own drill, because the arrow sits inside all three: a
+         player reaching for an older week would otherwise be handed a
+         hand to play. The page is kept per cell, so scrolling one
+         ladder leaves every other exactly where it was.         */
+      var pgEl = e.target.closest('.sparkpg');
+      var pgc = pgEl.getAttribute('data-spark'), pgd = Number(pgEl.getAttribute('data-delta')) || 0;
+      var want = (Number(sparkPaged[pgc]) || 0) + pgd;
+      var have = sparkPages(pgc);
+      if (want < 0) want = 0;
+      if (want > have - 1) want = have - 1;    /* never off the end of the record */
+      if (want !== (Number(sparkPaged[pgc]) || 0)) {
+        sparkPaged[pgc] = want;
+        sparkWeek = null;              /* a different window: no week is chosen */
+        if (sparkOpen !== pgc) sparkOpen = null;
+        renderLeaks();
+      }
+    }
     else if (e.target && e.target.closest && e.target.closest('.sparkwk')) {
       /* A WEEK off the strip: it opens that cell's drill, with the week
          the player chose kept open underneath it. Checked before the
@@ -5150,6 +5456,27 @@
      fire it — a control that only answers a mouse is not one. */
   if (leakBoxEl) leakBoxEl.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    var kpg = e.target && e.target.closest ? e.target.closest('.sparkpg') : null;
+    if (kpg) {                      /* the scroll answers the keyboard too */
+      e.preventDefault();
+      var pcell = kpg.getAttribute('data-spark'), pdel = Number(kpg.getAttribute('data-delta')) || 0;
+      var pwas = Number(sparkPaged[pcell]) || 0;
+      var pwant = pwas + pdel, phave = sparkPages(pcell);
+      if (pwant < 0) pwant = 0;
+      if (pwant > phave - 1) pwant = phave - 1;
+      if (pwant !== pwas) {
+        sparkPaged[pcell] = pwant;
+        sparkWeek = null;
+        if (sparkOpen !== pcell) sparkOpen = null;
+        renderLeaks();
+      }
+      /* focus follows the arrow the player pressed, so a second press
+         scrolls again instead of starting over at the top of the panel */
+      var pgBack = leakBoxEl.querySelector('.sparkpg[data-spark="' +
+        String(pcell).replace(/"/g, '\\"') + '"][data-delta="' + pdel + '"]');
+      if (pgBack) pgBack.focus();
+      return;
+    }
     var kw = e.target && e.target.closest ? e.target.closest('.sparkwk') : null;
     if (kw) {                       /* a week of the strip: its drill */
       e.preventDefault();

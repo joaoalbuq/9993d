@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const LUCK = require(path.join(__dirname, '..', 'luck999.js'));   /* the shared module both pages load */
+const LUCK_SRC = fs.readFileSync(path.join(__dirname, '..', 'luck999.js'), 'utf8');
 const luckSrc = fs.readFileSync(path.join(__dirname, '..', 'luck999.js'), 'utf8');
 const src = fs.readFileSync(path.join(__dirname, '..', 'offline.html'), 'utf8');
 
@@ -84,7 +85,7 @@ if (!/localStorage\.setItem\('999\.practice\.lucklast', JSON\.stringify\(luckClo
    record is dropped), which is the all-or-nothing fault the audit fixed. */
 if (!/typeof lcRaw === 'object' && typeof lcRaw\.rounds === 'number' && lcRaw\.rounds > 0/.test(src) ||
     !/luckClose = LUCK999\.numInto\(lcRaw, \{/.test(src) ||
-    !/sd2: 0,\n        hi: null, lo: null, hiAt: null, loAt: null, at: 0, was: null \}\)/.test(src))
+    !/sd2: 0,\n        hi: null, lo: null, hiAt: null, loAt: null,\n        hiEv: null, hiFelt: null, hiSd2: null, loEv: null, loFelt: null, loSd2: null,\n        at: 0, was: null \}\)/.test(src))
   throw new Error('a stored closing must be one this page can grade, field by field');
 {
   /* the commit itself: an unpriced session closes on nothing, the same
@@ -251,22 +252,38 @@ console.log('wiring: the baseline is read before the miss, the readout lands at 
 /* --- the bar wears its cell's own eight weeks: the bar says HOW
        MUCH, the line says whether it is getting worse           --- */
 const barFull = grab("var bars = ev.rows.map(function (r4) {", "}).join('');");
-if (!/var spark = sparkHtml\(sparkValues\(r4\.cell\), r4\.cell\);/.test(barFull))
+if (!/var spark = sparkHtml\(r4\.cell\);/.test(barFull))
   throw new Error('each bar must draw its own cell\u2019s line, and pass the cell so the line can open');
-if (barFull.indexOf('sparkHtml(sparkValues(r4.cell), r4.cell)') > barFull.indexOf("return '<div class=\"evrow"))
+if (barFull.indexOf('sparkHtml(r4.cell)') > barFull.indexOf("return '<div class=\"evrow"))
   throw new Error('the line must be drawn before the row that wears it');
 if (!/\+ spark \+/.test(barFull)) throw new Error('the line must be drawn into the row');
-if (!/var SPARK_WEEKS = 8;/.test(src))
+/* the window and the walk now live in the SHARED module, so both
+   felts draw one series; the bar's line still reads the SAME weekly
+   snapshots the chip does, because LUCK999.leakedIn is that reading */
+if (LUCK.SPARK_WEEKS !== 8)
   throw new Error('the sparkline window must be eight weeks everywhere it is drawn');
-if (!/leakedIn\(cell, keys\[i\], now\)/.test(src))
+if (!/var l = leakedIn\(lk, wb, cell, keys\[i\], now\);/.test(LUCK_SRC))
   throw new Error('the bar\u2019s line must read the SAME weekly snapshots the chip does');
-/* one series, one window: the bar and the leak row cannot disagree */
-const sparkWiring = src.match(/sparkHtml\(sparkValues\((\w+)\.cell\), \w+\.cell\)/g) || [];
-if (sparkWiring.length !== 2 || !sparkWiring.every((w) => /sparkValues\(\w+\.cell\), \w+\.cell\)/.test(w)))
+if (!/return LUCK999\.sparkValues\(leaks, weekBase, cell, now, back\);/.test(src))
+  throw new Error('the floor must take its series from the shared walk, not its own');
+/* one series, one window: the bar and the leak row cannot disagree.
+   Both now name only the cell — the renderer reads the window itself,
+   so the line and the figures beside it cannot be drawn from two. */
+const sparkWiring = src.match(/sparkHtml\((\w+\.cell)\)/g) || [];
+if (sparkWiring.length !== 2 || !sparkWiring.every((w) => /^sparkHtml\(\w+\.cell\)$/.test(w)))
   throw new Error('the bar and the leak row must read one shared series: ' + JSON.stringify(sparkWiring));
-const sparkFull = grab('  function sparkWeeks(cell, now) {', '\n  }');
-if (!/if \(keys\.length > SPARK_WEEKS\) keys = keys\.slice\(keys\.length - SPARK_WEEKS\);/.test(sparkFull))
-  throw new Error('the window must TRUNCATE the kept weeks, never pad');
+/* the window is a PAGE of the whole walk now, not a slice off its end:
+   eight shown, everything behind it still reachable */
+const sparkFull = LUCK_SRC.slice(LUCK_SRC.indexOf('function sparkAll(lk, wb, cell, now) {'));
+if (/keys\.slice\(keys\.length - SPARK_WEEKS\)/.test(sparkFull))
+  throw new Error('the window must page the whole walk, never slice the old weeks away');
+if (!/var end = a\.length - back \* SPARK_WEEKS;/.test(sparkFull) ||
+    !/return a\.slice\(start, end\);/.test(sparkFull))
+  throw new Error('one window must be SPARK_WEEKS off the front of the whole walk');
+if (!/return LUCK999\.sparkWeeks\(leaks, weekBase, cell, now, back\);/.test(src))
+  throw new Error('the floor must walk the shared series, not its own');
+if (!/LUCK999\.sparkValues\(lk, wb, cell, now, pg\)/.test(fs.readFileSync(path.join(__dirname, '..', 'table-16x9.html'), 'utf8')))
+  throw new Error('the table must walk the same shared series as the floor');
 console.log('the bar line: eight weeks beside the chips \u2014 the same series the leak row draws, never a second answer');
 
 /* --- the chips count themselves up on the bars' own beat --- */
@@ -405,8 +422,12 @@ for (const fn of ['weekStartT', 'prevWeekT', 'nextWeekT', 'leakedInT', 'weekDirT
   if (new RegExp('^  function ' + fn + '\\(', 'm').test(weekTableSrc))
     throw new Error('the table kept its own ' + fn + ': the reading is shared, not copied');
 }
-if (!/LUCK999\.weekDir\(lk, wb, cell, now\)/.test(weekTableSrc))
+/* the table reads the week through the module \u2014 and reads the FIGURES,
+   not only the direction: its bar prints this week against last */
+if (!/LUCK999\.weekSplit\(lk, wb, cell, now\)/.test(weekTableSrc))
   throw new Error('the table must read the week through the shared module');
+if (!/LUCK999\.weekPillHtml\(LUCK999\.weekSplit\(lk, wb, cell, now\)\)/.test(weekTableSrc))
+  throw new Error('the table\u2019s marker must be the shared pill over that shared reading');
 if (!/return LUCK999\.leakedIn\(leaks, weekBase, cell, ws, now\);/.test(src) ||
     !/return LUCK999\.weekSplit\(leaks, weekBase, cell, now\);/.test(src))
   throw new Error('the floor must bind its own ledger and snapshots into the shared reading');
@@ -435,8 +456,8 @@ if (!/var wk = weekSplit\(r4\.cell\);/.test(src) || !/spark \+ weekPillHtml\(wk\
   throw new Error('each bar must carry its week-over-week figures, from the same split the row reads');
 if (!/var wkHtml = weekPillHtml\(wk\);/.test(src))
   throw new Error('the leak row and the bar must share one renderer, so they cannot disagree');
-const weekPillHtml = new Function('return function weekPillHtml(wk) {' +
-  body('  function weekPillHtml(wk) {') + '}')();
+const weekPillHtml = new Function('LUCK999', 'return function weekPillHtml(wk) {' +
+  body('  function weekPillHtml(wk) {') + '}')(LUCK);
 /* the figures themselves: an arrow says which way, never how fast */
 const pillDown = weekPillHtml({ now: 8, was: 400, dir: -1 });
 if (!/\u25BC 8 v 400/.test(pillDown))
@@ -478,20 +499,39 @@ const drillFeedFelt = new Function('return function drillFeedFelt() {' + tbody('
    floor's copy, because there is no second copy left */
 const weekBaseT = new Function('return function weekBaseT() {' + tbody('  function weekBaseT() {') + '}')();
 const weekDirT = LUCK.weekDir;
-const evLeftT = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999',
-  'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT, {},evBarTitleT, tLedgerRead, drillFeedFelt, {}, '', attrTT, weekBaseT, weekDirT, LUCK);
+/* the table's own trend renderer, lifted as shipped — so the line the
+   chart wears here is the one it draws in the page, not a stand-in */
+const evSparkT = new Function('LUCK999', 'attrTT', 'tSparkPage', 'tSparkOpen', 'tSparkWeek',
+  'return function evSparkT(lk, wb, cell, now) {'
+  + tbody('  function evSparkT(lk, wb, cell, now) {')
+  + 'function evSparkPageT(cell, pages) {' + tbody('  function evSparkPageT(cell, pages) {') + '}'
+  + 'function weekLabelT(ts) {' + tbody('  function weekLabelT(ts) {') + '}'
+  + '}')(LUCK, attrTT, {}, null, null);
+const evLeftT = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
+  'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT, {},evBarTitleT, tLedgerRead, drillFeedFelt, {}, '', attrTT, weekBaseT, weekDirT, LUCK, evSparkT, () => '', {});
 const tFold = scoreT({ 'hard 16 v 10': { n: 2, cost: 60 }, 'hard 12 v 2': { n: 1, cost: 25 } });
 if (!tFold || tFold.total !== 85 || tFold.cells !== 2) throw new Error('the felt fold must total the sitting');
 if (tFold.rows.length !== 1 || tFold.rows[0].cell !== 'hard 16 v 10')
   throw new Error('the cut must stop once 60% of the loss is named: ' + JSON.stringify(tFold.rows));
 if (tFold.rows[0].n !== 2) throw new Error('the felt fold must carry the miss count for the bar to name');
 if (scoreT({}) !== null) throw new Error('a clean sitting draws no chart');
-const tChart = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999',
+const tChart = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
   'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT,
-  { 'hard 16 v 10': { n: 2, cost: 60 }, 'hard 12 v 2': { n: 1, cost: 25 } },evBarTitleT, tLedgerRead, drillFeedFelt, {}, '', attrTT, weekBaseT, weekDirT, LUCK)();
+  { 'hard 16 v 10': { n: 2, cost: 60 }, 'hard 12 v 2': { n: 1, cost: 25 } },evBarTitleT, tLedgerRead, drillFeedFelt, {}, '', attrTT, weekBaseT, weekDirT, LUCK, evSparkT, () => '', {})();
 if (!/class="evleft"/.test(tChart) || !/EV left on the table/.test(tChart)) throw new Error('the table chart must title itself');
-if (!/<span class="evbar"><i style="width:100%;animation-delay:0ms"><\/i><\/span>/.test(tChart) || !/<b>\u221260<\/b>/.test(tChart))
-  throw new Error('the fewest-bar must scale to the worst and name its cost: ' + tChart);
+/* the cost is a COUNT SPAN, not a literal: the table's bars grow
+   from zero, so the figure beside them counts up on the same beat
+   rather than snapping to its value while the bar is still climbing */
+if (!/<span class="evbar"><i style="width:100%;animation-delay:0ms"><\/i><\/span>/.test(tChart) ||
+    !/<b>\u2212<span class="cnt" data-count="60" data-delay="0">0<\/span><\/b>/.test(tChart))
+  throw new Error('the fewest-bar must scale to the worst and count up to its cost: ' + tChart);
+/* the trend line rides INSIDE the row, after the cost. This fixture
+   carries no weekly snapshots, so it honestly draws neither the line
+   nor the week-over-week mark — what is pinned here is that the row
+   still closes on its own markup and the cost is still the last
+   thing before it, so the line can never break the row's structure */
+if (!/<b>\u2212<span class="cnt" data-count="60" data-delay="0">0<\/span><\/b><\/div>/.test(tChart))
+  throw new Error('the row must close on its own markup after the cost: ' + tChart);
 if (!/Fix it: \+60 back \u00b7 25 still behind the rest\./.test(tChart))
   throw new Error('the table tail must name the recovery: ' + tChart);
 /* the felt bar names itself on hover, like the floor's, and says the way in */
@@ -503,9 +543,9 @@ console.log('the felt bar names itself on hover: 60 chips behind it, 2 misses, 6
 /* --- the felt chart is a way in: a tapped bar seeds the floor's drill --- */
 /* the two refusals a row offers before the tap is taken, so the chart never
    shows a button the tap itself would turn down */
-const chartWith = (ledger, fed, cell) => new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999',
+const chartWith = (ledger, fed, cell) => new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
   'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT,
-  { [cell || 'hard 16 v 10']: { n: 2, cost: 60 } }, evBarTitleT, () => ledger, () => fed, {}, '', attrTT, weekBaseT, weekDirT, LUCK)();
+  { [cell || 'hard 16 v 10']: { n: 2, cost: 60 } }, evBarTitleT, () => ledger, () => fed, {}, '', attrTT, weekBaseT, weekDirT, LUCK, evSparkT, () => '', {})();
 const masterChart = chartWith({ 'hard 16 v 10': { n: 2, cost: 60, m: 1 } }, true);
 if (!/class="evrow evno"/.test(masterChart) || /data-cell/.test(masterChart) || /tap to drill/.test(masterChart))
   throw new Error('a mastered cell has left the drill for good: its bar must stay a name: ' + masterChart);
@@ -517,10 +557,10 @@ const escChart = chartWith({}, true, 'hard 16 v <b>');
 if (!/data-cell="hard 16 v &lt;b&gt;"/.test(escChart)) throw new Error('the tap must carry its cell, escaped: ' + escChart);
 if (!/data-cell="hard 16 v 10"/.test(chartWith({}, true))) throw new Error('the tap must carry its cell');
 /* the note says what the tap did, under the chart */
-const noteChart = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999',
+const noteChart = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote', 'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
   'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT,
   { 'hard 16 v 10': { n: 2, cost: 60 } }, evBarTitleT, () => ({}), () => true, {},
-  'hard 16 v 10 \u00b7 named to the practice floor \u2014 its next leak hand deals this cell.', attrTT, weekBaseT, weekDirT, LUCK)();
+  'hard 16 v 10 \u00b7 named to the practice floor \u2014 its next leak hand deals this cell.', attrTT, weekBaseT, weekDirT, LUCK, evSparkT, () => '', {})();
 if (!/<p class="evnote">hard 16 v 10 \u00b7 named to the practice floor \u2014 its next leak hand deals this cell\.<\/p>/.test(noteChart))
   throw new Error('a tap must say what it did: ' + noteChart);
 console.log('the felt chart holds back: a mastered cell, and a floor drilled quiz-only, keep no tap');
@@ -640,11 +680,14 @@ function reportFor(session, hands, ledger, fed, seeded) {
      empty session draws nothing at all */
   const chartStub = () => (Object.keys(ses).length ? rvChart : '');
   new Function('tSession', 'feltHandsT', 'evLeftT', 'document', 'tLedgerRead', 'drillFeedFelt',
-    'attrTT', 'tSeeded',
+    'attrTT', 'tSeeded', 'countUp',
     'var tReviewOpen = true;\n' +
     'function renderReview() {' + tbody('  function renderReview() {') + '}\n' +
     'renderReview();')(ses, hands || function () { return []; }, chartStub, dom,
-    () => (ledger || {}), () => (fed === undefined ? true : fed), attrTT, seeded || {});
+    () => (ledger || {}), () => (fed === undefined ? true : fed), attrTT, seeded || {},
+    /* the report arms the count-up on its own chart; stubbed here so
+       the suite reads the markup, not the tween */
+    () => {});
   return box.innerHTML;
 }
 /* the empty sitting must say so rather than draw an empty chart */
@@ -744,11 +787,11 @@ const sweep = chartWith({}, true, 'hard 16 v 10');
 if (!/animation-delay:0ms/.test(sweep)) throw new Error('the first bar must start at once: ' + sweep);
 /* four equal cells, so the Pareto cut actually yields three rows to stagger */
 const threeRows = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote',
-  'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999',
+  'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
   'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT,
   { 'hard 16 v 10': { n: 2, cost: 25 }, 'hard 12 v 2': { n: 1, cost: 25 },
     'hard 9 v 3': { n: 1, cost: 25 }, 'hard 20 v 6': { n: 1, cost: 25 } },
-  evBarTitleT, () => ({}), () => true, {}, '', attrTT, weekBaseT, weekDirT, LUCK)();
+  evBarTitleT, () => ({}), () => true, {}, '', attrTT, weekBaseT, weekDirT, LUCK, evSparkT, () => '', {})();
 if ((threeRows.match(/class="evrow/g) || []).length !== 3)
   throw new Error('the fixture must produce a three-row cut: ' + threeRows);
 const delays = (threeRows.match(/animation-delay:(\d+)ms/g) || []).join(',');
@@ -789,12 +832,20 @@ if (weekDirT(lkNow, {}, 'hard 16 v 10', wkNow) !== null)
 wb[cur] = { 'hard 16 v 10': 10 };                       /* back to the worsening pair */
 wb[prev.getTime()] = { 'hard 16 v 10': 40 };
 const marked = new Function('scoreT', 'tSession', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'tSeeded', 'tSeedNote',
-  'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999',
+  'attrTT', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
   'return function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}')(scoreT,
-  { 'hard 16 v 10': { n: 3, cost: 40 } }, evBarTitleT, () => lkNow, () => true, {}, '', attrTT, () => wb, weekDirT, LUCK)();
-if (!/class="evdir up"[^>]*>\u25B2/.test(marked))
-  throw new Error('the worsening cell must wear a red up: ' + marked);
-if (!/leaking more than last week/.test(marked)) throw new Error('the marker must say what it means');
+  { 'hard 16 v 10': { n: 3, cost: 40 } }, evBarTitleT, () => lkNow, () => true, {}, '', attrTT, () => wb, weekDirT, LUCK, evSparkT, () => '', {})();
+/* the marker is now the shared pill: it carries the class AND the figures,
+   so it names this week against last week rather than pointing at nothing */
+if (!/class="wk evdir up"[^>]*>\u25B2 30 v -30/.test(marked))
+  throw new Error('the worsening cell must wear a red up, with its figures: ' + marked);
+/* a recovering cell reads NEGATIVE (the leak was smaller than the base), so
+   the minus the floor prefixes must not land on a figure carrying its own */
+if (/\u2212-/.test(marked)) throw new Error('a negative leak must not be given a second minus: ' + marked);
+if (!/30 this week against -30 last week/.test(marked))
+  throw new Error('the hover must name both weeks, each with its own sign: ' + marked);
+/* the wording is the shared pill's, so both felts say it the same way */
+if (!/bleeding more than last week/.test(marked)) throw new Error('the marker must say what it means');
 if (!/\.training \.evleft \.evrow \.evdir\.down \{ color: #43c98a; \}/.test(tsrc) ||
     !/\.training \.evleft \.evrow \.evdir\.up \{ color: #e2705f; \}/.test(tsrc))
   throw new Error('the markers must wear the house tones');
@@ -806,13 +857,13 @@ console.log('the direction marker: green down, red up, and silence where nothing
 const resetBody = tbody('  function resetSittingT() {');
 if (/trainStats|localStorage|tLedger|saveT|flushT/.test(resetBody))
   throw new Error('a view reset must reach neither the book nor the floor: ' + resetBody);
-const sitState = new Function('attrTT', 'scoreT', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'renderTrain', 'weekBaseT', 'weekDirT', 'LUCK999',
+const sitState = new Function('attrTT', 'scoreT', 'evBarTitleT', 'tLedgerRead', 'drillFeedFelt', 'renderTrain', 'weekBaseT', 'weekDirT', 'LUCK999', 'evSparkT', 'evSparkDetailT', 'tSparkPage',
   'var tSession = { "hard 16 v 10": { n: 2, cost: 60 } }, tSeeded = { "hard 16 v 10": 123 }, tSeedNote = "named";\n' +
   'function evLeftT(sfx) {' + tbody('  function evLeftT(sfx) {') + '}\n' +
   'function resetSittingT() {' + resetBody + '}\n' +
   'return { chart: function () { return evLeftT(); }, reset: resetSittingT,' +
   ' session: function () { return tSession; }, seeded: function () { return tSeeded; },' +
-  ' note: function () { return tSeedNote; } };')(attrTT, scoreT, evBarTitleT, tLedgerRead, drillFeedFelt, () => {}, weekBaseT, weekDirT, LUCK);
+  ' note: function () { return tSeedNote; } };')(attrTT, scoreT, evBarTitleT, tLedgerRead, drillFeedFelt, () => {}, weekBaseT, weekDirT, LUCK, evSparkT, () => '', {});
 if (!/EV left on the table/.test(sitState.chart()) || !/data-cell="hard 16 v 10"/.test(sitState.chart()))
   throw new Error('the chart must be drawn before it can be started over');
 const keptLedger = JSON.stringify({ 'hard 16 v 10': { n: 4, cost: 300, t: 4 } });

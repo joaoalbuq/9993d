@@ -520,13 +520,19 @@ if (!/return \{ now: l, was: was, dir: l < was \? -1 : l > was \? 1 : 0 \};/.tes
 if (!/var wk = weekSplit\(c\.cell\);/.test(src) ||
     !/var wkHtml = weekPillHtml\(wk\);/.test(src))
   throw new Error('a row must carry its weekly chips, tinted');
-if (!/Math\.round\(wk\.now\) \+ ' v ' \+ Math\.round\(wk\.was\)/.test(src))
-  throw new Error('the row must name the chips this week versus last');
+/* the pill\u2019s own markup lives in luck999.js now \u2014 the floor binds to it
+   rather than keeping a copy, which is how the live table came to print the
+   same figures instead of a bare arrow */
+if (!/Math\.round\(wk\.now\) \+ ' v ' \+ Math\.round\(wk\.was\)/.test(luckSrc))
+  throw new Error('the shared pill must name the chips this week versus last');
+if (!/function weekPillHtml\(wk\) \{\s*return LUCK999\.weekPillHtml\(wk\);/.test(src))
+  throw new Error('the floor must forward to the shared pill, not keep a second builder');
 /* the row and the chart's bar share ONE renderer, so run it rather than
    matching its markup: a row drawing chips while the bar drew a bare arrow
    was the fault this one function prevents */
-const weekPill = new Function(grab('  function weekPillHtml(wk) {', '\n  }') +
-  '\nreturn weekPillHtml;')();
+const weekPill = new Function('LUCK999',
+  grab('  function weekPillHtml(wk) {', '\n  }') +
+  '\nreturn weekPillHtml;')(require(path.join(__dirname, '..', 'luck999.js')));
 const rowPill = weekPill({ now: 30, was: 4, dir: 1 });
 if (!/\u25B2 30 v 4/.test(rowPill) || !/class="wk evdir up"/.test(rowPill))
   throw new Error('the row must still name the chips and tint them: ' + rowPill);
@@ -571,7 +577,8 @@ if (!/var LEAK_CAP = 100, LEAK_DRILL_HALF = 250;/.test(src) ||
     !/var LEAK_HALF_DEFAULT = 7 \* 24 \* 60 \* 60 \* 1000;/.test(src))
   throw new Error('the cap, the drill decay and the default age window must be named constants');
 const HALF = 7 * 24 * 60 * 60 * 1000, CAP = 100, DRILL_HALF = 250;
-const leakWeight = extract('leakWeight', 'LEAK_HALF, LEAK_CAP, LEAK_DRILL_HALF')(HALF, CAP, DRILL_HALF);
+const drillCool250 = extract('drillCool', 'LEAK_DRILL_HALF')(DRILL_HALF);
+const leakWeight = extract('leakWeight', 'LEAK_HALF, LEAK_CAP, LEAK_DRILL_HALF, drillCool')(HALF, CAP, DRILL_HALF, drillCool250);
 const now = 1700000000000, DRILLS = 5000;
 if (leakWeight(null, now, DRILLS) !== 0 || leakWeight({ n: 0, cost: 50 }, now, DRILLS) !== 0)
   throw new Error('a cell with no misses pulls nothing');
@@ -619,7 +626,10 @@ if (!/w: leakWeight\(leaks\[k\], now, gradClock\)/.test(src))
   throw new Error('the ranker must weigh the row against the drill clock as well as the age');
 if (!/arr\.sort\(function \(a, b\) \{ return b\.w - a\.w; \}\);/.test(src))
   throw new Error('the ranking must order by the decayed weight');
-if (!/Ranks by the freshest tolls \\u2014 age and the drill both cool a leak\./.test(src))
+/* the footer says what is actually cooling a leak \u2014 and the drill
+   can be switched off, so it has two sentences, not one      */
+if (!/\(leakView === 'session' \? '' : ' Ranks by the freshest tolls \\u2014 ' \+/.test(src) ||
+    !/LEAK_DRILL_HALF > 0 \? 'age and the drill both cool a leak\.' : 'the drill is off, so age alone cools a leak/.test(src))
   throw new Error('the all-time panel must say the queue leans on the freshest tolls');
 console.log('weakestCells: a fresh \u221220 leaps a stale \u221260 \u2014 and 500 drill hands sink a fresh \u221240 below it');
 
@@ -653,20 +663,32 @@ if (Math.abs(coolKeep({ cost: 60, w: 15 }) - 0.25) > 1e-9)
   throw new Error('a drilled stale row keeps a quarter');
 if (coolKeep({ cost: 100, w: 150 }) !== 1) throw new Error('retention is clamped at one');
 if (coolKeep({ cost: 60, w: -3 }) !== 0) throw new Error('a negative weight floors at zero');
-if (!/[\s\S]*leakView === 'session' \? null : coolKeep\(c\)/.test(src))
+/* the retention is the ranking's own weight over the honest cost,
+   and it belongs to the ALL-TIME ranking alone — the session tab
+   prices this sitting's misses, which have not cooled yet.       */
+if (!/var parts = leakView === 'session' \? null : coolParts\(c, leakNow, gradClock\);/.test(src))
   throw new Error('only the all-time ranking weighs a row');
-if (!/\\u2744 ' \+ Math\.round\(keep \* 100\) \+ '%<\/span>'/.test(src))
-  throw new Error('a cooled row must wear the snowflake with its retention');
+if (!/var keep = parts == null \? null : parts\.keep;/.test(src))
+  throw new Error('the fade and the chip must read the one retention');
+if (!/\\u2744 ' \+ Math\.round\(keep \* 100\) \+ '%' \+/.test(src))
+  throw new Error('a row must wear the snowflake with its retention');
 if (!/keep < COOL_AT\) \{ cls = \(cls \? cls \+ ' ' : ''\) \+ 'cooling'; coolN\+\+; \}/.test(src))
   throw new Error('a row past COOL_AT must fade and be counted');
-if (!/keep == null \|\| keep > 0\.995 \? ''/.test(src))
-  throw new Error('a fresh row must stay bare \u2014 only cooling shows');
+/* EVERY memory wears its retention now, fresh included: \u2744100% is
+   how a player reads the split beside a cooled one as the thing
+   that moved. The split itself rides only when something cooled —
+   a memory nothing has touched yet has nothing to divide.        */
+if (!/var cool = keep == null \? '' :/.test(src))
+  throw new Error('the chip belongs to the all-time ranking only, like the pull');
+if (!/'\\u2744 ' \+ Math\.round\(keep \* 100\) \+ '%' \+\s*\n\s*\(keep > 0\.995 \? '' : coolSplit\(parts\)\) \+ '<\/span>'/.test(src))
+  throw new Error('a fresh memory wears \u2744100%; only a cooled one carries the split');
 if (!/\.leaks li\.cooling \{ opacity: 0\.5; \}/.test(src) ||
-    !/\.leaks \.cool \{ margin-left: 0\.35em; color: #7fa7c4;/.test(src))
+    !/\.leaks \.cool \{ margin-left: 0\.35em; color: #7fa7c4;/.test(src) ||
+    !/\.leaks \.cool \.csplit \{ color: rgba\(255,255,255,0\.45\); \}/.test(src))
   throw new Error('the fade and the cool chip need their styles');
-if (!/coolN \? ' \\u2744 marks a row cooled below half its toll\.' : ''/.test(src))
-  throw new Error('the all-time footer must explain the snowflake when a row cools');
-console.log('the cooling read: a drilled row shows its retention and fades past half \u2014 fresh rows stay bare');
+if (!/\\u2744 is each cell\\u2019s own retention, and the two shares beside it say how much is age and how ' \+/.test(src))
+  throw new Error('the all-time footer must teach the split');
+console.log('the cooling read: every memory wears its retention, and a cooled row fades past half');
 
 /* --- the pull beside the honest cost: the ranking's OWN weight, so a
        heavier cell that has cooled can be SEEN to fall below a
@@ -680,7 +702,7 @@ if (!/var pull = keep == null \? '' :/.test(src))
   throw new Error('the pull belongs to the all-time ranking only, like the snowflake');
 if (!/class="pull" title="what the queue weighs this row at, not what it cost: '/.test(src) ||
     !/ages\.toFixed\(1\) \+ ' half-lives old \(one per ' \+ leakWindowLabel\(\)/.test(src) ||
-    !/served \+ ' hands served since the drill \(one per ' \+ LEAK_DRILL_HALF \+ '\)">pulls ' \+\s*\n\s*Math\.round\(c\.w\)/.test(src))
+    !/served \+ ' hands served since the drill \(' \+ drillHalfPhrase\(\) \+ '\)">pulls ' \+\s*\n\s*Math\.round\(c\.w\)/.test(src))
   throw new Error('the pull must name what it is, and the two halves that made it');
 if (!/Math\.round\(c\.cost\) \+ '<\/b>' \+ pull \+ st \+ from/.test(src))
   throw new Error('the pull must sit beside the honest cost, not at the far end of the row');
@@ -758,10 +780,20 @@ console.log('the fade window: presets kept across reloads, the live one named go
        row: two memories, age and hands served, tuned together     --- */
 if (!/'999\.practice\.drillhalf'/.test(src) || !/function saveDrillHalf\(\)/.test(src))
   throw new Error('the chosen drill half-life must persist');
-if (!/if \(dhRaw && typeof dhRaw\.n === 'number' && dhRaw\.n > 0\) LEAK_DRILL_HALF = dhRaw\.n;/.test(src))
-  throw new Error('the stored drill half-life must load back');
+/* OFF is a stored setting, so the loader must take 0 as a real
+   answer and only refuse what is not a number \u2014 or the switch
+   would reset itself on every reload, which is the one thing a
+   setting may never do                                       */
+if (!/if \(dhRaw && typeof dhRaw\.n === 'number' && isFinite\(dhRaw\.n\) && dhRaw\.n >= 0\)\s*\n\s*LEAK_DRILL_HALF = dhRaw\.n;/.test(src))
+  throw new Error('the stored drill half-life must load back, off included');
 if (!/var LEAK_DRILLS = \[/.test(src) || !/\{ n: 250, label: '250' \}/.test(src))
   throw new Error('the drill presets must be a named menu');
+if (!/\{ n: 0, label: 'off' \}/.test(src))
+  throw new Error('off must be one of the picks, not an absence');
+if (!/function drillHalfPhrase\(\) \{\s*\n\s*return LEAK_DRILL_HALF > 0 \? 'one per ' \+ LEAK_DRILL_HALF : 'off/.test(src))
+  throw new Error('the half-life must be named in words, and off named plainly');
+if (!/if \(typeof n !== 'number' \|\| !isFinite\(n\) \|\| n < 0\) return false;/.test(src))
+  throw new Error('the switch must take off, and refuse only what is not a number');
 function drillHalfRun(start, saved) {
   return new Function('LEAK_DRILL_HALF', 'saveDrillHalf',
     grab('  function setDrillHalf(', '\n  }') +
@@ -770,16 +802,24 @@ function drillHalfRun(start, saved) {
 }
 let ds = { v: false };
 const dw = drillHalfRun(250, ds);
-if (dw(0).r !== false || dw(0).half !== 250) throw new Error('a zero half-life is refused');
 if (dw(-5).r !== false) throw new Error('a negative half-life is refused');
+if (dw(NaN).r !== false || dw(Infinity).r !== false)
+  throw new Error('a half-life that is not a finite number is refused');
+if (dw('250').r !== false) throw new Error('a half-life handed over as text is refused');
 if (ds.v) throw new Error('a refused half-life must not persist');
 const dok = dw(500);
 if (!dok.r || dok.half !== 500) throw new Error('a preset half-life takes');
 if (!ds.v) throw new Error('a chosen half-life must persist');
+/* the switch itself: OFF takes, and keeps — a player who lets only
+   age cool a leak must find it still off after a reload, which is
+   the whole reason off is a stored number and not a missing one  */
+const dOff = dw(0);
+if (!dOff.r || dOff.half !== 0) throw new Error('off is a setting like any other and takes');
+if (drillLabel(0) !== 'off') throw new Error('the off pick must name itself on the panel');
 function drillLabel(half) {
   return new Function('LEAK_DRILLS', 'LEAK_DRILL_HALF',
     grab('  function drillHalfLabel(', '\n  }') + '\nreturn drillHalfLabel;')(
-    [{ n: 100, label: '100' }, { n: 250, label: '250' }, { n: 1000, label: '1k' }], half)();
+    [{ n: 0, label: 'off' }, { n: 100, label: '100' }, { n: 250, label: '250' }, { n: 1000, label: '1k' }], half)();
 }
 if (drillLabel(1000) !== '1k') throw new Error('a preset half-life names itself');
 if (drillLabel(375) !== '375') throw new Error('an off-menu half-life falls back to the raw count: ' + drillLabel(375));
@@ -906,8 +946,11 @@ console.log('leakedIn: a week\u2019s leak is two snapshots apart \u2014 30 this 
 /* --- the sparkline: a cell's weekly leak drawn as a shape, so a
        cell bleeding more each week climbs and a drilled-away one
        fades \u2014 read from the same weekly snapshots the chip uses --- */
-if (!/var SPARK_WEEKS = 8;/.test(src)) throw new Error('the sparkline window must be named');
-const sparkLine = extract('sparkLine', '')();
+/* the walk, the glyphs and the direction live in the SHARED module
+   now (the floor delegates, and the live table draws the same one),
+   so these exercise LUCK999 itself — the function the floor calls */
+if (LUCK.SPARK_WEEKS !== 8) throw new Error('the sparkline window must be named');
+const sparkLine = LUCK.sparkLine;
 if (sparkLine(null) !== '' || sparkLine([]) !== '' || sparkLine([5]) !== '')
   throw new Error('fewer than two points is no line');
 const GLYPH = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588';
@@ -919,7 +962,7 @@ if (falling.charAt(0) !== GLYPH.charAt(7) || falling.charAt(2) !== GLYPH.charAt(
   throw new Error('a falling series spans high to low: ' + JSON.stringify(falling));
 if (sparkLine([7, 7, 7]) !== GLYPH.charAt(4).repeat(3))
   throw new Error('a flat series sits on the mid glyph: ' + JSON.stringify(sparkLine([7, 7, 7])));
-const sparkDir = extract('sparkDir', '')();
+const sparkDir = LUCK.sparkDir;
 if (sparkDir([100, 50, 0]) !== -1) throw new Error('a falling line reads improving');
 if (sparkDir([0, 50, 100]) !== 1) throw new Error('a climbing line reads worsening');
 if (sparkDir([5, 5]) !== 0 || sparkDir([9]) !== 0) throw new Error('a flat or lone line reads steady');
@@ -927,10 +970,8 @@ if (sparkDir([5, 5]) !== 0 || sparkDir([9]) !== 0) throw new Error('a flat or lo
 /* sparkValues walks the kept weeks, newest last, so the shape is
    the cell's actual weekly leak by subtraction */
 function sparkOf(cell, wb, live, nowv) {
-  const li = liFrom(wb, live);
-  return new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
-    grab('  function sparkWeeks(', '\n  }') + '\n' +
-    grab('  function sparkValues(', '\n  }') + '\nreturn sparkValues;')(wb, li, 8)(cell, nowv);
+  /* the shared walk, over this suite's own ledger reading */
+  return LUCK.sparkValues(live, wb, cell, nowv);
 }
 const w1 = new Date(2026, 8, 7).getTime();   /* Mon 7 Sep 2026 */
 const w2 = new Date(2026, 8, 14).getTime();
@@ -950,7 +991,7 @@ if (sparkLine(vals) !== '\u2583\u2588\u2583\u2581')
 if (sparkLine([0, 0, 0, 0]) !== '') throw new Error('a cell that never leaked draws no line');
 if (sparkLine(sparkOf('soft 20 v 6', wb, {}, nowv)) !== '')
   throw new Error('a cell with no weekly leak draws no line');
-if (!/var spark = sparkHtml\(sparkValues\(c\.cell\), c\.cell\);/.test(src))
+if (!/var spark = sparkHtml\(c\.cell\);/.test(src))
   throw new Error('each row must draw its own cell\u2019s line, and pass the cell so the line can open');
 if (!/class="spark ' \+ \(dir < 0 \? 'down' : dir > 0 \? 'up' : 'flat'\)/.test(src))
   throw new Error('the line must tint by its direction');
@@ -963,9 +1004,9 @@ console.log('the sparkline: a falling line reads improving in green, a climbing 
        was drawn from. The shape and the numbers must be ONE series,
        so the ladder is built from the same key walk the line is.  */
 function weeksOf(cell, wbm, live, nowv) {
-  const li = liFrom(wbm, live);
-  return new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
-    grab('  function sparkWeeks(', '\n  }') + '\nreturn sparkWeeks;')(wbm, li, 8)(cell, nowv);
+  /* the same shared key walk the line is scaled from — so the
+     figures it opens into and the shape beside them are one series */
+  return LUCK.sparkWeeks(live, wbm, cell, nowv);
 }
 const wkWeeks = weeksOf('hard 16 v 10', wb, { 'hard 16 v 10': { n: 1, cost: 45 } }, nowv);
 if (wkWeeks.map((w) => w.v).join('|') !== vals.join('|'))
@@ -983,13 +1024,18 @@ const labelFull = grab('  function dayLabel(ts) {', '\n  }') + '\n' +
      broken delegation fails here rather than silently printing a blank week */
 const labelFn = new Function('MONTHS', labelFull + '\nreturn weekLabel;')(
   ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
-const detail = new Function('sparkWeeks', 'weekLabel', 'sparkLine', 'sparkValues', 'sparkWeek',
+const detail = new Function('sparkWeeks', 'weekLabel', 'sparkLine', 'sparkValues', 'sparkWeek', 'sparkPage', 'LUCK999',
   grab('  function sparkDetail(', '\n  }') + '\nreturn sparkDetail;')(
-  (c, n) => realWeeks(c, n), labelFn, sparkLine,
-  (c, n) => new Function('weekBase', 'leakedIn', 'SPARK_WEEKS',
-    grab('  function sparkWeeks(', '\n  }') + '\n' +
-    grab('  function sparkValues(', '\n  }') + '\nreturn sparkValues;')(
-    wb, liFrom(wb, { 'hard 16 v 10': { n: 1, cost: 45 } }), 8)(c, n), null);
+  /* the floor's sparkWeeks delegates to the shared walk now, so it
+     is handed LUCK999 and this suite's own ledger reading */
+  new Function('LUCK999', 'leaks', 'weekBase',
+    grab('  function sparkWeeks(', '\n  }') + '\nreturn sparkWeeks;')(LUCK,
+    { 'hard 16 v 10': { n: 1, cost: 45 } }, wb),
+  labelFn, sparkLine,
+  (c, n, b) => LUCK.sparkValues(
+    { 'hard 16 v 10': { n: 1, cost: 45 } }, wb, c, n, b), null,
+  () => 0,                    /* this fixture reads the newest window */
+  LUCK);                      /* the figures share the module's own sign */
 const det = detail('hard 16 v 10', nowv);
 for (const v of [10, 20, 10, 5]) {
   if (!det.includes('\u2212' + v)) throw new Error('the ladder must print each week\u2019s own chips: ' + det);

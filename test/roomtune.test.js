@@ -42,9 +42,9 @@ if (!Rq.VOICES.length) throw new Error('the module export must carry the voices'
 
 /* --- the shipped vocabulary: one answer, and it is the table's own --- */
 const ids = R.VOICES.map(v => v.id);
-if (ids.join(',') !== 'riffle,whoosh,stinger,clack,snap,cue,cut,bets,tap,bonus')
-  throw new Error('the registry must hold exactly the ten voices: ' + ids.join(','));
-const shipped = { riffle: 1.7, whoosh: 1.5, stinger: 1.4, clack: 0.6, snap: 0, cue: 1.5, cut: 1.25, bets: 1.6, tap: 0.45, bonus: 1.3 };
+if (ids.join(',') !== 'riffle,whoosh,stinger,clack,snap,cue,cut,bets,tap,bonus,chime')
+  throw new Error('the registry must hold exactly the eleven voices: ' + ids.join(','));
+const shipped = { riffle: 1.7, whoosh: 1.5, stinger: 1.4, clack: 0.6, snap: 0, cue: 1.5, cut: 1.25, bets: 1.6, tap: 0.45, bonus: 1.3, chime: 2.0 };
 for (const [id, v] of Object.entries(shipped)) {
   if (R.send(id) !== v) throw new Error(id + ' must ship at send ' + v + ', not ' + R.send(id));
 }
@@ -54,7 +54,7 @@ for (const [id, v] of Object.entries(gains)) {
 }
 if (!(R.send('riffle') > R.send('whoosh') && R.send('whoosh') > R.send('stinger') && R.send('stinger') > R.send('clack')))
   throw new Error('the sends must keep the ranking the table always had');
-console.log('the registry holds ten voices at the table\u2019s own shipped levels, ranked as always');
+console.log('the registry holds eleven voices at the table\u2019s own shipped levels, ranked as always');
 
 /* --- untouched means untouched: no tuning, no change --- */
 if (R.gain('clack') !== 0.28 || R.send('clack') !== 0.6) throw new Error('a fresh registry must read shipped');
@@ -158,11 +158,11 @@ console.log('reset puts one voice back, or all of them, and persists the change'
 /* --- each surface is told only the voices it can sound --- */
 const floor = R.list('floor').map(v => v.id).join(',');
 const table = R.list('table').map(v => v.id).join(',');
-if (floor !== 'riffle,whoosh,stinger,clack,snap,cue') throw new Error('the floor\u2019s voices: ' + floor);
-if (table !== 'riffle,whoosh,stinger,clack,snap,cut,bets,tap,bonus') throw new Error('the table\u2019s voices: ' + table);
+if (floor !== 'riffle,whoosh,stinger,clack,snap,cue,chime') throw new Error('the floor\u2019s voices: ' + floor);
+if (table !== 'riffle,whoosh,stinger,clack,snap,cut,bets,tap,bonus,chime') throw new Error('the table\u2019s voices: ' + table);
 const shared = floor.split(',').filter(id => table.split(',').includes(id)).join(',');
-if (shared !== 'riffle,whoosh,stinger,clack,snap')
-  throw new Error('the two felts share five voices, and only those five: ' + shared);
+if (shared !== 'riffle,whoosh,stinger,clack,snap,chime')
+  throw new Error('the two felts share six voices, and only those six: ' + shared);
 /* and each voice must be honest about where it lives, so a page can ask
    for what it can sound without guessing */
 for (const v of R.VOICES) {
@@ -171,10 +171,10 @@ for (const v of R.VOICES) {
   if (on[0] !== want[0] || on[1] !== want[1])
     throw new Error(v.id + ' says it is ' + v.where + ' but lists as ' + JSON.stringify(on));
 }
-console.log('six voices on the floor, nine on the table, five of them shared, each saying where it lives');
+console.log('seven voices on the floor, ten on the table, six of them shared, each saying where it lives');
 
 /* --- the panel renders one row per voice, with every hook a tap needs --- */
-for (const [where, n] of [['floor', 6], ['table', 9]]) {
+for (const [where, n] of [['floor', 7], ['table', 10]]) {
   const html = R.panelHtml(where);
   /* lvrows is the wrapper: the rows themselves close the class name, or
      the wrapper would be counted as a seventh row */
@@ -192,7 +192,7 @@ for (const [where, n] of [['floor', 6], ['table', 9]]) {
     if (html.indexOf('data-lvreset="' + id + '"') < 0) throw new Error(where + ' cannot put ' + id + ' back');
     if (html.indexOf('data-voice="' + id + '"') < 0) throw new Error(where + ' panel is missing the row for ' + id);
   }
-  /* one voice at a time, from the start; all ten, only once something is tuned */
+  /* one voice at a time, from the start; all eleven, only once something is tuned */
   if (/data-lvreset="all"/.test(html)) throw new Error('nothing is tuned yet: ' + where + ' has nothing to reset');
   if (!/Levels \u00b7 tap/.test(html)) throw new Error('the panel must say what it is for: ' + where);
   /* nothing it prints may be able to break the box it is dropped into */
